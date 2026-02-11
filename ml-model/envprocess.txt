@@ -1,0 +1,16 @@
+Creating Virtual Environment
+python -m venv venv
+
+Activate the Virtual Environment 
+powershell 
+.\venv\Scripts\Activate.ps1
+
+Install package
+> (venv) 
+$ pip install <package_name>
+
+Deactivate the Virtual Environment 
+> (venv) 
+$ deactivate
+
+Install pytorch and opencv
