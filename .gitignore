@@ -1,6 +1,6 @@
 node_modules
 venv
-__pycache__
+# __pycache__
 # Logs
 logs
 *.log
@@ -26,3 +26,7 @@ dist-ssr
 *.sln
 *.sw?
 
+processed_output
+unprocessed_input
+gradcam_videos
+raw_data

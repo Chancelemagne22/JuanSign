@@ -1,10 +1,3 @@
 import torch
-import torch.nn as nn
-import torchvision.models as models
-import torchvision.transforms as transforms
-
-model = models.resnet18(weights= None)
-
-model.eval()
-
-print(model)
+print(torch.__version__)
+print(torch.cuda.is_available()) # Check if PyTorch is using CUDA
