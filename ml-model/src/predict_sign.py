@@ -55,9 +55,9 @@ if __name__ == "__main__":
     # CONFIGURATION
     MODEL_FILE = "./juansignmodel/juansign_model.pth"
     # Provide a path to a clip folder in your test set
-    TEST_CLIP = "./processed_output/model_check/test_data/H" 
+    TEST_CLIP = "./processed_output/frame_extracted/validation_data/B/clip070" 
     # Must match the order of your folders
-    MY_CLASSES = ["A", "B", "C", "G", "H"] 
+    MY_CLASSES = ["A", "B", "C", "J", "O"] 
 
     result, score = predict_folder(MODEL_FILE, TEST_CLIP, MY_CLASSES)
     

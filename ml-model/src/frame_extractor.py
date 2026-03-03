@@ -1,4 +1,5 @@
 import os
+import shutil
 import cv2
 import numpy as np
 import mediapipe as mp
@@ -6,9 +7,57 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 import urllib.request
 # ── Constants ─────────────────────────────────────────────────────────────────
-TARGET_FRAMES = 16
-TARGET_SIZE   = 224   # must match fsl_dataset.py transforms and predict_sign.py
-HAND_PADDING  = 60    # pixels added on each side of the hand bounding box
+TARGET_FRAMES   = 16
+TARGET_SIZE     = 224   # must match fsl_dataset.py transforms and predict_sign.py
+HAND_PADDING    = 60    # pixels added on each side of the hand bounding box
+PROGRESS_FILE   = "extraction_progress.txt"  # written next to processed_output/
+
+
+# ── Progress / resume helpers ─────────────────────────────────────────────────
+
+def _load_progress(progress_path):
+    """Return set of clip keys (split/letter/clipXXX) already completed."""
+    if not os.path.exists(progress_path):
+        return set()
+    with open(progress_path, "r") as f:
+        return {line.strip() for line in f if line.strip()}
+
+
+def _save_progress(progress_path, key):
+    """Append one completed clip key to the progress file."""
+    with open(progress_path, "a") as f:
+        f.write(key + "\n")
+
+
+def _is_clip_complete(folder):
+    """True when folder exists and already holds TARGET_FRAMES jpg files."""
+    if not os.path.isdir(folder):
+        return False
+    frames = [n for n in os.listdir(folder) if n.lower().endswith(".jpg")]
+    return len(frames) >= TARGET_FRAMES
+
+
+def _count_videos(letter_path):
+    """Count video files (not subdirs) in a letter input folder."""
+    return sum(
+        1 for f in os.listdir(letter_path)
+        if not os.path.isdir(os.path.join(letter_path, f))
+        and f.lower().endswith(('.mp4', '.avi', '.mov', '.mkv'))
+    )
+
+
+def _is_letter_complete(output_letter_path, num_expected):
+    """
+    True only when all num_expected clip folders each hold TARGET_FRAMES jpgs.
+    Returns False if the folder is missing or any single clip is incomplete,
+    so partial letters are never skipped.
+    """
+    if num_expected == 0 or not os.path.isdir(output_letter_path):
+        return False
+    return all(
+        _is_clip_complete(os.path.join(output_letter_path, f"clip{i:03d}"))
+        for i in range(1, num_expected + 1)
+    )
 
 
 # ── MediaPipe helpers ──────────────────────────────────────────────────────────
@@ -188,10 +237,20 @@ def recreate_folder_structure_with_file_folders(input_dir, output_dir):
             training_data/   A/  clip001/  frame0000.jpg ... frame0015.jpg
             testing_data/    A/  clip001/  ...
             validation_data/ A/  clip001/  ...
+
+    Resume behaviour:
+        - Completed clips (final_folder already has TARGET_FRAMES jpgs) are skipped.
+        - Partial tmp folders left by a crash are deleted and re-extracted.
+        - Each completed clip is appended to PROGRESS_FILE for a human-readable log.
     """
     if not os.path.isdir(input_dir):
         print(f"❌ Input folder '{input_dir}' not found. Run from the repo root.")
         return
+
+    progress_path = os.path.join(output_dir, PROGRESS_FILE)
+    completed     = _load_progress(progress_path)
+    if completed:
+        print(f"📋 Resuming — {len(completed)} clip(s) already logged in {progress_path}")
 
     for split_folder in sorted(os.listdir(input_dir)):
         split_path = os.path.join(input_dir, split_folder)
@@ -199,7 +258,7 @@ def recreate_folder_structure_with_file_folders(input_dir, output_dir):
             continue
 
         print(f"\n{'═' * 52}")
-        print(f"📂 Split: {split_folder}")
+        print(f"📂 {split_folder}")
         print(f"{'═' * 52}")
 
         for letter_folder in sorted(os.listdir(split_path)):
@@ -209,6 +268,13 @@ def recreate_folder_structure_with_file_folders(input_dir, output_dir):
 
             print(f"\n  📁 Class: {letter_folder}")
             output_letter_path = os.path.join(output_dir, split_folder, letter_folder)
+
+            # ── Skip the whole letter if every clip is already complete ───────
+            num_videos = _count_videos(letter_path)
+            if _is_letter_complete(output_letter_path, num_videos):
+                print(f"    ⏭️  All {num_videos} clip(s) already complete — skipping letter")
+                continue
+
             os.makedirs(output_letter_path, exist_ok=True)
 
             clip_counter = 1
@@ -220,6 +286,21 @@ def recreate_folder_structure_with_file_folders(input_dir, output_dir):
                 file_name_without_ext = os.path.splitext(filename)[0]
                 tmp_folder   = os.path.join(output_letter_path, file_name_without_ext)
                 final_folder = os.path.join(output_letter_path, f"clip{clip_counter:03d}")
+                clip_key     = f"{split_folder}/{letter_folder}/clip{clip_counter:03d}"
+
+                # ── Skip if already fully extracted ──────────────────────────
+                if _is_clip_complete(final_folder):
+                    print(f"    ⏭️  Skipping {filename} → already complete ({final_folder})")
+                    clip_counter += 1
+                    continue
+
+                # ── Remove any partial folders left by a previous crash ───────
+                if os.path.exists(tmp_folder):
+                    print(f"    🧹 Removing partial tmp folder: {tmp_folder}")
+                    shutil.rmtree(tmp_folder)
+                if os.path.exists(final_folder):
+                    print(f"    🧹 Removing incomplete clip folder: {final_folder}")
+                    shutil.rmtree(final_folder)
 
                 os.makedirs(tmp_folder, exist_ok=True)
                 print(f"    📄 {filename}")
@@ -228,14 +309,20 @@ def recreate_folder_structure_with_file_folders(input_dir, output_dir):
                 os.rename(tmp_folder, final_folder)
                 print(f"    📂 → {final_folder}")
 
+                # ── Log completion ────────────────────────────────────────────
+                _save_progress(progress_path, clip_key)
+
                 clip_counter += 1
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    _src_dir = os.path.dirname(os.path.abspath(__file__))
+    _ml_dir  = os.path.abspath(os.path.join(_src_dir, '..'))
+
     recreate_folder_structure_with_file_folders(
-        input_dir  = "unprocessed_input",
-        output_dir = "processed_output/frame_extracted",
+        input_dir  = os.path.join(_ml_dir, 'unprocessed_input'),
+        output_dir = os.path.join(_ml_dir, 'processed_output', 'frame_extracted'),
     )
     print("\n✅ ALL DONE!")

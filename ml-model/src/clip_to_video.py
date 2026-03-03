@@ -154,9 +154,9 @@ def process_clip(
 if __name__ == "__main__":
     # --- CONFIGURATION ---
     MODEL_PATH = "./juansignmodel/juansign_model.pth"
-    INPUT_DIR  = "./processed_output/model_check/"  # root containing clip subfolders
+    INPUT_DIR  = "./processed_output/frame_extracted/testing_data"  # root containing clip subfolders
     OUTPUT_DIR = "../gradcam_videos"                 # output root; mirrored class structure
-    CLASS_NAMES = ["A", "B", "C", "G", "H"]
+    CLASS_NAMES = ["A", "B", "C", "J", "O"]
     FPS = 10
 
     # 1. Device
