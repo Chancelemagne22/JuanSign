@@ -23,7 +23,7 @@ TRAIN_DIR    = "./unprocessed_input/training_data"
 TEST_DIR     = "./unprocessed_input/testing_data"
 VAL_DIR      = "./unprocessed_input/validation_data"
 
-TRAIN_COUNT  = 100
+TRAIN_COUNT  = 90
 TEST_COUNT   = 12
 
 VIDEO_EXTS   = {".mp4", ".avi", ".mov", ".mkv"}
