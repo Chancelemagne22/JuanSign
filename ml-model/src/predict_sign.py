@@ -50,14 +50,14 @@ def predict_folder(model_path, clip_path, class_names):
     confidence_score = confidence.item() * 100
 
     return predicted_class, confidence_score
-
+    
 if __name__ == "__main__":
     # CONFIGURATION
     MODEL_FILE = "./juansignmodel/juansign_model.pth"
     # Provide a path to a clip folder in your test set
-    TEST_CLIP = "./processed_output/model_check/test_data/H" 
+    TEST_CLIP = "./processed_output/frame_extracted/validation_data/B/clip070" 
     # Must match the order of your folders
-    MY_CLASSES = ["A", "B", "C", "G", "H"] 
+    MY_CLASSES = ["A", "B", "C", "D", "E","F","G","H","I","J","K","L","M","N","N~","O","P","Q","R","S","T","U","V","W","X","Y","Z"]
 
     result, score = predict_folder(MODEL_FILE, TEST_CLIP, MY_CLASSES)
     
