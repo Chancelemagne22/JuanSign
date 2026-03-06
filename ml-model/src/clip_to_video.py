@@ -156,7 +156,7 @@ if __name__ == "__main__":
     MODEL_PATH = "./juansignmodel/juansign_model.pth"
     INPUT_DIR  = "./processed_output/frame_extracted/testing_data"  # root containing clip subfolders
     OUTPUT_DIR = "../gradcam_videos"                 # output root; mirrored class structure
-    CLASS_NAMES = ["A", "B", "C", "J", "O"]
+    CLASS_NAMES = ["A", "B", "C", "D", "E","F","G","H","I","J","K","L","M","N","N~","O","P","Q","R","S","T","U","V","W","X","Y","Z"]
     FPS = 10
 
     # 1. Device

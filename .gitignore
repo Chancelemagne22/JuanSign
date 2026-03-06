@@ -25,8 +25,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
+processed_output.zip
 processed_output
 unprocessed_input
 gradcam_videos
 raw_data
+new_sample

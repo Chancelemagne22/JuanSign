@@ -3,6 +3,8 @@ import os
 from torch.utils.data import Dataset
 from PIL import Image
 
+_IMG_EXTS = {'.jpg', '.jpeg', '.png', '.bmp'}
+
 
 class FSLDataset(Dataset):
     """
@@ -43,8 +45,18 @@ class FSLDataset(Dataset):
                 continue
             for clip_folder in sorted(os.listdir(letter_path)):
                 clip_path = os.path.join(letter_path, clip_folder)
-                if os.path.isdir(clip_path):
+                if not os.path.isdir(clip_path):
+                    continue
+                # Skip clips that contain no valid image files (e.g. empty folders
+                # left over from a partial extraction run).
+                has_frames = any(
+                    os.path.splitext(f)[1].lower() in _IMG_EXTS
+                    for f in os.listdir(clip_path)
+                )
+                if has_frames:
                     self.data.append((clip_path, label))
+                else:
+                    print(f"[FSLDataset] Skipping empty clip: {clip_path}")
 
     def __len__(self):
         return len(self.data)
@@ -54,7 +66,12 @@ class FSLDataset(Dataset):
         frames = []
 
         # Load frames in sorted order so the temporal sequence is preserved.
-        for frame_name in sorted(os.listdir(clip_path)):
+        # Filter to image files only so stray files (Thumbs.db, etc.) are ignored.
+        image_files = sorted(
+            f for f in os.listdir(clip_path)
+            if os.path.splitext(f)[1].lower() in _IMG_EXTS
+        )
+        for frame_name in image_files:
             img_path = os.path.join(clip_path, frame_name)
             image    = Image.open(img_path).convert('RGB')
 

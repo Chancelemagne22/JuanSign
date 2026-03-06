@@ -6,7 +6,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # 2. Recreate the architecture (The "Shell")
 # Crucial: The parameters (num_classes) must match exactly what you used during training!
-model = ResNetLSTM(num_classes=5) 
+model = ResNetLSTM(num_classes=27) 
 
 # 3. Load the weights (The "Brain")
 model.load_state_dict(torch.load('./juansignmodel/juansign_model.pth', map_location=device))
