@@ -1,8 +1,40 @@
-# JuanSign — Filipino Sign Language Recognition System
+# JuanSign — Filipino Sign Language Learning App
 
-Thesis project that classifies FSL hand signs (A, B, C, J, O) from short video clips
-using a ResNet18 + LSTM hybrid model. Three modules: ML training pipeline, a Node.js
-backend (stub), and a Next.js frontend (stub).
+A web application that teaches Filipino Sign Language (FSL) through a structured
+lesson → practice → assessment cycle. A ResNet18 + LSTM model recognizes signs
+from short webcam recordings in real time.
+
+---
+
+## Architecture
+
+```
+Browser (Vercel — Next.js 14)
+  │
+  ├─ Supabase Auth  →  issues JWT on login
+  │
+  ├─ Supabase DB    →  levels, lessons, user_progress, practice_sessions,
+  │                    assessment_results, cnn_feedback   (Postgres + RLS)
+  │
+  ├─ Supabase Storage → lesson demo videos (public bucket: lesson-videos)
+  │
+  └─ POST video (base64) + JWT
+       │
+       ▼
+  Modal Web Endpoint (GPU: T4)
+       │  verify JWT
+       │  preprocess frames (OpenCV, 16 × 224×224)
+       │  ResNet18 + LSTM inference (27-class FSL)
+       │  write result → Supabase (service role)
+       └─ return { sign, confidence }
+```
+
+### Learning Cycle (per level)
+
+```
+Dashboard  →  [letter 0] LessonView  →  PracticeView  →
+              [letter 1] LessonView  →  PracticeView  →  …  →  AssessmentView
+```
 
 ---
 
@@ -15,8 +47,6 @@ backend (stub), and a Next.js frontend (stub).
 | npm | 10.9.2 | Comes with Node |
 | GPU (optional) | CUDA-capable | CPU works but training is slow |
 
-Verify your Python and Node versions before starting:
-
 ```bash
 python --version    # should print Python 3.11.x
 node --version      # should print v22.14.0
@@ -28,31 +58,18 @@ npm --version       # should print 10.9.x
 ## 1. ML Model Setup
 
 All ML scripts live in `ml-model/src/` and must be run inside a Python virtual
-environment. This isolates the project's packages from your system Python.
+environment.
 
-> **Do this once** when you first clone the repo. After that, only the
-> activation step is needed at the start of each session.
-
----
+> **Do this once** when you first clone the repo.
 
 ### Step 1 — Create the virtual environment
-
-Open a terminal at the repo root and run:
 
 ```bash
 cd ml-model
 python -m venv venv
 ```
 
-This creates a `ml-model/venv/` folder containing a private Python installation.
-You only need to do this **once**.
-
----
-
 ### Step 2 — Activate the virtual environment
-
-You must activate the venv **every time** you open a new terminal before running
-any ML script.
 
 **Windows — PowerShell**
 ```powershell
@@ -69,110 +86,59 @@ any ML script.
 source venv/bin/activate
 ```
 
-**How to know it worked:** Your terminal prompt will change to show `(venv)` at the
-start of the line, for example:
-
-```
-(venv) PS C:\...\ml-model>
-```
+Your prompt will show `(venv)` when activated.
 
 > **PowerShell error — "running scripts is disabled"?**
-> Run this once in PowerShell as Administrator, then try activating again:
 > ```powershell
 > Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 > ```
 
----
-
-### Step 3 — Upgrade pip (recommended)
-
-Before installing packages, upgrade pip to the latest version to avoid
-resolver warnings:
+### Step 3 — Upgrade pip
 
 ```bash
 python -m pip install --upgrade pip
 ```
 
----
-
-### Step 4 — Install all required packages
-
-With the venv active, run the full install command:
+### Step 4 — Install packages
 
 ```bash
 pip install torch torchvision opencv-python pillow scikit-learn matplotlib seaborn mediapipe tensorboard
 ```
 
-This downloads and installs everything the ML pipeline needs. It may take a few
-minutes depending on your internet speed.
+> **GPU / CUDA:** The command above installs the CPU-only build. For NVIDIA GPU:
+> 1. Run `nvidia-smi` to find your CUDA version
+> 2. Go to **https://pytorch.org/get-started/locally/** and copy the generated command
+> 3. Run that instead of the command above
 
-> **GPU / CUDA note:** The command above installs the **CPU-only** build of PyTorch,
-> which works but is much slower for training. If your machine has an NVIDIA GPU:
->
-> 1. Find your CUDA version: `nvidia-smi` in a terminal
-> 2. Go to **https://pytorch.org/get-started/locally/**
-> 3. Select your OS, CUDA version, and copy the generated `pip install` command
-> 4. Run that command instead of the one above
-
----
-
-### Step 5 — Verify the installation
-
-Check that the key packages installed correctly:
+### Step 5 — Verify installation
 
 ```bash
 python -c "import torch; print('PyTorch:', torch.__version__)"
 python -c "import cv2; print('OpenCV:', cv2.__version__)"
 python -c "import mediapipe; print('MediaPipe:', mediapipe.__version__)"
-```
 
-Check whether a GPU is visible to PyTorch:
-
-```bash
 # From ml-model/ (one level up from src/)
 python check.py
 ```
 
-Expected output if GPU is available:
-```
-CUDA available: True
-Device: NVIDIA GeForce RTX ...
-```
-
-Expected output if CPU only:
-```
-CUDA available: False
-Using CPU
-```
-
----
-
 ### Step 6 — Deactivate when done
-
-When you finish working, deactivate the venv to return to your system Python:
 
 ```bash
 deactivate
 ```
-
-The `(venv)` prefix will disappear from your prompt.
-
----
 
 ### Package reference
 
 | Package | pip name | Used by |
 |---|---|---|
 | PyTorch | `torch` `torchvision` | all ML scripts |
-| OpenCV | `opencv-python` | `frame_extractor.py`, `gradcam.py`, `forward_pass_viz.py` |
+| OpenCV | `opencv-python` | `frame_extractor.py`, `gradcam.py` |
 | Pillow | `pillow` | `fsl_dataset.py`, `predict_sign.py`, `gradcam.py` |
 | scikit-learn | `scikit-learn` | `model_visualization.py` (confusion matrix) |
 | Matplotlib | `matplotlib` | all visualization scripts |
 | Seaborn | `seaborn` | `model_visualization.py` |
 | MediaPipe | `mediapipe` | `frame_extractor.py` (hand + face detection) |
 | TensorBoard | `tensorboard` | `train.py` (live loss/accuracy curves) |
-
----
 
 ### Quick-start checklist (every session)
 
@@ -193,12 +159,24 @@ npm install
 npm run dev      # starts dev server at http://localhost:3000
 ```
 
-Other frontend commands:
+Other commands:
 
 ```bash
 npm run build    # production build
 npm run lint     # ESLint check
 ```
+
+### Environment variables
+
+Create `front-end/.env.local`:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=<your Supabase project URL>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your Supabase anon key>
+NEXT_PUBLIC_MODAL_ENDPOINT_URL=<your Modal deployed endpoint URL>
+```
+
+> `SUPABASE_SERVICE_ROLE_KEY` is used by Modal only — never put it in the frontend.
 
 ---
 
@@ -214,13 +192,13 @@ Place raw video files in `processed_output/raw_data/<letter>/` then run:
 python ml-model/src/data_splitter.py
 ```
 
-This copies clips into:
+Output:
 
 ```
 unprocessed_input/
-  training_data/<letter>/      <- 100 clips per letter
-  testing_data/<letter>/       <- 12 clips per letter
-  validation_data/<letter>/    <- remaining clips
+  training_data/<letter>/      ← 100 clips per letter
+  testing_data/<letter>/       ← 12 clips per letter
+  validation_data/<letter>/    ← remaining clips
 ```
 
 ### Step 2 — Extract frames from each video clip
@@ -233,43 +211,42 @@ Reads from `unprocessed_input/` and writes 16 frames per clip to:
 
 ```
 processed_output/frame_extracted/
-  training_data/<letter>/clip001/frame0000.jpg ... frame0015.jpg
+  training_data/<letter>/clip001/frame0000.jpg … frame0015.jpg
   testing_data/<letter>/clip001/
   validation_data/<letter>/clip001/
 ```
 
-> `frame_extractor.py` also anonymizes faces with Gaussian blur and crops to the
-> detected hand region using the MediaPipe Task API. It downloads the required
-> `hand_landmarker.task` model automatically on first run.
+> `frame_extractor.py` anonymizes faces with Gaussian blur and crops to the
+> detected hand region using the MediaPipe Task API. Downloads
+> `hand_landmarker.task` automatically on first run.
 
 ---
 
 ## 4. Training
 
-Make sure the virtual environment is activated and data preparation is complete.
+Activate the venv and run from `ml-model/src/`:
 
 ```bash
 cd ml-model/src
 python train.py
 ```
 
-What happens during training:
+What happens:
 
-- Loads `training_data/`, `validation_data/`, and `testing_data/` via `FSLDataset`
-- Trains a ResNet18 + LSTM model for up to 25 epochs
-- ResNet18 backbone is **frozen for the first 10 epochs**, then unfrozen for full fine-tuning
-- `ReduceLROnPlateau` scheduler halves the learning rate when val loss stalls for 3 epochs
-- **Best checkpoint** (by validation accuracy) is saved to `ml-model/juansignmodel/juansign_model.pth`
-- **Early stopping** halts training after 5 consecutive epochs with no val loss improvement
-- Final test set evaluation runs automatically on the best saved checkpoint
+- Loads data via `FSLDataset` (16 frames × 224×224, ImageNet normalization)
+- Trains `ResNetLSTM` (ResNet18 backbone + LSTM head, **27 FSL classes**)
+- ResNet18 frozen for first 10 epochs, then fully unfrozen for fine-tuning
+- `ReduceLROnPlateau` halves LR when val loss stalls for 3 epochs
+- Best checkpoint saved to `ml-model/juansignmodel/juansign_model.pth`
+- Early stopping after 5 epochs with no val loss improvement
+- Final test evaluation runs automatically on the best checkpoint
 
 ### Watch training live with TensorBoard
 
-Open a second terminal from the repo root while training runs:
-
 ```bash
+# Second terminal, from repo root
 tensorboard --logdir ml-model/runs
-# Then open http://localhost:6006 in your browser
+# Open http://localhost:6006
 ```
 
 ---
@@ -285,11 +262,20 @@ python predict_sign.py
 # Confusion matrix and classification report on the test set
 python model_visualization.py
 
-# Full 7-stage forward pass visualization (raw input -> Grad-CAM -> classification)
+# Full 7-stage forward pass visualization (raw input → Grad-CAM → classification)
 python forward_pass_viz.py
 
 # Grad-CAM saliency on a single frame
 python gradcam.py
+
+# Live webcam inference
+python realtime_inference.py
+
+# Analyze a video file
+python analyze_video.py
+
+# Convert extracted frames back into a video clip
+python clip_to_video.py
 ```
 
 ---
@@ -299,15 +285,14 @@ python gradcam.py
 ### Branch structure
 
 ```
-main                        <- stable releases only
-  |-- dev                   <- integration branch (PRs merge here)
-        |-- feature/<name>  <- your working branch
+main                        ← stable releases only
+  └── dev                   ← integration branch (PRs merge here)
+        └── feature/<name>  ← your working branch
 ```
 
 ### Starting a new feature
 
 ```bash
-# Always branch off the latest dev
 git checkout dev
 git pull origin dev
 git checkout -b feature/your-feature-name
@@ -316,59 +301,47 @@ git checkout -b feature/your-feature-name
 ### Committing your changes
 
 ```bash
-# Stage specific files (preferred — avoids accidentally committing generated files)
+# Stage specific files (preferred)
+git add front-end/app/dashboard/page.tsx
 git add ml-model/src/train.py
-git add ml-model/src/forward_pass_viz.py
-# ... add each changed file individually
 
-# Or stage all tracked changes at once (use with care)
-git add -A
-
-# Commit with a clear, descriptive message
-git commit -m "Add forward pass visualization script with 7-stage CNN+LSTM pipeline"
+# Commit with a clear message
+git commit -m "feat: add paginated dashboard with level lock/unlock state"
 ```
 
-**Good commit message format:**
+**Commit message format:**
 
 ```
-<verb> <what>: <why or impact>
+<type>: <what and why>
+
+Types: feat | fix | refactor | docs | chore
 
 Examples:
-  Add forward_pass_viz.py: visualizes CNN+LSTM forward pass in 7 stages
-  Fix train.py dataset paths: resolves FileNotFoundError on training start
-  Update frame_extractor.py: switch to MediaPipe Task API for hand/face detection
+  feat: add webcam recorder and ML upload stub to PracticeView
+  fix: resolve FileNotFoundError on training start due to wrong dataset path
+  docs: update README architecture to reflect Supabase + Modal stack
 ```
 
 ### Pushing and creating a Pull Request
 
 ```bash
-# Push your feature branch to GitHub
 git push origin feature/your-feature-name
 ```
 
 Then on GitHub:
-
-1. Open the repository
-2. Click **"Compare & pull request"** on the banner that appears
-3. Set **base: dev** <- compare: `feature/your-feature-name`
-4. Write a short description of what changed and why
-5. Submit the PR — the branch owner will review and merge
+1. Click **"Compare & pull request"**
+2. Set **base: dev** ← compare: `feature/your-feature-name`
+3. Write a short description and submit
 
 ### Syncing after a merge
-
-After your PR is merged into `dev`:
 
 ```bash
 git checkout dev
 git pull origin dev
-
-# Delete your local feature branch (already merged)
 git branch -d feature/your-feature-name
 ```
 
 ### Files to never commit
-
-These are already in `.gitignore` — do not force-add them:
 
 | Path | Reason |
 |---|---|
@@ -377,7 +350,8 @@ These are already in `.gitignore` — do not force-add them:
 | `raw_data/` | Source clips — gitignored |
 | `ml-model/venv/` | Virtual environment — recreated with pip |
 | `ml-model/juansignmodel/*.pth` | Model weights ~48 MB — gitignored |
-| `node_modules/` | Frontend dependencies — recreated with npm install |
+| `front-end/node_modules/` | Dependencies — recreated with npm install |
+| `.env.local` | Secrets — never commit |
 
 ---
 
@@ -385,20 +359,47 @@ These are already in `.gitignore` — do not force-add them:
 
 ```
 JuanSign/
-|-- ml-model/
-|   |-- src/
-|   |   |-- train.py                     <- training loop
-|   |   |-- resnet_lstm_architecture.py  <- model definition
-|   |   |-- fsl_dataset.py               <- dataset loader
-|   |   |-- frame_extractor.py           <- video -> 16 frames
-|   |   |-- data_splitter.py             <- train/test/val split
-|   |   |-- predict_sign.py              <- single-clip inference
-|   |   |-- forward_pass_viz.py          <- 7-stage pipeline viz
-|   |   |-- gradcam.py                   <- Grad-CAM saliency
-|   |   `-- model_visualization.py       <- confusion matrix
-|   |-- juansignmodel/                   <- saved weights (gitignored)
-|   `-- TRAINING_GUIDE.md               <- architecture reference
-|-- front-end/                           <- Next.js app
-|-- back-end/                            <- Node.js stub
-`-- README.md
+├── ml-model/
+│   ├── src/
+│   │   ├── resnet_lstm_architecture.py  ← model definition (ResNet18 + LSTM, 27 classes)
+│   │   ├── train.py                     ← training loop with early stopping + TensorBoard
+│   │   ├── fsl_dataset.py               ← FSLDataset loader (16 frames per clip)
+│   │   ├── frame_extractor.py           ← video → 16 frames (MediaPipe hand/face)
+│   │   ├── data_splitter.py             ← train / test / val split
+│   │   ├── predict_sign.py              ← single-clip inference
+│   │   ├── forward_pass_viz.py          ← 7-stage pipeline visualization
+│   │   ├── gradcam.py                   ← Grad-CAM saliency maps
+│   │   ├── model_visualization.py       ← confusion matrix + classification report
+│   │   ├── realtime_inference.py        ← live webcam inference
+│   │   ├── analyze_video.py             ← per-video analysis
+│   │   ├── clip_to_video.py             ← frames → video clip
+│   │   └── model.py                     ← load weights for standalone inference
+│   └── juansignmodel/                   ← juansign_model.pth (gitignored)
+│
+├── front-end/                           ← Next.js 14 (App Router)
+│   ├── app/
+│   │   ├── layout.tsx                   ← root layout, global fonts
+│   │   ├── page.tsx                     ← welcome screen (auth entry point)
+│   │   └── dashboard/
+│   │       ├── page.tsx                 ← lesson selection grid (paginated, lock/unlock)
+│   │       └── lessons/[lessonId]/
+│   │           └── page.tsx             ← module controller (lesson → practice → assessment)
+│   ├── components/
+│   │   ├── module/
+│   │   │   ├── LessonView.tsx           ← demo video player (play/pause/restart/stop)
+│   │   │   ├── PracticeView.tsx         ← webcam recorder + ML upload stub
+│   │   │   └── AssessmentView.tsx       ← assessment placeholder
+│   │   ├── lessons/LessonCard.tsx       ← card with lock overlay
+│   │   ├── chapter/ChapterTemplate.tsx
+│   │   ├── welcome/WelcomePage.tsx
+│   │   ├── login/LoginModal.tsx         ← Supabase email/password login
+│   │   ├── signup/SignupModal.tsx        ← Supabase registration
+│   │   └── profile/UserProfileModal.tsx ← post-auth profile display
+│   ├── lib/
+│   │   └── supabase.ts                  ← createBrowserClient (@supabase/ssr)
+│   ├── types/
+│   │   └── user.ts                      ← UserData interface
+│   └── styles/                          ← global CSS
+│
+└── README.md
 ```

@@ -1,65 +1,107 @@
+// PAGE: Welcome / Home Screen
+// ROUTE: /
+// Renders the landing background, JuanSign title, language switcher,
+// and Get Started / Login buttons. Manages Login, Signup, and
+// UserProfile modals. Redirects to /dashboard on successful auth.
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import WelcomeButtons, { TRANSLATIONS } from "@/components/WelcomeButtons";
+import SignupModal from "@/components/signup/SignupModal";
+import LoginModal from "@/components/login/LoginModal";
+import UserProfileModal from "@/components/profile/UserProfileModal";
+import WelcomeBG from "../public/images/svgs/welcome-bg.png";
+import JuanTitle from "../public/images/svgs/juansign-title.svg";
 import Image from "next/image";
+import "@/styles/page.css";
+import type { UserData } from "@/types/user";
 
 export default function Home() {
+  const router = useRouter();
+
+  const [selectedLang, setSelectedLang] = useState<"English" | "Filipino">("English");
+  const [showSignup,   setShowSignup]   = useState(false);
+  const [showLogin,    setShowLogin]    = useState(false);
+  const [showProfile,  setShowProfile]  = useState(false);
+  const [user,         setUser]         = useState<UserData | null>(null);
+
+  const t = TRANSLATIONS[selectedLang] || TRANSLATIONS["English"];
+
+  function openSignup() { setShowLogin(false);  setShowSignup(true); }
+  function openLogin()  { setShowSignup(false); setShowLogin(true);  }
+  function closeAll()   { setShowSignup(false); setShowLogin(false); }
+
+  /** Called by both LoginModal and SignupModal once auth succeeds */
+  function handleAuthSuccess(userData: UserData) {
+    setUser(userData);
+    closeAll();
+    setShowProfile(true);
+  }
+
+  /** Called when user clicks CONTINUE in UserProfileModal */
+  function handleContinue() {
+    setShowProfile(false);
+    router.push("/dashboard");
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="welcome-root">
+
+      <Image
+        src={WelcomeBG}
+        alt="Welcome"
+        className="welcome-bg"
+      />
+
+      <div className="welcome-title-wrapper">
+        <p className="welcome-title-text">{t.welcomeTo}</p>
+      </div>
+
+      <Image
+        src={JuanTitle}
+        alt="JuanSign"
+        className="welcome-logo"
+      />
+
+      <div className="welcome-tagline-wrapper">
+        <p className="welcome-tagline-text">{t.tagline}</p>
+      </div>
+
+      <div className="welcome-buttons-wrapper">
+        <WelcomeButtons
+          onGetStarted={openSignup}
+          onLogin={openLogin}
+          onSettings={() => console.log("Settings")}
+          selectedLang={selectedLang}
+          setSelectedLang={setSelectedLang}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
+
+      {showSignup && (
+        <SignupModal
+          onClose={closeAll}
+          onLoginClick={openLogin}
+          onSuccess={handleAuthSuccess}
+        />
+      )}
+
+      {showLogin && (
+        <LoginModal
+          onClose={closeAll}
+          onLogin={handleAuthSuccess}
+          onSignupClick={openSignup}
+        />
+      )}
+
+      {showProfile && user && (
+        <UserProfileModal
+          user={user}
+          onContinue={handleContinue}
+          onClose={() => setShowProfile(false)}
+        />
+      )}
+
     </div>
   );
 }

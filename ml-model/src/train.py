@@ -10,6 +10,15 @@ from resnet_lstm_architecture import ResNetLSTM
 
 import os
 
+# ── Resolve paths relative to THIS FILE ───────────────────────────────────────
+# Using __file__ means the script works regardless of which directory it is
+# launched from (repo root, ml-model/, ml-model/src/, etc.).
+_SRC_DIR   = os.path.dirname(os.path.abspath(__file__))          # ml-model/src/
+_ML_DIR    = os.path.abspath(os.path.join(_SRC_DIR, '..'))       # ml-model/
+_REPO_ROOT = os.path.abspath(os.path.join(_SRC_DIR, '../..'))    # repo root
+
+_PROCESSED = os.path.join(_ML_DIR, 'processed_output', 'frame_extracted')
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
@@ -60,11 +69,11 @@ eval_transform = transforms.Compose([
 # frame_extractor.py writes to <repo_root>/processed_output/frame_extracted/<split>/
 # train.py runs from ml-model/src/, so ../../ navigates up to the repo root.
 
-train_ds      = FSLDataset("../../processed_output/frame_extracted/training_data",
+train_ds      = FSLDataset(os.path.join(_PROCESSED, 'training_data'),
                            transform=train_transform)
-testing_ds    = FSLDataset("../../processed_output/frame_extracted/testing_data",
+testing_ds    = FSLDataset(os.path.join(_PROCESSED, 'testing_data'),
                            transform=eval_transform)
-validation_ds = FSLDataset("../../processed_output/frame_extracted/validation_data",
+validation_ds = FSLDataset(os.path.join(_PROCESSED, 'validation_data'),
                            transform=eval_transform)
 
 
@@ -94,7 +103,7 @@ validation_loader = DataLoader(
 )
 
 
-model = ResNetLSTM(num_classes=5).to(device)  # 5 classes: A=0, B=1, C=2, G=3, H=4
+model = ResNetLSTM(num_classes=27).to(device)  # 5 classes: A=0, B=1, C=2, G=3, H=4
 
 
 # ── Priority 9: Freeze ResNet18 backbone for the first FREEZE_EPOCHS ✅ ────────
@@ -133,7 +142,7 @@ epochs = 25
 # Logs train/val loss and accuracy after every epoch for live monitoring.
 # Launch the dashboard with: tensorboard --logdir ml-model/runs  (from repo root)
 
-writer = SummaryWriter(log_dir="../runs/juansign")
+writer = SummaryWriter(log_dir=os.path.join(_ML_DIR, 'runs', 'juansign'))
 
 
 history = {
@@ -158,7 +167,7 @@ epochs_no_improve   = 0
 # Old code saved to ml-model/src/juansign_model.pth but model.py and
 # predict_sign.py both load from ml-model/juansignmodel/juansign_model.pth.
 
-MODEL_SAVE_PATH = "../juansignmodel/juansign_model.pth"
+MODEL_SAVE_PATH = os.path.join(_ML_DIR, 'juansignmodel', 'juansign_model.pth')
 
 
 def evaluate_model(model, loader, criterion, device):
@@ -252,7 +261,7 @@ for epoch in range(epochs):
     # not just whatever the model looks like at the final epoch.
     if val_acc > best_val_acc:
         best_val_acc = val_acc
-        os.makedirs("../juansignmodel", exist_ok=True)
+        os.makedirs(os.path.join(_ML_DIR, 'juansignmodel'), exist_ok=True)
         torch.save(model.state_dict(), MODEL_SAVE_PATH)
         print(f"  ✅ Best model saved (val_acc={val_acc:.2f}%)")
 

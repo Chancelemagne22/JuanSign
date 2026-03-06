@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+/* ── Theme tokens ──────────────────────────────────────────────── */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-baloo);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-baloo), Arial, Helvetica, sans-serif;
+}
+
+/* ── JuanSign title text ───────────────────────────────────────── */
+/* Used in WelcomePage — matches the large bubbly orange lettering  */
+.juansign-title {
+  font-size: clamp(3.5rem, 10vw, 7.5rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: #F4A261;
+  /* Dark brown outline to match the design */
+  text-shadow:
+     3px  3px 0 #7B3F00,
+    -2px -2px 0 #7B3F00,
+     2px -2px 0 #7B3F00,
+    -2px  2px 0 #7B3F00,
+     2px  2px 0 #7B3F00,
+     4px  4px 6px rgba(0,0,0,0.2);
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+/* The hand-icon slot inside the title */
+.juansign-title .hand-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Sized to roughly match the other letters */
+  width: 0.75em;
+  height: 0.85em;
+  position: relative;
+  /* Placeholder tint; disappears once you swap in the real image */
+  background: rgba(244,162,97,0.15);
+  border-radius: 0.15em;
+  border: 2px dashed rgba(123,63,0,0.3);
+  color: #7B3F00;
+  font-size: 0.7em;
+  vertical-align: middle;
+  margin: 0 0.04em;
+}

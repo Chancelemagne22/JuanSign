@@ -96,8 +96,8 @@ def build_overlay(image_path, cam, alpha=0.5):
 if __name__ == "__main__":
     # --- CONFIGURATION ---
     MODEL_PATH = "./juansignmodel/juansign_model.pth"
-    FRAME_PATH = "./processed_output/model_check/G/clip007/frame0012.jpg"            # Path to a single .jpg frame to analyse
-    CLASS_NAMES = ["A", "B", "C", "G", "H"]
+    FRAME_PATH = "./processed_output/frame_extracted/validation_data/Z/clip022/frame0010.jpg"            # Path to a single .jpg frame to analyse
+    CLASS_NAMES = ["A", "B", "C", "D", "E","F","G","H","I","J","K","L","M","N","N~","O","P","Q","R","S","T","U","V","W","X","Y","Z"]
     OUTPUT_PATH = "gradcam_output.png"
     # 1. Device setup
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

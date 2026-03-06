@@ -34,10 +34,10 @@ from gradcam import GradCAM, build_overlay
 # ── Configuration ──────────────────────────────────────────────────────────────
 # Adjust these paths before running.
 
-MODEL_PATH  = "../juansignmodel/juansign_model.pth"
+MODEL_PATH  = "./juansignmodel/juansign_model.pth"
 
 # Path to any processed clip folder (must contain exactly 16 frame*.jpg files).
-CLIP_DIR    = "../../processed_output/frame_extracted/testing_data/A/clip001"
+CLIP_DIR    = "./processed_output/frame_extracted/validation_data/J/clip027"
 
 CLASS_NAMES = ["A", "B", "C", "J", "O"]   # must match training order (alphabetical)
 OUTPUT_DIR  = "../model_visual"                          # saves PNGs to ml-model/
