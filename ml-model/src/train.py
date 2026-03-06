@@ -103,7 +103,7 @@ validation_loader = DataLoader(
 )
 
 
-model = ResNetLSTM(num_classes=5).to(device)  # 5 classes: A=0, B=1, C=2, G=3, H=4
+model = ResNetLSTM(num_classes=27).to(device)  # 5 classes: A=0, B=1, C=2, G=3, H=4
 
 
 # ── Priority 9: Freeze ResNet18 backbone for the first FREEZE_EPOCHS ✅ ────────

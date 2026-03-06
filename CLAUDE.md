@@ -1,91 +1,102 @@
-# CLAUDE.md
+# JuanSign — Project Context for Claude Code
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## What is JuanSign?
+A Filipino Sign Language (FSL) learning web application.
+Students practice and get assessed on FSL gestures via webcam.
+A CNN-ResNet-LSTM model recognizes the signs in real time.
 
-## What is JuanSign
+## Stack
+- **Frontend:** Next.js 14 (App Router) — deployed on Vercel
+- **AI Backend:** Modal (serverless GPU endpoint, no FastAPI)
+- **Database:** Supabase (Postgres + Auth)
+- **Styling:** Tailwind CSS
 
-Thesis project: Filipino Sign Language (FSL) recognition system. Classifies hand signs (A, B, C, G, H) from video clips using a ResNet18+LSTM hybrid model. Three modules: ML training pipeline, a Node.js backend (stub), and a Next.js frontend (stub).
+---
 
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| ML | Python 3.11.5, PyTorch 2.10.0, OpenCV, scikit-learn, MediaPipe |
-| Frontend | Next.js 16.1.6, React 19.2.3, TypeScript 5, Tailwind CSS 4 |
-| Backend | Node.js (template only, no implementation yet) |
-
-## Key Directories
-
-| Path | Purpose |
-|---|---|
-| `ml-model/src/` | All training, inference, and visualization scripts |
-| `ml-model/juansignmodel/` | Saved model weights (`juansign_model.pth`, ~48 MB, gitignored) |
-| `processed_output/` | Extracted frames organized by split/class/clip (gitignored) |
-| `unprocessed_input/` | Raw video files input to frame extractor (gitignored) |
-| `front-end/app/` | Next.js App Router pages and layout |
-| `back-end/` | Node.js API server (stub only) |
-
-## Build & Run Commands
-
-### ML Model
-All scripts run from `ml-model/src/` inside the virtual environment.
-
-```bash
-# Environment setup (one-time, from ml-model/)
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install torch torchvision opencv-python pillow scikit-learn matplotlib seaborn mediapipe
-
-# Frame extraction — run from repo root
-python ml-model/src/frame_extractor.py
-
-# Training
-cd ml-model/src && python train.py
-
-# Inference on a single clip folder
-cd ml-model/src && python predict_sign.py
-
-# Model evaluation and visualizations
-cd ml-model/src && python model_visualization.py
-cd ml-model/src && python train_val_visuals.py
-
-# Check GPU availability
-cd ml-model && python check.py
-```
-
-### Frontend
-```bash
-cd front-end
-npm install      # Node v22.14.0 required
-npm run dev      # localhost:3000
-npm run build
-npm run lint
-```
-
-## Core Data Flow
+## Architecture
 
 ```
-unprocessed_input/<letter>/<video.mp4>
-  → frame_extractor.py   →  processed_output/<split>/<letter>/clip001/frame0000.jpg
-  → fsl_dataset.py       →  FSLDataset (PyTorch Dataset, with augmentation)
-  → train.py             →  ResNetLSTM model → juansign_model.pth
-  → predict_sign.py      →  (predicted_class, confidence_score)
+React (Vercel)
+  ↓ Supabase Auth → JWT issued
+  ↓ POST video + JWT
+Modal Web Endpoint (GPU: T4)
+  ↓ Verify JWT
+  ↓ Preprocess frames (OpenCV)
+  ↓ Run CNN-ResNet-LSTM model
+  ↓ Write result to Supabase (service role)
+  ↓ Return { sign, confidence } to React
+React displays result + fetches updated progress from Supabase
 ```
 
-## Critical Configuration Constants
+---
 
-These are hardcoded and must stay consistent across files — see `.claude/docs/architectural_patterns.md`:
-- Frame count: **16** (`frame_extractor.py:8` `TARGET_FRAMES`, `predict_sign.py:28`)
-- Image size: **224×224** (`frame_extractor.py:9` `TARGET_SIZE`, `fsl_dataset.py:14`)
-- Classes: **["A","B","C","G","H"]** (alphabetical = label indices 0–4)
-- ImageNet normalization: `mean=[0.485,0.456,0.406]`, `std=[0.229,0.224,0.225]`
+## Supabase
 
-## Git Workflow
+### Auth
+- Provider: Supabase Auth (email + password)
+- JWT is issued on login and sent with every Modal request
+- Profiles are auto-created via trigger on auth.users insert
 
-Feature branches off `dev` → PR to `dev` → merge to `main`. Branch naming: `feature/<description>`.
+### Tables
+- `profiles` — extends auth.users (username, first_name, last_name, is_active)
+- `levels` — curriculum levels with sequential unlocking (previous_level_id)
+- `lessons` — video + content per level
+- `practice_questions` — per level, includes reference_data for CNN
+- `assessment_questions` — per level, includes points
+- `practice_sessions` — records user practice activity + average_accuracy
+- `assessment_results` — score, stars_earned (0-3), time_taken_seconds, is_passed
+- `cnn_feedback` — accuracy_score + feedback_message, linked to session or result
+- `user_progress` — tracks is_unlocked, lessons_completed, best_score per level
 
-## Additional Documentation
+### Rules
+- All PKs are UUID (gen_random_uuid())
+- RLS is enabled on ALL tables
+- Passwords are never stored in custom tables
+- `auth_user_id` is the FK used to link all user data to auth.users
 
-| File | When to check |
-|---|---|
-| `.claude/docs/architectural_patterns.md` | Modifying any ML script; adding inference or training logic |
+---
+
+## Modal
+
+- No FastAPI — Modal web_endpoint IS the API
+- Deployed via: `modal deploy main.py`
+- Endpoint receives: video (base64) + JWT token
+- Endpoint returns: `{ sign: string, confidence: float }`
+- Modal writes prediction results to Supabase using SUPABASE_SERVICE_ROLE_KEY
+- GPU: T4 (can upgrade to A10G)
+- keep_warm=1 to avoid cold starts during active sessions
+
+---
+
+## Folder Structure
+```
+src/
+  app/          → Next.js App Router pages and layouts
+  components/   → Reusable UI components
+  lib/          → supabase.ts client, utilities
+  styles/       → globals.css
+  types/        → declarations.d.ts, typescript interfaces
+main.py         → Modal deployment file (in project root)
+CLAUDE.md       → This file
+```
+
+## Supabase Client Location
+`src/lib/supabase.ts` — browser client using @supabase/ssr
+
+## Environment Variables
+```
+NEXT_PUBLIC_SUPABASE_URL          → Supabase project URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY     → Safe to expose to client
+SUPABASE_SERVICE_ROLE_KEY         → Modal only, NEVER in frontend
+NEXT_PUBLIC_MODAL_ENDPOINT_URL    → Modal deployed endpoint URL
+```
+
+---
+
+## Key Rules
+1. NEVER store passwords in any custom table
+2. NEVER use SUPABASE_SERVICE_ROLE_KEY in frontend/client code
+3. ALL Supabase tables must have RLS enabled
+4. Global CSS imports only in app/layout.tsx
+5. JWT verification must happen inside Modal before any processing
+6. Modal is the ONLY service that writes to cnn_feedback table

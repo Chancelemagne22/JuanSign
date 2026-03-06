@@ -122,4 +122,21 @@ fsl_dataset.py               ←─ train.py
                              ←─ confusionmatix.py
                              ←─ fc_cluster.py
                              ←─ layer_visualization.py
+gradcam.py                   ←─ forward_pass_viz.py
+                             ←─ realtime_gradcam.py
 ```
+
+---
+
+## 10. Real-Time Inference Pattern (`realtime_gradcam.py`)
+
+Two-thread design: main thread handles capture + display; a daemon `InferenceWorker` handles model inference.
+
+- **Buffer**: `collections.deque(maxlen=16)` — rolling window of raw BGR webcam frames.
+- **Two forward passes per inference cycle**:
+  1. `torch.no_grad()` pass → softmax probabilities + predicted class index.
+  2. `gradcam.compute(clip, class_idx=class_idx)` pass → spatial heatmap (forward + backward).
+  Both target the same `class_idx` so they are consistent.  The second pass overwrites the GradCAM hooks' cached activations/gradients, so they always reflect the gradient-enabled computation graph.
+- **Throttle**: `INFERENCE_INTERVAL = 0.5 s` sleep between inference runs to avoid saturating GPU/CPU.
+- **Display**: two 480×480 panels — live feed (left) + Grad-CAM overlay + prob bars (right).
+- **Controls**: `q` quit, `r` reset buffer, `s` save PNG to `../realtime_captures/`.
