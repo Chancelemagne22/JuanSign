@@ -1,11 +1,23 @@
 import type { Metadata } from "next";
-import { Baloo_2 } from "next/font/google";
+import { Baloo_2, Spicy_Rice, Fredoka } from "next/font/google";
 import "../styles/globals.css";
 
 const baloo = Baloo_2({
   variable: "--font-baloo",
   subsets: ["latin"],
   weight: ["400", "700", "800"],
+});
+
+const spicyRice = Spicy_Rice({
+  variable: "--font-spicy-rice",
+  subsets: ["latin"],
+  weight: "400",
+});
+
+const fredoka = Fredoka({
+  variable: "--font-fredoka",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -23,7 +35,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${baloo.variable} antialiased`}>{children}</body>
+      <body className={`${baloo.variable} ${spicyRice.variable} ${fredoka.variable} antialiased`}>{children}</body>
     </html>
   );
 }

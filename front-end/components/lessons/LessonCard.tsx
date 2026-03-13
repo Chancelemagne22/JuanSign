@@ -8,7 +8,6 @@ export interface LessonCardProps {
   lessonNumber: number;
   title: string;
   isUnlocked: boolean;
-  /** Drop-in slot for future lesson art — omit to show placeholder */
   artSrc?: string;
 }
 

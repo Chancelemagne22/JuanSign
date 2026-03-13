@@ -1,9 +1,9 @@
 'use client';
 
-// PAGE: Lessons Chapter List
-// ROUTE: /dashboard/lessons
-// Shows all lesson chapters. Unlock rule: sequential — each level requires
-// user_progress.is_unlocked = true (set when previous level is completed).
+// PAGE: Assessment Chapter List
+// ROUTE: /dashboard/assessment
+//
+// Unlock rule: Assessment N is unlocked when Practice N has a practice_sessions record.
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -12,10 +12,10 @@ import { supabase } from '@/lib/supabase';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
 
 interface ChapterItem {
-  id:           string;
-  chapterNum:   number;
-  title:        string;
-  isUnlocked:   boolean;
+  id:         string;
+  chapterNum: number;
+  title:      string;
+  isUnlocked: boolean;
 }
 
 function LockIcon() {
@@ -49,14 +49,12 @@ function ChapterCard({ chapter, onPress }: { chapter: ChapterItem; onPress: () =
             {chapter.chapterNum}
           </span>
         </div>
-
         {!chapter.isUnlocked && (
           <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
             <LockIcon />
           </div>
         )}
       </button>
-
       <p className="text-[#4A2C0A] text-sm">
         <span className="font-black">Chapter {chapter.chapterNum}</span>
         {'  '}
@@ -68,32 +66,35 @@ function ChapterCard({ chapter, onPress }: { chapter: ChapterItem; onPress: () =
 
 const CHAPTERS_PER_PAGE = 5;
 
-export default function LessonsPage() {
+export default function AssessmentPage() {
   const router = useRouter();
-  const [chapters,     setChapters]     = useState<ChapterItem[]>([]);
-  const [loading,      setLoading]      = useState(true);
-  const [currentPage,  setCurrentPage]  = useState(0);
+  const [chapters,    setChapters]    = useState<ChapterItem[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [currentPage, setCurrentPage] = useState(0);
 
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/'); return; }
 
-      const [levelsRes, progressRes] = await Promise.all([
+      const [levelsRes, sessionsRes] = await Promise.all([
         supabase.from('levels').select('level_id, level_name, level_order').order('level_order'),
-        supabase.from('user_progress').select('level_id, is_unlocked').eq('auth_user_id', user.id),
+        // Assessment N is unlocked when practice_sessions exists for level N
+        supabase
+          .from('practice_sessions')
+          .select('level_id')
+          .eq('auth_user_id', user.id),
       ]);
 
-      const unlockedIds = new Set(
-        progressRes.data?.filter((p) => p.is_unlocked).map((p) => p.level_id) ?? []
-      );
+      const practiceDone = new Set((sessionsRes.data ?? []).map((s) => s.level_id));
+      
 
       setChapters(
         (levelsRes.data ?? []).map((lvl, i) => ({
           id:         lvl.level_id,
           chapterNum: i + 1,
           title:      lvl.level_name,
-          isUnlocked: unlockedIds.has(lvl.level_id),
+          isUnlocked: practiceDone.has(lvl.level_id),
         }))
       );
       setLoading(false);
@@ -131,7 +132,6 @@ export default function LessonsPage() {
             <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
           </svg>
         </button>
-
         <button
           className="w-11 h-11 rounded-full bg-[#E8A87C] border-[3px] border-[#BF7B45] flex items-center justify-center shadow-md hover:scale-105 transition-transform"
           aria-label="Settings"
@@ -143,18 +143,18 @@ export default function LessonsPage() {
       {/* ── Title ────────────────────────────────────────────────── */}
       <div className="text-center mb-8">
         <h1
-          className="font-black text-[3rem] leading-tight"
+          className="font-black text-[2rem] leading-tight"
           style={{
             fontFamily:       'var(--font-spicy-rice)',
-            color:            '#2E7D1C',
-            WebkitTextStroke: '1.5px #1a4d10',
-            textShadow:       '2px 2px 0 #1a4d10',
+            color:            '#7B3F00',
+            WebkitTextStroke: '1.5px #5D3A1A',
+            textShadow:       '2px 2px 0 #5D3A1A',
           }}
         >
-          Lessons
+          Assessment
         </h1>
         <p className="text-[#4A2C0A] font-bold text-sm mt-1">
-          Watch and learn each FSL sign.
+          Show what you know!
         </p>
       </div>
 
@@ -173,7 +173,6 @@ export default function LessonsPage() {
             </button>
           </div>
         )}
-
         {hasNext && (
           <div className="absolute right-0 top-[38%] -translate-y-1/2 translate-x-5 z-10">
             <button
@@ -203,7 +202,7 @@ export default function LessonsPage() {
                       <ChapterCard
                         key={ch.id}
                         chapter={ch}
-                        onPress={() => router.push(`/dashboard/lessons/${ch.id}`)}
+                        onPress={() => router.push(`/dashboard/assessment/${ch.id}`)}
                       />
                     ))}
                   </div>
@@ -213,7 +212,7 @@ export default function LessonsPage() {
                         <ChapterCard
                           key={ch.id}
                           chapter={ch}
-                          onPress={() => router.push(`/dashboard/lessons/${ch.id}`)}
+                          onPress={() => router.push(`/dashboard/assessment/${ch.id}`)}
                         />
                       ))}
                     </div>
