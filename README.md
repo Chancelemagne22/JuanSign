@@ -20,13 +20,18 @@ Browser (Vercel — Next.js 14)
   │
   └─ POST video (base64) + JWT
        │
-       ▼
-  Modal Web Endpoint (GPU: T4)
-       │  verify JWT
-       │  preprocess frames (OpenCV, 16 × 224×224)
-       │  ResNet18 + LSTM inference (27-class FSL)
-       │  write result → Supabase (service role)
-       └─ return { sign, confidence }
+       ▼  (same-origin, no CORS)
+  Next.js API Route  /api/predict   [front-end/app/api/predict/route.ts]
+       │
+       └─ server-to-server (no CORS)
+            │
+            ▼
+  Modal Web Endpoint  ml-model/main.py  (GPU: T4)
+       │  verify JWT via supabase.auth.get_user()
+       │  preprocess frames (OpenCV + MediaPipe hand crop, 16 × 224×224)
+       │  ResNet18 + LSTM inference (5-class FSL: A, B, C, G, H)
+       │  write result → Supabase cnn_feedback (service role)
+       └─ return { sign, confidence, is_correct, accuracy }
 ```
 
 ### Learning Cycle (per level)
@@ -116,37 +121,12 @@ pip install torch torchvision opencv-python pillow scikit-learn matplotlib seabo
 python -c "import torch; print('PyTorch:', torch.__version__)"
 python -c "import cv2; print('OpenCV:', cv2.__version__)"
 python -c "import mediapipe; print('MediaPipe:', mediapipe.__version__)"
-
-# From ml-model/ (one level up from src/)
-python check.py
 ```
 
 ### Step 6 — Deactivate when done
 
 ```bash
 deactivate
-```
-
-### Package reference
-
-| Package | pip name | Used by |
-|---|---|---|
-| PyTorch | `torch` `torchvision` | all ML scripts |
-| OpenCV | `opencv-python` | `frame_extractor.py`, `gradcam.py` |
-| Pillow | `pillow` | `fsl_dataset.py`, `predict_sign.py`, `gradcam.py` |
-| scikit-learn | `scikit-learn` | `model_visualization.py` (confusion matrix) |
-| Matplotlib | `matplotlib` | all visualization scripts |
-| Seaborn | `seaborn` | `model_visualization.py` |
-| MediaPipe | `mediapipe` | `frame_extractor.py` (hand + face detection) |
-| TensorBoard | `tensorboard` | `train.py` (live loss/accuracy curves) |
-
-### Quick-start checklist (every session)
-
-```
-[ ] Open terminal inside ml-model/
-[ ] Run activation command for your OS  (see Step 2)
-[ ] Confirm (venv) appears in the prompt
-[ ] cd into ml-model/src/ before running any script
 ```
 
 ---
@@ -173,14 +153,78 @@ Create `front-end/.env.local`:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=<your Supabase project URL>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<your Supabase anon key>
-NEXT_PUBLIC_MODAL_ENDPOINT_URL=<your Modal deployed endpoint URL>
+MODAL_ENDPOINT_URL=<your Modal deployed endpoint URL>
 ```
 
-> `SUPABASE_SERVICE_ROLE_KEY` is used by Modal only — never put it in the frontend.
+> - `MODAL_ENDPOINT_URL` has **no** `NEXT_PUBLIC_` prefix — it is server-only,
+>   used only by the `/api/predict` proxy route, never exposed to the browser.
+> - `SUPABASE_SERVICE_ROLE_KEY` is used by Modal only — never put it in the frontend.
 
 ---
 
-## 3. Data Preparation Pipeline
+## 3. Modal Endpoint Setup
+
+The ML inference runs on Modal (serverless GPU). This must be set up before
+the Upload Video button in Practice mode works.
+
+### Step 1 — Install Modal CLI
+
+```bash
+pip install modal
+modal setup   # authenticates your account
+```
+
+### Step 2 — Create Modal secrets (once)
+
+In **Modal dashboard → Secrets → Create secret**, name it `juansign-secrets` and add:
+
+```
+SUPABASE_URL              = https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY = eyJ...   (from Supabase → Settings → API → service_role)
+```
+
+### Step 3 — Upload model weights to Modal Volume (once)
+
+```bash
+modal volume create juansign-model-vol
+modal volume put juansign-model-vol ml-model/juansignmodel/juansign_model.pth /
+```
+
+Verify the upload:
+```bash
+modal volume ls juansign-model-vol
+# should show: juansign_model.pth
+```
+
+### Step 4 — Deploy
+
+```bash
+modal deploy ml-model/main.py
+```
+
+### Step 5 — Get the endpoint URL
+
+After deploy, go to **Modal dashboard → Apps → juansign → predict function**.
+Copy the **Web URL** and paste it into `front-end/.env.local`:
+
+```env
+MODAL_ENDPOINT_URL=https://your-workspace--juansign-juansigninference-predict.modal.run
+```
+
+> ⚠️ **Known issue:** If you used `@modal.asgi_app` at any point, the function
+> label in the dashboard may show as **"asgi"** instead of **"predict"**.
+> The fix is to redeploy with `@modal.fastapi_endpoint(label="predict")` (already
+> done in the current `main.py`). After redeploying, look for the function
+> labelled **"predict"** — it will have the correct URL.
+
+Then restart the dev server:
+```bash
+cd front-end && npm run dev
+```
+
+---
+
+## 4. Data Preparation Pipeline
 
 Run these steps in order from the **repo root** before training.
 
@@ -190,15 +234,6 @@ Place raw video files in `processed_output/raw_data/<letter>/` then run:
 
 ```bash
 python ml-model/src/data_splitter.py
-```
-
-Output:
-
-```
-unprocessed_input/
-  training_data/<letter>/      ← 100 clips per letter
-  testing_data/<letter>/       ← 12 clips per letter
-  validation_data/<letter>/    ← remaining clips
 ```
 
 ### Step 2 — Extract frames from each video clip
@@ -222,7 +257,7 @@ processed_output/frame_extracted/
 
 ---
 
-## 4. Training
+## 5. Training
 
 Activate the venv and run from `ml-model/src/`:
 
@@ -231,56 +266,92 @@ cd ml-model/src
 python train.py
 ```
 
-What happens:
-
-- Loads data via `FSLDataset` (16 frames × 224×224, ImageNet normalization)
-- Trains `ResNetLSTM` (ResNet18 backbone + LSTM head, **27 FSL classes**)
-- ResNet18 frozen for first 10 epochs, then fully unfrozen for fine-tuning
-- `ReduceLROnPlateau` halves LR when val loss stalls for 3 epochs
+- Trains `ResNetLSTM` (ResNet18 backbone + LSTM head)
+- Classes derived from `sorted(os.listdir())` on training data folder
 - Best checkpoint saved to `ml-model/juansignmodel/juansign_model.pth`
-- Early stopping after 5 epochs with no val loss improvement
-- Final test evaluation runs automatically on the best checkpoint
+- After retraining, re-upload weights to Modal Volume (Step 3 above)
 
 ### Watch training live with TensorBoard
 
 ```bash
-# Second terminal, from repo root
 tensorboard --logdir ml-model/runs
 # Open http://localhost:6006
 ```
 
 ---
 
-## 5. Inference and Visualization
+## 6. Inference and Visualization
 
 All scripts run from `ml-model/src/` with the venv activated.
 
 ```bash
-# Predict the sign in one processed clip folder
-python predict_sign.py
-
-# Confusion matrix and classification report on the test set
-python model_visualization.py
-
-# Full 7-stage forward pass visualization (raw input → Grad-CAM → classification)
-python forward_pass_viz.py
-
-# Grad-CAM saliency on a single frame
-python gradcam.py
-
-# Live webcam inference
-python realtime_inference.py
-
-# Analyze a video file
-python analyze_video.py
-
-# Convert extracted frames back into a video clip
-python clip_to_video.py
+python predict_sign.py        # predict the sign in one processed clip folder
+python model_visualization.py # confusion matrix + classification report
+python forward_pass_viz.py    # 7-stage pipeline visualization
+python gradcam.py             # Grad-CAM saliency on a single frame
+python realtime_inference.py  # live webcam inference
+python analyze_video.py       # analyze a video file
+python clip_to_video.py       # convert extracted frames back to video
 ```
 
 ---
 
-## 6. Git Workflow — How to Commit
+## 7. Known Issues & Debugging Log
+
+This section documents errors encountered during development and their resolutions.
+
+### Modal endpoint class count mismatch
+**Error:** `RuntimeError: size mismatch for fc.weight: shape [5, 256] vs [27, 256]`
+**Cause:** `CLASS_NAMES` in `main.py` was set to all 27 FSL letters, but the saved
+`juansign_model.pth` was trained on only 5 classes (A, B, C, G, H).
+**Fix:** Set `CLASS_NAMES = ["A", "B", "C", "G", "H"]` in `main.py` to match the
+actual checkpoint. When the model is retrained on all 27 classes, update this list
+and re-upload the weights to the Modal Volume.
+
+### Modal JWT verification failure
+**Error:** `Invalid token: 'SUPABASE_URL'` / `Invalid token: Supabase JWT SECRET`
+**Cause 1:** Modal secrets were named with `NEXT_PUBLIC_` prefix (e.g.
+`NEXT_PUBLIC_SUPABASE_URL`) instead of `SUPABASE_URL`.
+**Cause 2:** Attempted manual JWT verification with `PyJWT` using the wrong secret format.
+**Fix:** Rename secrets in Modal dashboard to `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY`. Use `supabase.auth.get_user(token)` instead of
+PyJWT — it validates the token server-side with no JWT secret needed.
+
+### CORS blocked by browser
+**Error:** `Access to fetch blocked by CORS policy: No 'Access-Control-Allow-Origin' header`
+**Cause:** The browser was POSTing directly to the Modal endpoint. Modal's
+`@modal.fastapi_endpoint` does not add CORS headers by default.
+**Fix:** Added a Next.js API proxy route at `front-end/app/api/predict/route.ts`.
+The browser POSTs to `/api/predict` (same origin), the server forwards to Modal
+(server-to-server, no CORS needed). `MODAL_ENDPOINT_URL` is now server-only
+(no `NEXT_PUBLIC_` prefix).
+
+### Modal ASGI app returns NoneType error
+**Error:** `internal error: status Failure: TypeError("'NoneType' object is not callable")`
+**Cause:** Switched from `@modal.fastapi_endpoint` to `@modal.asgi_app` on a
+`@app.cls` instance method — this combination is not properly supported by Modal.
+The ASGI decorator on a class method returns `None` internally.
+**Fix:** Reverted to `@modal.fastapi_endpoint(method="POST", label="predict")`.
+CORS is handled by the Next.js proxy, so Modal no longer needs CORS headers.
+
+### Modal dashboard shows "asgi" label instead of "predict"
+**Cause:** Previously deployed with `@modal.asgi_app(label="predict")` which
+registered the endpoint under a different internal name.
+**Status:** After redeploying with `@modal.fastapi_endpoint(label="predict")`,
+the correct "predict" label should reappear. If the dashboard still shows "asgi",
+check under **Apps → juansign** for any function with a Web URL — that is the
+endpoint URL regardless of label name.
+
+### Modal returns non-JSON plain text
+**Error:** `SyntaxError: Unexpected token 'm', "modal-http"... is not valid JSON`
+**Cause:** Modal gateway errors return plain text, not JSON. The `/api/predict`
+route called `.json()` unconditionally.
+**Fix:** Check `Content-Type` header before parsing. If not JSON, return a 502
+with the raw text so the error is visible in the server logs.
+
+---
+
+## 8. Git Workflow
 
 ### Branch structure
 
@@ -298,14 +369,10 @@ git pull origin dev
 git checkout -b feature/your-feature-name
 ```
 
-### Committing your changes
+### Committing
 
 ```bash
-# Stage specific files (preferred)
 git add front-end/app/dashboard/page.tsx
-git add ml-model/src/train.py
-
-# Commit with a clear message
 git commit -m "feat: add paginated dashboard with level lock/unlock state"
 ```
 
@@ -313,32 +380,7 @@ git commit -m "feat: add paginated dashboard with level lock/unlock state"
 
 ```
 <type>: <what and why>
-
 Types: feat | fix | refactor | docs | chore
-
-Examples:
-  feat: add webcam recorder and ML upload stub to PracticeView
-  fix: resolve FileNotFoundError on training start due to wrong dataset path
-  docs: update README architecture to reflect Supabase + Modal stack
-```
-
-### Pushing and creating a Pull Request
-
-```bash
-git push origin feature/your-feature-name
-```
-
-Then on GitHub:
-1. Click **"Compare & pull request"**
-2. Set **base: dev** ← compare: `feature/your-feature-name`
-3. Write a short description and submit
-
-### Syncing after a merge
-
-```bash
-git checkout dev
-git pull origin dev
-git branch -d feature/your-feature-name
 ```
 
 ### Files to never commit
@@ -347,7 +389,6 @@ git branch -d feature/your-feature-name
 |---|---|
 | `processed_output/` | Large extracted frames — generated locally |
 | `unprocessed_input/` | Raw videos — too large for git |
-| `raw_data/` | Source clips — gitignored |
 | `ml-model/venv/` | Virtual environment — recreated with pip |
 | `ml-model/juansignmodel/*.pth` | Model weights ~48 MB — gitignored |
 | `front-end/node_modules/` | Dependencies — recreated with npm install |
@@ -360,46 +401,38 @@ git branch -d feature/your-feature-name
 ```
 JuanSign/
 ├── ml-model/
+│   ├── main.py                          ← Modal endpoint (deploy this)
 │   ├── src/
-│   │   ├── resnet_lstm_architecture.py  ← model definition (ResNet18 + LSTM, 27 classes)
-│   │   ├── train.py                     ← training loop with early stopping + TensorBoard
+│   │   ├── resnet_lstm_architecture.py  ← model definition (ResNet18 + LSTM)
+│   │   ├── train.py                     ← training loop
 │   │   ├── fsl_dataset.py               ← FSLDataset loader (16 frames per clip)
 │   │   ├── frame_extractor.py           ← video → 16 frames (MediaPipe hand/face)
 │   │   ├── data_splitter.py             ← train / test / val split
 │   │   ├── predict_sign.py              ← single-clip inference
 │   │   ├── forward_pass_viz.py          ← 7-stage pipeline visualization
 │   │   ├── gradcam.py                   ← Grad-CAM saliency maps
-│   │   ├── model_visualization.py       ← confusion matrix + classification report
+│   │   ├── model_visualization.py       ← confusion matrix + report
 │   │   ├── realtime_inference.py        ← live webcam inference
-│   │   ├── analyze_video.py             ← per-video analysis
-│   │   ├── clip_to_video.py             ← frames → video clip
-│   │   └── model.py                     ← load weights for standalone inference
+│   │   └── analyze_video.py             ← per-video analysis
 │   └── juansignmodel/                   ← juansign_model.pth (gitignored)
 │
 ├── front-end/                           ← Next.js 14 (App Router)
 │   ├── app/
+│   │   ├── api/predict/route.ts         ← server proxy → Modal (avoids CORS)
 │   │   ├── layout.tsx                   ← root layout, global fonts
-│   │   ├── page.tsx                     ← welcome screen (auth entry point)
+│   │   ├── page.tsx                     ← welcome / auth entry point
 │   │   └── dashboard/
-│   │       ├── page.tsx                 ← lesson selection grid (paginated, lock/unlock)
-│   │       └── lessons/[lessonId]/
-│   │           └── page.tsx             ← module controller (lesson → practice → assessment)
+│   │       ├── page.tsx                 ← main dashboard
+│   │       ├── lessons/[lessonId]/      ← lesson video player
+│   │       ├── practice/[chapterId]/    ← webcam recorder + ML upload
+│   │       └── assessment/[chapterId]/  ← assessment (placeholder)
 │   ├── components/
-│   │   ├── module/
-│   │   │   ├── LessonView.tsx           ← demo video player (play/pause/restart/stop)
-│   │   │   ├── PracticeView.tsx         ← webcam recorder + ML upload stub
-│   │   │   └── AssessmentView.tsx       ← assessment placeholder
-│   │   ├── lessons/LessonCard.tsx       ← card with lock overlay
-│   │   ├── chapter/ChapterTemplate.tsx
-│   │   ├── welcome/WelcomePage.tsx
-│   │   ├── login/LoginModal.tsx         ← Supabase email/password login
-│   │   ├── signup/SignupModal.tsx        ← Supabase registration
-│   │   └── profile/UserProfileModal.tsx ← post-auth profile display
-│   ├── lib/
-│   │   └── supabase.ts                  ← createBrowserClient (@supabase/ssr)
-│   ├── types/
-│   │   └── user.ts                      ← UserData interface
-│   └── styles/                          ← global CSS
+│   │   └── module/
+│   │       ├── LessonView.tsx           ← demo video player
+│   │       ├── PracticeView.tsx         ← webcam recorder + result overlay
+│   │       └── AssessmentView.tsx       ← assessment placeholder
+│   ├── lib/supabase.ts                  ← browser Supabase client
+│   └── .env.local                       ← secrets (never commit)
 │
 └── README.md
 ```

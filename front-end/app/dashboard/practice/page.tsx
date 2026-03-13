@@ -1,9 +1,11 @@
 'use client';
 
-// PAGE: Lessons Chapter List
-// ROUTE: /dashboard/lessons
-// Shows all lesson chapters. Unlock rule: sequential — each level requires
-// user_progress.is_unlocked = true (set when previous level is completed).
+// PAGE: Practice Chapter List
+// ROUTE: /dashboard/practice
+//
+// Unlock rules:
+//   Chapter 1  — unlocked when Lesson 1 is completed (lessons_completed > 0)
+//   Chapter N  — unlocked when Practice N-1 has a practice_sessions record
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -12,10 +14,10 @@ import { supabase } from '@/lib/supabase';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
 
 interface ChapterItem {
-  id:           string;
-  chapterNum:   number;
-  title:        string;
-  isUnlocked:   boolean;
+  id:         string;
+  chapterNum: number;
+  title:      string;
+  isUnlocked: boolean;
 }
 
 function LockIcon() {
@@ -49,14 +51,12 @@ function ChapterCard({ chapter, onPress }: { chapter: ChapterItem; onPress: () =
             {chapter.chapterNum}
           </span>
         </div>
-
         {!chapter.isUnlocked && (
           <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
             <LockIcon />
           </div>
         )}
       </button>
-
       <p className="text-[#4A2C0A] text-sm">
         <span className="font-black">Chapter {chapter.chapterNum}</span>
         {'  '}
@@ -68,34 +68,59 @@ function ChapterCard({ chapter, onPress }: { chapter: ChapterItem; onPress: () =
 
 const CHAPTERS_PER_PAGE = 5;
 
-export default function LessonsPage() {
+export default function PracticePage() {
   const router = useRouter();
-  const [chapters,     setChapters]     = useState<ChapterItem[]>([]);
-  const [loading,      setLoading]      = useState(true);
-  const [currentPage,  setCurrentPage]  = useState(0);
+  const [chapters,    setChapters]    = useState<ChapterItem[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [currentPage, setCurrentPage] = useState(0);
 
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/'); return; }
 
-      const [levelsRes, progressRes] = await Promise.all([
+      const [levelsRes, progressRes, sessionsRes] = await Promise.all([
         supabase.from('levels').select('level_id, level_name, level_order').order('level_order'),
-        supabase.from('user_progress').select('level_id, is_unlocked').eq('auth_user_id', user.id),
+        supabase
+          .from('user_progress')
+          .select('level_id, lessons_completed')
+          .eq('auth_user_id', user.id),
+        // Fetch all practice_sessions for this user to check which chapters are done
+        // NOTE: practice_sessions must have a level_id column for this to work
+        supabase
+          .from('practice_sessions')
+          .select('level_id')
+          .eq('auth_user_id', user.id),
       ]);
 
-      const unlockedIds = new Set(
-        progressRes.data?.filter((p) => p.is_unlocked).map((p) => p.level_id) ?? []
-      );
+      const levels        = levelsRes.data  ?? [];
+      const progress      = progressRes.data ?? [];
+      const doneSessions  = new Set((sessionsRes.data ?? []).map((s) => s.level_id));
 
-      setChapters(
-        (levelsRes.data ?? []).map((lvl, i) => ({
+      // Map level_id → lessons_completed
+      const progressMap = new Map(progress.map((p) => [p.level_id, p.lessons_completed ?? 0]));
+
+      const chapters: ChapterItem[] = levels.map((lvl, i) => {
+        let isUnlocked = false;
+
+        if (i === 0) {
+          // Chapter 1: unlocked when Lesson 1 is completed
+          isUnlocked = (progressMap.get(lvl.level_id) ?? 0) > 0;
+        } else {
+          // Chapter N: unlocked when Practice N-1 has a session
+          const prevLevelId = levels[i - 1].level_id;
+          isUnlocked = doneSessions.has(prevLevelId);
+        }
+
+        return {
           id:         lvl.level_id,
           chapterNum: i + 1,
           title:      lvl.level_name,
-          isUnlocked: unlockedIds.has(lvl.level_id),
-        }))
-      );
+          isUnlocked,
+        };
+      });
+
+      setChapters(chapters);
       setLoading(false);
     }
     init();
@@ -131,7 +156,6 @@ export default function LessonsPage() {
             <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
           </svg>
         </button>
-
         <button
           className="w-11 h-11 rounded-full bg-[#E8A87C] border-[3px] border-[#BF7B45] flex items-center justify-center shadow-md hover:scale-105 transition-transform"
           aria-label="Settings"
@@ -143,18 +167,18 @@ export default function LessonsPage() {
       {/* ── Title ────────────────────────────────────────────────── */}
       <div className="text-center mb-8">
         <h1
-          className="font-black text-[3rem] leading-tight"
+          className="font-black text-[2rem] leading-tight"
           style={{
             fontFamily:       'var(--font-spicy-rice)',
-            color:            '#2E7D1C',
-            WebkitTextStroke: '1.5px #1a4d10',
-            textShadow:       '2px 2px 0 #1a4d10',
+            color:            '#CC2200',
+            WebkitTextStroke: '1.5px #881500',
+            textShadow:       '2px 2px 0 #881500',
           }}
         >
-          Lessons
+          Practice
         </h1>
         <p className="text-[#4A2C0A] font-bold text-sm mt-1">
-          Watch and learn each FSL sign.
+          Show the signs — practice makes perfect!
         </p>
       </div>
 
@@ -173,7 +197,6 @@ export default function LessonsPage() {
             </button>
           </div>
         )}
-
         {hasNext && (
           <div className="absolute right-0 top-[38%] -translate-y-1/2 translate-x-5 z-10">
             <button
@@ -203,7 +226,7 @@ export default function LessonsPage() {
                       <ChapterCard
                         key={ch.id}
                         chapter={ch}
-                        onPress={() => router.push(`/dashboard/lessons/${ch.id}`)}
+                        onPress={() => router.push(`/dashboard/practice/${ch.id}`)}
                       />
                     ))}
                   </div>
@@ -213,7 +236,7 @@ export default function LessonsPage() {
                         <ChapterCard
                           key={ch.id}
                           chapter={ch}
-                          onPress={() => router.push(`/dashboard/lessons/${ch.id}`)}
+                          onPress={() => router.push(`/dashboard/practice/${ch.id}`)}
                         />
                       ))}
                     </div>
