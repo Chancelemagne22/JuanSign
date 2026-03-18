@@ -23,7 +23,7 @@ from mediapipe.tasks.python import vision as mp_vision
 
 # ── CONFIG — swap paths here for Colab vs local ───────────────────────────────
 # Local:
-INPUT_BASE  = "./unprocessed_input"
+INPUT_BASE  = "./unprocessed_input/"
 OUTPUT_BASE = "./processed_output/frame_extracted"
 MODEL_PATH       = "./hand_landmarker.task"    # path to MediaPipe HandLandmarker .task file
 FACE_MODEL_PATH  = "./blaze_face_short_range.tflite"   # path to MediaPipe FaceDetector model
@@ -40,7 +40,8 @@ PROGRESS_FILE = "./extraction_progress.txt"
 # ── CONSTANTS — do NOT change without updating all dependent files ─────────────
 TARGET_FRAMES = 32     # was 16 — must match fsl_dataset.py, train.py, main.py
 TARGET_SIZE   = 224    # pixels — must match all transform definitions
-HAND_PADDING  = 60     # pixels around detected hand bounding box
+HAND_PADDING      = 60   # pixels around detected hand bounding box
+LANDMARK_FEATURES = 63   # 21 hand landmarks × (x, y, z)
 
 SPLITS = ["training_data", "testing_data", "validation_data"]
 VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
@@ -209,6 +210,50 @@ def _compute_optical_flow(frames_bgr):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# LANDMARK EXTRACTION
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _extract_and_save_landmarks(clip_folder, hand_detector):
+    """
+    Run MediaPipe HandLandmarker on each saved JPG in clip_folder.
+    Saves landmarks.npy with shape [TARGET_FRAMES, LANDMARK_FEATURES] float32.
+    Zeros are written for frames where no hand is detected.
+    """
+    image_files = sorted(
+        f for f in os.listdir(clip_folder)
+        if f.startswith("frame") and f.endswith(".jpg")
+    )[:TARGET_FRAMES]
+
+    landmarks_seq = []
+    for fname in image_files:
+        img_path = os.path.join(clip_folder, fname)
+        frame_bgr = cv2.imread(img_path)
+        if frame_bgr is None:
+            landmarks_seq.append(np.zeros(LANDMARK_FEATURES, dtype=np.float32))
+            continue
+
+        rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        result = hand_detector.detect(mp_image)
+
+        if result.hand_landmarks:
+            lm = result.hand_landmarks[0]
+            coords = np.array([[pt.x, pt.y, pt.z] for pt in lm],
+                               dtype=np.float32).flatten()
+        else:
+            coords = np.zeros(LANDMARK_FEATURES, dtype=np.float32)
+
+        landmarks_seq.append(coords)
+
+    # Pad to exactly TARGET_FRAMES if fewer images were found
+    while len(landmarks_seq) < TARGET_FRAMES:
+        landmarks_seq.append(np.zeros(LANDMARK_FEATURES, dtype=np.float32))
+
+    landmarks_array = np.array(landmarks_seq[:TARGET_FRAMES], dtype=np.float32)
+    np.save(os.path.join(clip_folder, "landmarks.npy"), landmarks_array)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # MAIN EXTRACTION FUNCTION
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -216,7 +261,7 @@ def extract_and_resize_frames(video_path, output_folder, face_detector, hand_det
     """
     Extract TARGET_FRAMES from video_path, crop to hand region, blur faces,
     resize to TARGET_SIZE×TARGET_SIZE, save as JPEGs, then compute and save
-    optical flow as optical_flow.npy.
+    optical flow as optical_flow.npy and landmarks as landmarks.npy.
 
     Returns True on success, False on failure.
     """
@@ -278,6 +323,9 @@ def extract_and_resize_frames(video_path, output_folder, face_detector, hand_det
     flow_array = _compute_optical_flow(extracted_bgr)
     np.save(os.path.join(output_folder, "optical_flow.npy"), flow_array)
 
+    # 6. Extract and save hand landmarks from the saved JPEGs
+    _extract_and_save_landmarks(output_folder, hand_detector)
+
     return True
 
 
@@ -303,6 +351,7 @@ def _is_valid_clip_folder(folder_path):
     A clip folder is valid if it contains:
       - exactly TARGET_FRAMES .jpg files named frame0000 … frame(N-1)
       - optical_flow.npy with shape [TARGET_FRAMES, 2, TARGET_SIZE, TARGET_SIZE]
+      - landmarks.npy   with shape [TARGET_FRAMES, LANDMARK_FEATURES]
     """
     jpgs = sorted([
         f for f in os.listdir(folder_path)
@@ -311,16 +360,56 @@ def _is_valid_clip_folder(folder_path):
     if len(jpgs) != TARGET_FRAMES:
         return False
 
-    npy_path = os.path.join(folder_path, "optical_flow.npy")
-    if not os.path.exists(npy_path):
+    flow_path = os.path.join(folder_path, "optical_flow.npy")
+    if not os.path.exists(flow_path):
         return False
-
     try:
-        flow = np.load(npy_path, mmap_mode="r")
-        expected = (TARGET_FRAMES, 2, TARGET_SIZE, TARGET_SIZE)
-        return flow.shape == expected
+        flow = np.load(flow_path, mmap_mode="r")
+        if flow.shape != (TARGET_FRAMES, 2, TARGET_SIZE, TARGET_SIZE):
+            return False
     except Exception:
         return False
+
+    lm_path = os.path.join(folder_path, "landmarks.npy")
+    if not os.path.exists(lm_path):
+        return False
+    try:
+        lm = np.load(lm_path, mmap_mode="r")
+        return lm.shape == (TARGET_FRAMES, LANDMARK_FEATURES)
+    except Exception:
+        return False
+
+
+def _needs_landmarks_backfill(folder_path):
+    """
+    True when a clip has frames + optical_flow.npy but no valid landmarks.npy.
+    These clips only need landmark extraction — frames need not be re-extracted.
+    """
+    jpgs = [
+        f for f in os.listdir(folder_path)
+        if f.startswith("frame") and f.endswith(".jpg")
+    ]
+    if len(jpgs) != TARGET_FRAMES:
+        return False
+
+    flow_path = os.path.join(folder_path, "optical_flow.npy")
+    if not os.path.exists(flow_path):
+        return False
+    try:
+        flow = np.load(flow_path, mmap_mode="r")
+        if flow.shape != (TARGET_FRAMES, 2, TARGET_SIZE, TARGET_SIZE):
+            return False
+    except Exception:
+        return False
+
+    lm_path = os.path.join(folder_path, "landmarks.npy")
+    if not os.path.exists(lm_path):
+        return True
+    try:
+        lm = np.load(lm_path, mmap_mode="r")
+        return lm.shape != (TARGET_FRAMES, LANDMARK_FEATURES)
+    except Exception:
+        return True
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -329,8 +418,10 @@ def _is_valid_clip_folder(folder_path):
 
 def run_extraction():
     """
-    Walk all splits → letters → clips and extract frames + optical flow.
-    Skips clips already marked done. Deletes and re-extracts partial folders.
+    Walk all splits → letters → clips and extract frames + optical flow + landmarks.
+    Skips clips already marked done. Handles two resume scenarios:
+      - Clips with frames + flow but no landmarks → backfill landmarks only.
+      - Clips with partial/corrupt data → delete and re-extract everything.
     """
     completed = _load_progress()
 
@@ -338,9 +429,10 @@ def run_extraction():
     face_detector = _build_face_detector()
     hand_detector  = _build_hand_detector()
 
-    total_done = 0
-    total_skipped = 0
-    total_failed = 0
+    total_done       = 0
+    total_backfilled = 0
+    total_skipped    = 0
+    total_failed     = 0
 
     for split in SPLITS:
         split_input  = os.path.join(INPUT_BASE,  split)
@@ -365,26 +457,33 @@ def run_extraction():
             ])
 
             for video_file in videos:
-                clip_name    = os.path.splitext(video_file)[0]
-                clip_key     = f"{split}/{letter}/{clip_name}"
+                clip_name     = os.path.splitext(video_file)[0]
+                clip_key      = f"{split}/{letter}/{clip_name}"
                 output_folder = os.path.join(letter_output, clip_name)
-                video_path   = os.path.join(letter_input, video_file)
+                video_path    = os.path.join(letter_input, video_file)
 
                 # Skip if already successfully completed
                 if clip_key in completed:
                     total_skipped += 1
                     continue
 
-                # Delete partial output folder from a previous crashed run
                 if os.path.exists(output_folder):
-                    if not _is_valid_clip_folder(output_folder):
-                        import shutil
-                        shutil.rmtree(output_folder)
-                    else:
-                        # Folder is already valid — mark done and skip
+                    if _is_valid_clip_folder(output_folder):
+                        # Fully complete (frames + flow + landmarks) — mark and skip
                         _mark_done(clip_key)
                         total_skipped += 1
                         continue
+                    elif _needs_landmarks_backfill(output_folder):
+                        # Frames + flow already exist — only add landmarks
+                        print(f"  Backfilling landmarks: {clip_key}")
+                        _extract_and_save_landmarks(output_folder, hand_detector)
+                        _mark_done(clip_key)
+                        total_backfilled += 1
+                        continue
+                    else:
+                        # Partial or corrupt — delete and re-extract from scratch
+                        import shutil
+                        shutil.rmtree(output_folder)
 
                 print(f"  Extracting: {clip_key}")
                 success = extract_and_resize_frames(
@@ -398,9 +497,10 @@ def run_extraction():
                     total_failed += 1
 
     print(f"\n── Extraction complete ──")
-    print(f"  Extracted : {total_done}")
-    print(f"  Skipped   : {total_skipped}")
-    print(f"  Failed    : {total_failed}")
+    print(f"  Extracted  : {total_done}")
+    print(f"  Backfilled : {total_backfilled}")
+    print(f"  Skipped    : {total_skipped}")
+    print(f"  Failed     : {total_failed}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

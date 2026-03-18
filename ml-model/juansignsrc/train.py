@@ -55,11 +55,6 @@ EARLY_STOP_PATIENCE = 5      # stop if val_loss doesn't improve for 5 epochs
 LR_PATIENCE         = 3      # halve LR after 3 epochs of no val_loss improvement
 LR_FACTOR           = 0.5
 
-# ── Landmark stream ───────────────────────────────────────────────────────────
-# Set False only if MediaPipe is too slow for your hardware during development.
-# Must be True for final training — the architecture expects landmarks.
-USE_LANDMARKS = True
-
 # ── Reproducibility ───────────────────────────────────────────────────────────
 SEED = 42
 
@@ -94,19 +89,16 @@ def get_device():
 
 def build_dataloaders():
     train_ds = FSLDataset(
-        root_dir      = os.path.join(FRAME_ROOT, "training_data"),
-        augment       = True,
-        use_landmarks = USE_LANDMARKS,
+        root_dir = os.path.join(FRAME_ROOT, "training_data"),
+        augment  = True,
     )
     val_ds = FSLDataset(
-        root_dir      = os.path.join(FRAME_ROOT, "validation_data"),
-        augment       = False,
-        use_landmarks = USE_LANDMARKS,
+        root_dir = os.path.join(FRAME_ROOT, "validation_data"),
+        augment  = False,
     )
     test_ds = FSLDataset(
-        root_dir      = os.path.join(FRAME_ROOT, "testing_data"),
-        augment       = False,
-        use_landmarks = USE_LANDMARKS,
+        root_dir = os.path.join(FRAME_ROOT, "testing_data"),
+        augment  = False,
     )
 
     # Verify class alignment — FSLDataset derives classes from sorted folder names.

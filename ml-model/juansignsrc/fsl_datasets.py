@@ -15,6 +15,7 @@
 # Depends on frame_extractor.py having already produced:
 #   <clip_folder>/frame0000.jpg … frame0031.jpg
 #   <clip_folder>/optical_flow.npy   shape [32, 2, 224, 224]
+#   <clip_folder>/landmarks.npy      shape [32, 63]
 
 import os
 import numpy as np
@@ -25,22 +26,12 @@ from torch.utils.data import Dataset
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as TF
 
-import mediapipe as mp
-from mediapipe.tasks import python as mp_python
-from mediapipe.tasks.python import vision as mp_vision
-
 # ── CONSTANTS — must match frame_extractor.py and resnet_lstm_architecture.py ─
 TARGET_FRAMES    = 32
 TARGET_SIZE      = 224
 NUM_LANDMARKS    = 21
 LANDMARK_DIMS    = 3    # x, y, z per landmark
 LANDMARK_FEATURE = NUM_LANDMARKS * LANDMARK_DIMS   # 63
-
-# ── MediaPipe model path — update if different on your machine / Colab ─────────
-# Local:
-HAND_MODEL_PATH = "./hand_landmarker.task"
-# Colab:
-# HAND_MODEL_PATH = "/content/drive/MyDrive/JuanSign/hand_landmarker.task"
 
 # ── ImageNet normalisation stats — must match all transform definitions ────────
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
@@ -51,56 +42,6 @@ IMAGENET_STD  = [0.229, 0.224, 0.225]
 # We normalise them to approximately [-1, 1] using a fixed scale factor.
 # This keeps flow on a similar scale to the RGB channels after ImageNet norm.
 FLOW_NORM_SCALE = 30.0
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# LANDMARK EXTRACTOR  (one shared instance per dataset)
-# ══════════════════════════════════════════════════════════════════════════════
-
-def _build_hand_detector():
-    """
-    Builds a MediaPipe HandLandmarker for landmark extraction at dataset load
-    time. Using num_hands=1 here because we only need the signing hand and
-    speed matters more than completeness when loading batches.
-    """
-    base_options = mp_python.BaseOptions(model_asset_path=HAND_MODEL_PATH)
-    options = mp_vision.HandLandmarkerOptions(
-        base_options=base_options,
-        num_hands=1,
-        min_hand_detection_confidence=0.3,
-        min_hand_presence_confidence=0.3,
-        min_tracking_confidence=0.3,
-    )
-    return mp_vision.HandLandmarker.create_from_options(options)
-
-
-def _extract_landmarks_from_frame(pil_image, hand_detector):
-    """
-    Run MediaPipe HandLandmarker on a single PIL image.
-
-    Returns:
-        numpy array of shape [63] — flattened (x, y, z) for 21 landmarks.
-        All zeros if no hand is detected.
-
-    Note:
-        Coordinates are normalised to [0, 1] by MediaPipe relative to the
-        image dimensions. z is relative depth — negative means closer to
-        the camera than the wrist.
-    """
-    rgb_array = np.array(pil_image.convert("RGB"), dtype=np.uint8)
-    mp_image  = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_array)
-    result    = hand_detector.detect(mp_image)
-
-    if not result.hand_landmarks:
-        return np.zeros(LANDMARK_FEATURE, dtype=np.float32)
-
-    # Take the first detected hand only
-    landmarks = result.hand_landmarks[0]
-    coords = []
-    for lm in landmarks:
-        coords.extend([lm.x, lm.y, lm.z])
-
-    return np.array(coords, dtype=np.float32)   # shape [63]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -150,26 +91,23 @@ class FSLDataset(Dataset):
     Loads JuanSign clip folders produced by frame_extractor.py.
 
     Arguments:
-        root_dir   : path to a split folder, e.g.
-                     "processed_output/frame_extracted/training_data"
-                     Expected structure:
-                       root_dir/<letter>/<clip_name>/frame0000.jpg
-                       root_dir/<letter>/<clip_name>/optical_flow.npy
-        augment    : apply training augmentations to RGB channels
-        use_landmarks : whether to extract landmarks on the fly
-                        Set False to disable for speed if you're not using
-                        the landmark stream yet.
+        root_dir : path to a split folder, e.g.
+                   "processed_output/frame_extracted/training_data"
+                   Expected structure:
+                     root_dir/<letter>/<clip_name>/frame0000.jpg
+                     root_dir/<letter>/<clip_name>/optical_flow.npy
+                     root_dir/<letter>/<clip_name>/landmarks.npy
+        augment  : apply training augmentations to RGB channels
 
     Returns per item:
         frames    : [32, 5, 224, 224]  float32  (channels: RGB + Δx + Δy)
-        landmarks : [32, 63]           float32  (zeros if use_landmarks=False)
+        landmarks : [32, 63]           float32
         label     : int64 scalar
     """
 
-    def __init__(self, root_dir, augment=False, use_landmarks=True):
+    def __init__(self, root_dir, augment=False):
         self.root_dir      = root_dir
         self.augment       = augment
-        self.use_landmarks = use_landmarks
         self.rgb_transform = _build_rgb_transform(augment)
 
         # Class list — always sorted so indices are deterministic
@@ -197,20 +135,15 @@ class FSLDataset(Dataset):
                 else:
                     print(f"[WARN] Skipping incomplete clip: {clip_path}")
 
-        # Build MediaPipe hand detector once (shared across all __getitem__ calls)
-        if self.use_landmarks:
-            self._hand_detector = _build_hand_detector()
-
         print(f"FSLDataset loaded: {root_dir}")
         print(f"  Classes  : {self.classes}")
         print(f"  Samples  : {len(self.samples)}")
         print(f"  Augment  : {augment}")
-        print(f"  Landmarks: {use_landmarks}")
 
     # ── Validation ────────────────────────────────────────────────────────────
 
     def _is_valid_clip(self, clip_path):
-        """Check clip has TARGET_FRAMES jpgs and a correctly shaped flow file."""
+        """Check clip has TARGET_FRAMES jpgs, correctly shaped flow, and landmarks."""
         jpgs = [
             f for f in os.listdir(clip_path)
             if f.startswith("frame") and f.endswith(".jpg")
@@ -218,13 +151,22 @@ class FSLDataset(Dataset):
         if len(jpgs) != TARGET_FRAMES:
             return False
 
-        npy_path = os.path.join(clip_path, "optical_flow.npy")
-        if not os.path.exists(npy_path):
+        flow_path = os.path.join(clip_path, "optical_flow.npy")
+        if not os.path.exists(flow_path):
+            return False
+        try:
+            flow = np.load(flow_path, mmap_mode="r")
+            if flow.shape != (TARGET_FRAMES, 2, TARGET_SIZE, TARGET_SIZE):
+                return False
+        except Exception:
             return False
 
+        lm_path = os.path.join(clip_path, "landmarks.npy")
+        if not os.path.exists(lm_path):
+            return False
         try:
-            flow = np.load(npy_path, mmap_mode="r")
-            return flow.shape == (TARGET_FRAMES, 2, TARGET_SIZE, TARGET_SIZE)
+            lm = np.load(lm_path, mmap_mode="r")
+            return lm.shape == (TARGET_FRAMES, LANDMARK_FEATURE)
         except Exception:
             return False
 
@@ -268,17 +210,10 @@ class FSLDataset(Dataset):
         # 5. Concatenate RGB + flow along channel dimension → [32, 5, 224, 224]
         frames = torch.cat([rgb_tensors, flow_tensors], dim=1)
 
-        # 6. Extract landmarks per frame → [32, 63]
-        if self.use_landmarks:
-            landmark_list = [
-                _extract_landmarks_from_frame(pil_frames[i], self._hand_detector)
-                for i in range(TARGET_FRAMES)
-            ]
-            landmarks = torch.from_numpy(
-                np.stack(landmark_list, axis=0)
-            ).float()   # [32, 63]
-        else:
-            landmarks = torch.zeros(TARGET_FRAMES, LANDMARK_FEATURE)
+        # 6. Load pre-extracted landmarks from disk → [32, 63]
+        landmarks = torch.from_numpy(
+            np.load(os.path.join(clip_path, "landmarks.npy"))
+        ).float()   # [32, 63]
 
         return frames, landmarks, torch.tensor(label, dtype=torch.long)
 
@@ -335,7 +270,7 @@ if __name__ == "__main__":
         "./processed_output/frame_extracted/training_data"
 
     print(f"\nRunning sanity check on: {root}\n")
-    ds = FSLDataset(root, augment=False, use_landmarks=True)
+    ds = FSLDataset(root, augment=False)
 
     if len(ds) == 0:
         print("Dataset is empty — check your root_dir path.")
