@@ -29,7 +29,9 @@ from resnet_lstm_architecture import ResNetLSTM
 # ── Class names — update this when you add more letters ──────────────────────
 # Order MUST be alphabetical — matches sorted(os.listdir()) in FSLDataset.
 # Set NUM_CLASSES to len(CLASS_NAMES).
-CLASS_NAMES = ["A", "B", "C", "G", "H"]    # current 5-class checkpoint
+CLASS_NAMES = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", 
+               "K", "L", "M", "N", "N~", "O", "P", "Q", "R", "S", 
+               "T", "U", "V", "W", "X", "Y", "Z"]    # current 5-class checkpoint
 NUM_CLASSES = len(CLASS_NAMES)              # 5
 
 # ── Paths — swap comment blocks for Colab vs local ───────────────────────────
