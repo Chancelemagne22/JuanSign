@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
     // If no filter applied, also include levels that only have practice data
     const levelIds =
       levelId === 'all'
-        ? [...new Set([...levelGroups.keys(), ...(levels ?? []).map((l) => l.id)])]
+        ? [...new Set([...levelGroups.keys(), ...(levels ?? []).map((l) => l.level_id)])]
         : [levelId]
 
     const levelPerformance: LevelPerformanceRow[] = levelIds
