@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import WoodArc from '@/public/images/svgs/arc.svg';
 import { supabase } from '@/lib/supabase';
 import type { UserData } from '@/types/user';
@@ -22,9 +23,11 @@ interface Props {
   onClose: () => void;
   onLogin: (user: UserData) => void;
   onSignupClick: () => void;
+  onForgotPasswordClick?: () => void;
 }
 
-export default function LoginModal({ onClose, onLogin, onSignupClick }: Props) {
+export default function LoginModal({ onClose, onLogin, onSignupClick, onForgotPasswordClick }: Props) {
+  const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPw,   setShowPw]   = useState(false);
@@ -81,11 +84,12 @@ export default function LoginModal({ onClose, onLogin, onSignupClick }: Props) {
     // Completion rate = unlocked levels / total levels * 100
     const { count: totalLevels } = await supabase
       .from('levels')
-      .select('id', { count: 'exact', head: true });
+      .select('level_id', { count: 'exact', head: true });
     const completionRate = totalLevels
       ? Math.round((unlocked / totalLevels) * 100)
       : 0;
 
+    
     onLogin({
       username:       profile?.username ?? authUser.user_metadata?.username ?? authUser.email ?? '',
       password:       '',
@@ -104,12 +108,17 @@ export default function LoginModal({ onClose, onLogin, onSignupClick }: Props) {
     >
       {/* ── Card ─────────────────────────────────────────────────── */}
       <div
-        className="relative w-full max-w-[375px] min-h-[482px] rounded-[38px]"
-        style={{ backgroundImage: "url('/images/svgs/banner.svg')", backgroundSize: '100% 100%' }}
+        className="modal-responsive-sm rounded-[38px]"
+        style={{ backgroundImage: "url('/images/svgs/banner.svg')", 
+          backgroundSize: 'contain',        // or 'contain'
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+          
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Arc.svg — "LOGIN" sign ───────────────────────────── */}
-        <div className="absolute -top-[45px] left-1/2 -translate-x-1/2 w-[80%] z-20">
+        <div className="absolute top-[100px] left-1/2 -translate-x-1/2 w-[20%] z-20">
           <div className="relative">
             <Image
               src={WoodArc}
@@ -122,7 +131,7 @@ export default function LoginModal({ onClose, onLogin, onSignupClick }: Props) {
             {/* Text centred on the wooden plank portion of the arc */}
             <div className="absolute inset-0 flex items-center justify-center pb-6">
               <p
-                className="text-white font-black uppercase tracking-[0.18em] text-[1.35rem] leading-none"
+                className="text-white font-black uppercase tracking-[0.18em] text-[clamp(1rem,3vw,1.35rem)] leading-none"
                 style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
               >
                 LOGIN
@@ -132,7 +141,7 @@ export default function LoginModal({ onClose, onLogin, onSignupClick }: Props) {
         </div>
 
         {/* ── Form body ────────────────────────────────────────── */}
-        <div className="relative z-10 pt-14 pb-5 px-8">
+        <div className="relative z-10 pt-40 pb-5 px-responsive-md -mt-20">
 
           {/* Username */}
           <label className="block text-[#7B3F00] font-bold text-[0.95rem] mb-1.5">
@@ -145,7 +154,7 @@ export default function LoginModal({ onClose, onLogin, onSignupClick }: Props) {
             onChange={(e) => setUsername(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
             disabled={loading}
-            className="w-full rounded-full bg-[#D4956A] placeholder-[#A86040] text-[#5D3A1A] font-medium px-5 py-3 mb-4 outline-none focus:ring-2 focus:ring-[#7B3F00]/40 text-sm disabled:opacity-60"
+            className="w-full rounded-full bg-[#D4956A] placeholder-[#A86040] text-[#5D3A1A] font-medium px-5 py-3 mb-4 outline-none focus:ring-2 focus:ring-[#7B3F00]/40 text-sm md:text-base disabled:opacity-60"
           />
 
           {/* Password */}
@@ -160,7 +169,7 @@ export default function LoginModal({ onClose, onLogin, onSignupClick }: Props) {
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
               disabled={loading}
-              className="w-full rounded-full bg-[#D4956A] placeholder-[#A86040] text-[#5D3A1A] font-medium px-5 py-3 pr-12 outline-none focus:ring-2 focus:ring-[#7B3F00]/40 text-sm disabled:opacity-60"
+              className="w-full rounded-full bg-[#D4956A] placeholder-[#A86040] text-[#5D3A1A] font-medium px-5 py-3 pr-12 outline-none focus:ring-2 focus:ring-[#7B3F00]/40 text-sm md:text-base disabled:opacity-60"
             />
             <button
               type="button"
@@ -187,13 +196,23 @@ export default function LoginModal({ onClose, onLogin, onSignupClick }: Props) {
               disabled={loading}
               className="
                 bg-[#2E8B2E] hover:bg-[#329932] text-white font-black uppercase
-                tracking-widest text-xl px-16 py-3 rounded-full
-                shadow-[0_6px_0_#1a5c1a]
-                active:shadow-[0_2px_0_#1a5c1a] active:translate-y-1
+                tracking-widest text-lg md:text-xl px-10 md:px-20 py-3 rounded-full
+                shadow-[0_6px_0_#1a5c1a,0_8px_16px_rgba(0,0,0,0.3)]
+                active:shadow-[0_2px_0_#1a5c1a,0_4px_8px_rgba(0,0,0,0.2)] active:translate-y-1
                 transition-all disabled:opacity-60 disabled:cursor-not-allowed
               "
             >
               {loading ? 'LOGGING IN...' : 'LOGIN'}
+            </button>
+          </div>
+
+          {/* Forgot Password link */}
+          <div className="text-center mb-2">
+            <button
+              onClick={onForgotPasswordClick}
+              className="text-[#7B3F00] font-semibold text-sm hover:text-[#5D3A1A] underline transition-colors"
+            >
+              Forgot your password?
             </button>
           </div>
 
@@ -205,11 +224,19 @@ export default function LoginModal({ onClose, onLogin, onSignupClick }: Props) {
         Don&apos;t have an Account?{' '}
         <button
           onClick={onSignupClick}
-          className="text-green-400 underline font-bold hover:text-green-300 transition-colors"
+          className="text-[#2E8B2E] underline font-bold hover:text-[#1a5c1a] transition-colors"
         >
           Signup.
         </button>
       </p>
+
+      {/* ── Admin access ─────────────────────────────────────────── */}
+      <button
+        onClick={() => { onClose(); router.push('/admin/login'); }}
+        className="mt-2 text-[#c8a96e] text-xs font-semibold hover:text-white transition-colors opacity-70 hover:opacity-100"
+      >
+        Admin Access
+      </button>
     </div>
   );
 }

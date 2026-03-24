@@ -149,9 +149,9 @@ def _load_clip(clip_path):
 
 if __name__ == "__main__":
     # --- CONFIGURATION ---
-    MODEL_PATH = "../juansignmodel/juansign_model.pth"
-    CLIP_PATH  = "../processed_output/frame_extracted/validation_data/A/clip001"
-    OUTPUT_PATH = "../visualization_output/gradcam_output.png"
+    MODEL_PATH = "./juansignmodel/juansign_model.pth"
+    CLIP_PATH  = "./processed_output/frame_extracted/validation_data/A/clip001"
+    OUTPUT_PATH = "./visualization_output/gradcam_output.png"
     DISPLAY_FRAME_IDX = 15   # which frame (0–31) to use for the overlay image
 
     # 1. Device

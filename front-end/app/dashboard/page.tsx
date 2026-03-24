@@ -9,10 +9,12 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
+import ChangePasswordModal from '@/components/profile/ChangePasswordModal';
 
 export default function Dashboard() {
   const router = useRouter();
   const [displayName, setDisplayName] = useState('');
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -52,6 +54,7 @@ export default function Dashboard() {
         </button>
 
         <button
+          onClick={() => setShowChangePassword(true)}
           className="w-11 h-11 rounded-full bg-[#E8A87C] border-[3px] border-[#BF7B45] flex items-center justify-center shadow-md hover:scale-105 transition-transform"
           aria-label="Settings"
         >
@@ -62,7 +65,7 @@ export default function Dashboard() {
       {/* ── Welcome heading ───────────────────────────────────────── */}
       <div className="text-center mb-14">
         <h1
-          className="font-black text-[5rem] leading-tight"
+          className="heading-xl"
           style={{
             fontFamily:       'var(--font-spicy-rice)',
             color:            '#2E7D1C',
@@ -72,13 +75,13 @@ export default function Dashboard() {
         >
           Welcome back, {displayName}!
         </h1>
-        <p className="text-[#4A2C0A] font-bold text-base mt-">
+        <p className="text-[#4A2C0A] font-bold text-base mt-2">
           What would you like to do today?
         </p>
       </div>
 
       {/* ── Mode buttons ──────────────────────────────────────────── */}
-      <div className="flex flex-col gap-5 max-w-sm mx-auto">
+      <div className="flex flex-col gap-5 max-w-sm mx-auto px-4 sm:px-0">
         {modes.map(({ label, path }) => (
           <button
             key={label}
@@ -86,7 +89,7 @@ export default function Dashboard() {
             className="
               w-full py-5 rounded-full
               bg-[#E8A87C] border-[4px] border-[#BF7B45]
-              text-[#4A2C0A] font-black text-4xl
+              text-[#4A2C0A] font-black text-2xl sm:text-3xl lg:text-4xl
               shadow-[0_6px_0_#8B6040]
               active:translate-y-1 active:shadow-[0_1px_0_#8B6040]
               transition-transform hover:brightness-90
@@ -97,6 +100,14 @@ export default function Dashboard() {
           </button>
         ))}
       </div>
+
+      {/* ── Change Password Modal ──────────────────────────────────── */}
+      {showChangePassword && (
+        <ChangePasswordModal
+          onClose={() => setShowChangePassword(false)}
+          onSuccess={() => setShowChangePassword(false)}
+        />
+      )}
 
     </div>
   );

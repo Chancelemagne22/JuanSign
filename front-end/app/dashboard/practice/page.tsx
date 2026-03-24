@@ -18,6 +18,7 @@ interface ChapterItem {
   chapterNum: number;
   title:      string;
   isUnlocked: boolean;
+  hasContent: boolean;
 }
 
 function LockIcon() {
@@ -56,6 +57,11 @@ function ChapterCard({ chapter, onPress }: { chapter: ChapterItem; onPress: () =
             <LockIcon />
           </div>
         )}
+        {chapter.isUnlocked && !chapter.hasContent && (
+          <div className="absolute top-2 right-2 bg-amber-400 rounded-full w-6 h-6 flex items-center justify-center text-xs">
+            🚧
+          </div>
+        )}
       </button>
       <p className="text-[#4A2C0A] text-sm">
         <span className="font-black">Chapter {chapter.chapterNum}</span>
@@ -79,23 +85,26 @@ export default function PracticePage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/'); return; }
 
-      const [levelsRes, progressRes, sessionsRes] = await Promise.all([
+      const [levelsRes, progressRes, sessionsRes, contentRes] = await Promise.all([
         supabase.from('levels').select('level_id, level_name, level_order').order('level_order'),
         supabase
           .from('user_progress')
           .select('level_id, lessons_completed')
           .eq('auth_user_id', user.id),
-        // Fetch all practice_sessions for this user to check which chapters are done
-        // NOTE: practice_sessions must have a level_id column for this to work
         supabase
           .from('practice_sessions')
           .select('level_id')
           .eq('auth_user_id', user.id),
+        supabase
+          .from('practice_questions')
+          .select('level_id')
+          .eq('question_type', 'perform'),
       ]);
 
       const levels        = levelsRes.data  ?? [];
       const progress      = progressRes.data ?? [];
       const doneSessions  = new Set((sessionsRes.data ?? []).map((s) => s.level_id));
+      const levelsWithContent = new Set((contentRes.data ?? []).map((q) => q.level_id));
 
       // Map level_id → lessons_completed
       const progressMap = new Map(progress.map((p) => [p.level_id, p.lessons_completed ?? 0]));
@@ -104,10 +113,8 @@ export default function PracticePage() {
         let isUnlocked = false;
 
         if (i === 0) {
-          // Chapter 1: unlocked when Lesson 1 is completed
           isUnlocked = (progressMap.get(lvl.level_id) ?? 0) > 0;
         } else {
-          // Chapter N: unlocked when Practice N-1 has a session
           const prevLevelId = levels[i - 1].level_id;
           isUnlocked = doneSessions.has(prevLevelId);
         }
@@ -117,6 +124,7 @@ export default function PracticePage() {
           chapterNum: i + 1,
           title:      lvl.level_name,
           isUnlocked,
+          hasContent: levelsWithContent.has(lvl.level_id),
         };
       });
 

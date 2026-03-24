@@ -47,6 +47,31 @@ export default function WelcomeButtons({ onGetStarted , onLogin, onSettings, sel
 
   return (
     <>
+      {/* ── Get Started button ── */}
+      <button onClick={onGetStarted} className="btn-get-started">
+        {t.getStarted}
+      </button>
+
+      {/* ── I already have an Account button ── */}
+      <button onClick={onLogin} className="btn-have-account">
+        {t.haveAccount}
+      </button>
+    </>
+  );
+}
+
+export function ControlsCluster({ onSettings, selectedLang, setSelectedLang }: Omit<WelcomeButtonsProps, 'onGetStarted' | 'onLogin'>) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const handleLangSelect = (lang: Language) => {
+    setSelectedLang(lang);
+    setDropdownOpen(false);
+  };
+
+  const t = TRANSLATIONS[selectedLang] || TRANSLATIONS["English"];
+
+  return (
+    <>
       {/* ── Top-right cluster: Language Dropdown + Settings button ── */}
       <div className="controls-cluster">
 
@@ -87,16 +112,6 @@ export default function WelcomeButtons({ onGetStarted , onLogin, onSettings, sel
           <Image src={GearIcon} alt="Settings" className="settings-icon" />
         </button>
       </div>
-
-      {/* ── Get Started button ── */}
-      <button onClick={onGetStarted} className="btn-get-started">
-        {t.getStarted}
-      </button>
-
-      {/* ── I already have an Account button ── */}
-      <button onClick={onLogin} className="btn-have-account">
-        {t.haveAccount}
-      </button>
     </>
   );
 }

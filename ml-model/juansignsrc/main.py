@@ -48,12 +48,18 @@ image = (
         "numpy==1.26.4",
         "supabase==2.4.2",
         "Pillow==10.2.0",
+        "fastapi",        # ← removed [standard]
+        "python-multipart",
+        "uvicorn",
     )
-    # Download MediaPipe hand landmark model at image build time
+    .apt_install(["curl", "libgl1", "libglib2.0-0"])
     .run_commands(
-        "wget -q -O /hand_landmarker.task "
+        "curl -fsSL -o /hand_landmarker.task "
         "https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
-        "hand_landmarker/float16/1/hand_landmarker.task"
+        "hand_landmarker/float16/1/hand_landmarker.task",
+        "curl -fsSL -o /face_detector.tflite "
+        "https://storage.googleapis.com/mediapipe-models/face_detector/"
+        "blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
     )
 )
 
@@ -88,10 +94,9 @@ IMAGENET_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 # Sliding window inference
 WINDOW_STRIDE       = 8      # new window every 8 frames (~4 inferences / 32 frames)
 CONFIDENCE_THRESHOLD = 0.70  # only accept predictions above 70% confidence
-
-MODEL_PATH = "/model-weights/juansign_model.pth"
+MODEL_PATH = "/model-weights/model/juansign_model.pth"
 HAND_MODEL = "/hand_landmarker.task"
-
+FACE_MODEL = "/face_detector.tflite"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ARCHITECTURE  (inlined — does not import from src/)
@@ -187,7 +192,6 @@ class ResNetLSTM(nn.Module):
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _build_mediapipe():
-    """Build and return (face_detector, hand_detector) using the Task API."""
     import mediapipe as mp
     from mediapipe.tasks import python as mp_python
     from mediapipe.tasks.python import vision as mp_vision
@@ -202,7 +206,7 @@ def _build_mediapipe():
     hand_detector = mp_vision.HandLandmarker.create_from_options(hand_opts)
 
     face_opts = mp_vision.FaceDetectorOptions(
-        base_options = mp_python.BaseOptions(model_asset_path=HAND_MODEL),
+        base_options = mp_python.BaseOptions(model_asset_path=FACE_MODEL),  # ← fixed
         min_detection_confidence = 0.4,
     )
     face_detector = mp_vision.FaceDetector.create_from_options(face_opts)
@@ -441,13 +445,28 @@ def _build_model(checkpoint_path, device):
     Load the full checkpoint saved by train.py.
     Reads num_classes and class_names directly from the checkpoint dict
     so main.py never needs a hardcoded CLASS_NAMES list.
+
+    Also handles legacy checkpoints saved as a raw state_dict (no metadata keys).
+    In that case, num_classes is inferred from the FC layer weight shape.
     """
-    checkpoint  = torch.load(checkpoint_path, map_location=device)
-    num_classes = checkpoint["num_classes"]
-    class_names = checkpoint["class_names"]
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+
+    if isinstance(checkpoint, dict) and "model_state" in checkpoint:
+        # New format — full checkpoint dict from train.py
+        num_classes = checkpoint["num_classes"]
+        class_names = checkpoint["class_names"]
+        state_dict  = checkpoint["model_state"]
+    else:
+        # Legacy format — raw state_dict only
+        state_dict  = checkpoint
+        num_classes = state_dict["fc.weight"].shape[0]
+        class_names = [str(i) for i in range(num_classes)]
+        print(f"[Model] WARNING: legacy checkpoint detected — no class_names metadata. "
+              f"Upload new checkpoint via: modal volume put juansign-model-vol "
+              f"<path>/juansign_model.pth /model/juansign_model.pth")
 
     model = ResNetLSTM(num_classes=num_classes).to(device)
-    model.load_state_dict(checkpoint["model_state"])
+    model.load_state_dict(state_dict)
     model.eval()
 
     print(f"[Model] Loaded checkpoint from {checkpoint_path}")
@@ -464,6 +483,7 @@ def _build_model(checkpoint_path, device):
     image   = image,
     gpu     = "T4",
     volumes = {"/model-weights": model_volume},
+    secrets  = [modal.Secret.from_name("juansign-secret")],
     timeout = 120,
 )
 class JuanSignInference:
@@ -475,6 +495,10 @@ class JuanSignInference:
         Loads model weights and MediaPipe detectors into memory.
         Subsequent requests reuse these — no reload cost.
         """
+        # Reload ensures the container sees the latest volume contents.
+        # Without this, Modal may serve a stale (or empty) view of the volume.
+        model_volume.reload()
+
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"[Load] Device: {self.device}")
 
@@ -506,7 +530,7 @@ class JuanSignInference:
 
         # ── Auth ──────────────────────────────────────────────────────────────
         supabase_url = os.environ["SUPABASE_URL"]
-        supabase_key = os.environ["SUPABASE_KEY"]
+        supabase_key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
         supabase     = create_client(supabase_url, supabase_key)
 
         try:

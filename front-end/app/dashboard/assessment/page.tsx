@@ -16,6 +16,7 @@ interface ChapterItem {
   chapterNum: number;
   title:      string;
   isUnlocked: boolean;
+  hasContent: boolean;
 }
 
 function LockIcon() {
@@ -54,6 +55,11 @@ function ChapterCard({ chapter, onPress }: { chapter: ChapterItem; onPress: () =
             <LockIcon />
           </div>
         )}
+        {chapter.isUnlocked && !chapter.hasContent && (
+          <div className="absolute top-2 right-2 bg-amber-400 rounded-full w-6 h-6 flex items-center justify-center text-xs">
+            🚧
+          </div>
+        )}
       </button>
       <p className="text-[#4A2C0A] text-sm">
         <span className="font-black">Chapter {chapter.chapterNum}</span>
@@ -77,17 +83,19 @@ export default function AssessmentPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/'); return; }
 
-      const [levelsRes, sessionsRes] = await Promise.all([
+      const [levelsRes, sessionsRes, contentRes] = await Promise.all([
         supabase.from('levels').select('level_id, level_name, level_order').order('level_order'),
-        // Assessment N is unlocked when practice_sessions exists for level N
         supabase
           .from('practice_sessions')
           .select('level_id')
           .eq('auth_user_id', user.id),
+        supabase
+          .from('assessment_questions')
+          .select('level_id'),
       ]);
 
-      const practiceDone = new Set((sessionsRes.data ?? []).map((s) => s.level_id));
-      
+      const practiceDone      = new Set((sessionsRes.data ?? []).map((s) => s.level_id));
+      const levelsWithContent = new Set((contentRes.data ?? []).map((q) => q.level_id));
 
       setChapters(
         (levelsRes.data ?? []).map((lvl, i) => ({
@@ -95,6 +103,7 @@ export default function AssessmentPage() {
           chapterNum: i + 1,
           title:      lvl.level_name,
           isUnlocked: practiceDone.has(lvl.level_id),
+          hasContent: levelsWithContent.has(lvl.level_id),
         }))
       );
       setLoading(false);

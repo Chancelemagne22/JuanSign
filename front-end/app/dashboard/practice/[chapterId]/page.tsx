@@ -3,17 +3,30 @@
 // PAGE: Practice Chapter
 // ROUTE: /dashboard/practice/[chapterId]
 //
-// Cycles through each letter/sign in the chapter using PracticeView (webcam recording).
-// Each letter's ML accuracy is collected via onResult(); the average is stored
-// in practice_sessions when the chapter is finished.
+// Cycles through all practice_questions for the chapter.
+//   - "identify" type → IdentifyView (multiple choice, no timer)
+//   - "perform"  type → PracticeView (webcam, no timer)
+// Average accuracy is stored in practice_sessions when the chapter is finished.
 
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import PracticeView from '@/components/module/PracticeView';
+import PracticeView  from '@/components/module/PracticeView';
+import IdentifyView  from '@/components/module/IdentifyView';
 
-interface LetterUnit {
-  label: string;
+interface QuestionUnit {
+  id:            string;
+  type:          'identify' | 'perform';
+  // perform
+  targetSign:    string;
+  // identify
+  questionText:  string;
+  videoUrl:      string | null;
+  optionA:       string;
+  optionB:       string;
+  optionC:       string;
+  optionD:       string;
+  correctAnswer: string;
 }
 
 interface LevelMeta {
@@ -22,15 +35,14 @@ interface LevelMeta {
 }
 
 export default function PracticeChapterPage() {
-  const router              = useRouter();
-  const { chapterId }       = useParams<{ chapterId: string }>();
+  const router          = useRouter();
+  const { chapterId }   = useParams<{ chapterId: string }>();
 
-  const [letters,     setLetters]     = useState<LetterUnit[]>([]);
-  const [levelMeta,   setLevelMeta]   = useState<LevelMeta | null>(null);
-  const [letterIndex, setLetterIndex] = useState(0);
-  const [loading,     setLoading]     = useState(true);
+  const [questions,    setQuestions]    = useState<QuestionUnit[]>([]);
+  const [levelMeta,    setLevelMeta]    = useState<LevelMeta | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [loading,      setLoading]      = useState(true);
 
-  // Collect per-letter accuracy scores returned by Modal
   const accuracyScores = useRef<number[]>([]);
 
   useEffect(() => {
@@ -38,23 +50,36 @@ export default function PracticeChapterPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/'); return; }
 
-      const [levelRes, lessonsRes] = await Promise.all([
+      const [levelRes, questionsRes] = await Promise.all([
         supabase
           .from('levels')
           .select('level_name, level_order')
           .eq('level_id', chapterId)
           .single(),
         supabase
-          .from('lessons')
-          .select('lesson_title, lesson_order')
+          .from('practice_questions')
+          .select('question_id, question_type, question_text, video_url, option_a, option_b, option_c, option_d, correct_answer, target_sign')
           .eq('level_id', chapterId)
-          .order('lesson_order'),
+          .order('created_at'),
       ]);
 
-      setLetters((lessonsRes.data ?? []).map((r) => ({ label: r.lesson_title })));
+      setQuestions(
+        (questionsRes.data ?? []).map((r) => ({
+          id:            r.question_id,
+          type:          r.question_type as 'identify' | 'perform',
+          targetSign:    r.target_sign   ?? '',
+          questionText:  r.question_text ?? '',
+          videoUrl:      r.video_url     ?? null,
+          optionA:       r.option_a      ?? '',
+          optionB:       r.option_b      ?? '',
+          optionC:       r.option_c      ?? '',
+          optionD:       r.option_d      ?? '',
+          correctAnswer: r.correct_answer ?? '',
+        }))
+      );
       setLevelMeta({
         levelNum: levelRes.data?.level_order ?? 1,
-        label:    levelRes.data?.level_name      ?? 'Chapter',
+        label:    levelRes.data?.level_name  ?? 'Chapter',
       });
       setLoading(false);
     }
@@ -65,9 +90,11 @@ export default function PracticeChapterPage() {
     accuracyScores.current.push(accuracy);
   }
 
-  async function handleNext() {
-    if (letterIndex < letters.length - 1) {
-      setLetterIndex((i) => i + 1);
+  async function handleNext(accuracy?: number) {
+    if (accuracy !== undefined) accuracyScores.current.push(accuracy);
+
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex((i) => i + 1);
     } else {
       await completePractice();
       router.replace('/dashboard/practice');
@@ -98,15 +125,27 @@ export default function PracticeChapterPage() {
     );
   }
 
-  if (!levelMeta || letters.length === 0) {
+  if (!levelMeta || questions.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white px-6">
-        <p className="text-[#7B3F00] font-semibold text-center">
-          No practice questions available for this chapter yet.
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white px-6 gap-4">
+        <div className="w-20 h-20 rounded-full bg-amber-100 border-4 border-amber-400 flex items-center justify-center text-4xl">
+          🚧
+        </div>
+        <p className="text-[#7B3F00] font-black text-xl text-center">Under Development</p>
+        <p className="text-[#7B3F00] font-medium text-sm text-center">
+          No practice questions have been added for this chapter yet.
         </p>
+        <button
+          onClick={() => router.replace('/dashboard/practice')}
+          className="mt-2 bg-[#E8A87C] border-[3px] border-[#BF7B45] text-white font-black px-8 py-2 rounded-full shadow-md hover:scale-105 transition-transform"
+        >
+          Go Back
+        </button>
       </div>
     );
   }
+
+  const current = questions[currentIndex];
 
   return (
     <div className="h-screen overflow-hidden bg-white px-6 pt-5 pb-6 flex flex-col">
@@ -124,7 +163,7 @@ export default function PracticeChapterPage() {
         </button>
 
         <p className="text-[#4A2C0A] font-bold text-sm">
-          {letterIndex + 1} / {letters.length}
+          {currentIndex + 1} / {questions.length}
         </p>
       </div>
 
@@ -132,10 +171,7 @@ export default function PracticeChapterPage() {
       <div className="text-center mb-4 shrink-0">
         <h1
           className="font-black text-[2rem] leading-tight"
-          style={{
-            fontFamily: 'var(--font-baloo)',
-            color:      '#CC2200',
-          }}
+          style={{ fontFamily: 'var(--font-baloo)', color: '#CC2200' }}
         >
           LET&apos;S PRACTICE!
         </h1>
@@ -146,16 +182,33 @@ export default function PracticeChapterPage() {
         </p>
       </div>
 
-      {/* ── Practice view — fills remaining height ────────────────── */}
+      {/* ── Question view — fills remaining height ────────────────── */}
       <div className="flex-1 min-h-0">
-        <PracticeView
-          letter={letters[letterIndex].label}
-          letterIndex={letterIndex}
-          totalLetters={letters.length}
-          levelId={chapterId}
-          onNext={handleNext}
-          onResult={handleResult}
-        />
+        {current.type === 'perform' ? (
+          <PracticeView
+            key={current.id}
+            letter={current.targetSign || current.questionText}
+            letterIndex={currentIndex}
+            totalLetters={questions.length}
+            levelId={chapterId}
+            onNext={() => handleNext()}
+            onResult={handleResult}
+          />
+        ) : (
+          <IdentifyView
+            key={current.id}
+            questionText={current.questionText}
+            videoUrl={current.videoUrl}
+            optionA={current.optionA}
+            optionB={current.optionB}
+            optionC={current.optionC}
+            optionD={current.optionD}
+            correctAnswer={current.correctAnswer}
+            questionIndex={currentIndex}
+            totalQuestions={questions.length}
+            onNext={(accuracy) => handleNext(accuracy)}
+          />
+        )}
       </div>
 
     </div>

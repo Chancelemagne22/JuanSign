@@ -1,13 +1,28 @@
 /* ── Controls cluster (language dropdown + settings) ─────────── */
+/* Fixed positioning at top-right on desktop, relative on mobile */
 
 .controls-cluster {
   position: fixed;
-  bottom: 525px;
-  left: 725px;
+  top: clamp(0.5rem, 3vw, 1.5rem);
+  right: clamp(1rem, 4vw, 2.5rem);
   z-index: 9999;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: clamp(0.5rem, 2vw, 0.75rem);
+  flex-wrap: wrap;
+}
+
+/* Mobile-first: Make controls flow better on small screens */
+@media (max-width: 767px) {
+  .controls-cluster {
+    position: relative;
+    top: auto;
+    right: auto;
+    justify-content: center;
+    width: 100%;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+  }
 }
 
 /* ── Language dropdown ───────────────────────────────────────── */

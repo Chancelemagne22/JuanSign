@@ -24,24 +24,32 @@ export default function AssessmentChapterPage() {
   const router            = useRouter();
   const { chapterId }     = useParams<{ chapterId: string }>();
 
-  const [levelMeta, setLevelMeta] = useState<LevelMeta | null>(null);
-  const [loading,   setLoading]   = useState(true);
+  const [levelMeta,     setLevelMeta]     = useState<LevelMeta | null>(null);
+  const [hasQuestions,  setHasQuestions]  = useState(false);
+  const [loading,       setLoading]       = useState(true);
 
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/'); return; }
 
-      const { data: level } = await supabase
-        .from('levels')
-        .select('level_name, level_order')
-        .eq('level_id', chapterId)
-        .single();
+      const [levelRes, questionsRes] = await Promise.all([
+        supabase
+          .from('levels')
+          .select('level_name, level_order')
+          .eq('level_id', chapterId)
+          .single(),
+        supabase
+          .from('assessment_questions')
+          .select('question_id', { count: 'exact', head: true })
+          .eq('level_id', chapterId),
+      ]);
 
       setLevelMeta({
-        levelNum: level?.level_order ?? 1,
-        label:    level?.level_name        ?? 'Chapter',
+        levelNum: levelRes.data?.level_order ?? 1,
+        label:    levelRes.data?.level_name  ?? 'Chapter',
       });
+      setHasQuestions((questionsRes.count ?? 0) > 0);
       setLoading(false);
     }
     init();
@@ -59,6 +67,26 @@ export default function AssessmentChapterPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white px-6">
         <p className="text-[#7B3F00] font-semibold text-center">Chapter not found.</p>
+      </div>
+    );
+  }
+
+  if (!hasQuestions) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white px-6 gap-4">
+        <div className="w-20 h-20 rounded-full bg-amber-100 border-4 border-amber-400 flex items-center justify-center text-4xl">
+          🚧
+        </div>
+        <p className="text-[#7B3F00] font-black text-xl text-center">Under Development</p>
+        <p className="text-[#7B3F00] font-medium text-sm text-center">
+          No assessment questions have been added for this chapter yet.
+        </p>
+        <button
+          onClick={() => router.replace('/dashboard/assessment')}
+          className="mt-2 bg-[#E8A87C] border-[3px] border-[#BF7B45] text-white font-black px-8 py-2 rounded-full shadow-md hover:scale-105 transition-transform"
+        >
+          Go Back
+        </button>
       </div>
     );
   }
