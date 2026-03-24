@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { VideoSelect } from '@/components/VideoSelect'
+import { listLessonVideos, getLessonVideoUrl } from '@/lib/storage'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -143,10 +145,35 @@ function LessonForm({
   const [form, setForm] = useState(lesson)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [videos, setVideos] = useState<string[]>([])
+  const [loadingVideos, setLoadingVideos] = useState(true)
 
   useEffect(() => setForm(lesson), [lesson])
 
+  useEffect(() => {
+    const loadVideos = async () => {
+      setLoadingVideos(true)
+      try {
+        console.log('[LessonForm] Loading videos...')
+        const videoList = await listLessonVideos()
+        console.log('[LessonForm] Got video list:', videoList)
+        setVideos(videoList)
+      } catch (err) {
+        console.error('[LessonForm] Failed to load videos:', err)
+        setVideos([])
+      } finally {
+        setLoadingVideos(false)
+      }
+    }
+    loadVideos()
+  }, [])
+
   const set = (k: string, v: string | number) => setForm(prev => ({ ...prev, [k]: v }))
+
+  const handleVideoSelect = (selectedFilename: string) => {
+    const fullUrl = getLessonVideoUrl(selectedFilename)
+    set('video_url', fullUrl)
+  }
 
   const handleSave = async () => {
     if (!form.lesson_title.trim()) { setError('Lesson title is required.'); return }
@@ -172,12 +199,29 @@ function LessonForm({
       </Field>
 
       <Field label="Video URL">
-        <input
-          type="text" value={form.video_url} placeholder="https://..." style={inputStyle}
-          onChange={e => set('video_url', e.target.value)}
-          onFocus={e => (e.currentTarget.style.borderColor = '#B5621E')}
-          onBlur={e => (e.currentTarget.style.borderColor = INPUT_BORDER)}
-        />
+        {loadingVideos ? (
+          <div style={{ fontFamily: FONT, color: '#999', fontSize: '0.9rem', padding: '8px' }}>
+            Loading videos...
+          </div>
+        ) : (
+          <>
+            <VideoSelect
+              value={
+                form.video_url
+                  ? form.video_url.split('/').pop()?.replace(/\.(mp4|mp44|mov|webm|avi|mkv)$/i, '') || ''
+                  : ''
+              }
+              onChange={handleVideoSelect}
+              videos={videos}
+              style={inputStyle}
+            />
+            {videos.length === 0 && !loadingVideos && (
+              <p style={{ fontFamily: FONT, color: '#999', fontSize: '0.85rem', marginTop: '5px' }}>
+                No videos found in storage. Please upload videos to the lessons-videos bucket first.
+              </p>
+            )}
+          </>
+        )}
       </Field>
 
       <Field label="Content / Notes">
@@ -226,10 +270,35 @@ function QuestionForm({
   const [form, setForm] = useState(question)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [videos, setVideos] = useState<string[]>([])
+  const [loadingVideos, setLoadingVideos] = useState(true)
 
   useEffect(() => setForm(question), [question])
 
+  useEffect(() => {
+    const loadVideos = async () => {
+      setLoadingVideos(true)
+      try {
+        console.log('[QuestionForm] Loading videos...')
+        const videoList = await listLessonVideos()
+        console.log('[QuestionForm] Got video list:', videoList)
+        setVideos(videoList)
+      } catch (err) {
+        console.error('[QuestionForm] Failed to load videos:', err)
+        setVideos([])
+      } finally {
+        setLoadingVideos(false)
+      }
+    }
+    loadVideos()
+  }, [])
+
   const set = (k: string, v: string | number) => setForm(prev => ({ ...prev, [k]: v }))
+
+  const handleVideoSelect = (selectedFilename: string) => {
+    const fullUrl = getLessonVideoUrl(selectedFilename)
+    set('video_url', fullUrl)
+  }
 
   const handleSave = async () => {
     if (!form.question_text.trim()) { setError('Question text is required.'); return }
@@ -287,12 +356,29 @@ function QuestionForm({
       {form.question_type === 'identify' ? (
         <>
           <Field label="Video URL (sign being shown)">
-            <input
-              type="text" value={form.video_url} placeholder="https://..." style={inputStyle}
-              onChange={e => set('video_url', e.target.value)}
-              onFocus={e => (e.currentTarget.style.borderColor = '#B5621E')}
-              onBlur={e => (e.currentTarget.style.borderColor = INPUT_BORDER)}
-            />
+            {loadingVideos ? (
+              <div style={{ fontFamily: FONT, color: '#999', fontSize: '0.9rem', padding: '8px' }}>
+                Loading videos...
+              </div>
+            ) : (
+              <>
+                <VideoSelect
+                  value={
+                    form.video_url
+                      ? form.video_url.split('/').pop()?.replace(/\.(mp4|mp44|mov|webm|avi|mkv)$/i, '') || ''
+                      : ''
+                  }
+                  onChange={handleVideoSelect}
+                  videos={videos}
+                  style={inputStyle}
+                />
+                {videos.length === 0 && !loadingVideos && (
+                  <p style={{ fontFamily: FONT, color: '#999', fontSize: '0.85rem', marginTop: '5px' }}>
+                    No videos found in storage. Please upload videos to the lessons-videos bucket first.
+                  </p>
+                )}
+              </>
+            )}
           </Field>
 
           <div style={{ marginBottom: '14px' }}>

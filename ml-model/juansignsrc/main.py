@@ -21,6 +21,7 @@ import io
 import os
 import base64
 import tempfile
+import subprocess
 from collections import deque
 from typing import Optional
 
@@ -51,8 +52,9 @@ image = (
         "fastapi",        # ← removed [standard]
         "python-multipart",
         "uvicorn",
+        "ffmpeg-python",
     )
-    .apt_install(["curl", "libgl1", "libglib2.0-0"])
+    .apt_install(["curl", "libgl1", "libglib2.0-0", "ffmpeg"])
     .run_commands(
         "curl -fsSL -o /hand_landmarker.task "
         "https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
@@ -294,6 +296,76 @@ def _compute_optical_flow(frames_bgr):
     return flow_array
 
 
+def _decode_base64_to_mp4(video_b64: str) -> str:
+    """
+    Decode base64-encoded video and convert to MP4 format.
+    
+    Args:
+        video_b64: Base64-encoded video bytes (any format: webm, mp4, etc.)
+    
+    Returns:
+        Path to the converted MP4 file
+    
+    Raises:
+        Exception: If decoding or conversion fails
+    """
+    import subprocess
+    import time
+    
+    print(f"[_decode_base64_to_mp4] Decoding base64 video ({len(video_b64)} bytes)...")
+    start_time = time.time()
+    
+    try:
+        # Step 1: Decode base64
+        video_bytes = base64.b64decode(video_b64)
+        print(f"[_decode_base64_to_mp4] ✓ Decoded to {len(video_bytes)} bytes")
+        
+        # Step 2: Write decoded bytes to temporary file (preserve original format)
+        with tempfile.NamedTemporaryFile(suffix=".tmp", delete=False) as tmp_input:
+            tmp_input.write(video_bytes)
+            tmp_input_path = tmp_input.name
+        print(f"[_decode_base64_to_mp4] ✓ Temporary input file: {tmp_input_path}")
+        
+        # Step 3: Create MP4 output path
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_output:
+            tmp_output_path = tmp_output.name
+        print(f"[_decode_base64_to_mp4] ✓ Output MP4 path: {tmp_output_path}")
+        
+        # Step 4: Convert to MP4 using ffmpeg
+        print(f"[_decode_base64_to_mp4] Converting to MP4 using ffmpeg...")
+        cmd = [
+            "ffmpeg",
+            "-i", tmp_input_path,           # input
+            "-c:v", "libx264",              # video codec
+            "-preset", "ultrafast",         # speed (ultrafast for inference)
+            "-crf", "23",                   # quality (23 = default)
+            "-c:a", "aac",                  # audio codec
+            "-y",                           # overwrite output
+            tmp_output_path,                # output
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        
+        if result.returncode != 0:
+            print(f"[_decode_base64_to_mp4] ❌ ffmpeg failed: {result.stderr}")
+            raise Exception(f"ffmpeg conversion failed: {result.stderr}")
+        
+        print(f"[_decode_base64_to_mp4] ✓ ffmpeg conversion complete")
+        
+        # Step 5: Clean up input temp file
+        os.unlink(tmp_input_path)
+        print(f"[_decode_base64_to_mp4] ✓ Cleaned up temporary input file")
+        
+        elapsed = time.time() - start_time
+        print(f"[_decode_base64_to_mp4] ✓ Complete in {elapsed:.2f}s → MP4 ready at {tmp_output_path}")
+        
+        return tmp_output_path
+        
+    except Exception as e:
+        print(f"[_decode_base64_to_mp4] ❌ Error: {str(e)}")
+        raise
+
+
 def _extract_frames(video_path, face_detector, hand_detector):
     """
     Extract TARGET_FRAMES from a video file.
@@ -303,9 +375,14 @@ def _extract_frames(video_path, face_detector, hand_detector):
         landmarks_tensor : float32 tensor [1, T, 63]
         debug_info       : dict with hand detection stats
     """
+    import time
+    start_time = time.time()
+    print(f"[_extract_frames] Starting frame extraction from {video_path}")
+    
     cap = cv2.VideoCapture(video_path)
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     indices = _sample_indices(total)
+    print(f"[_extract_frames] Video loaded: {total} total frames, sampling {len(indices)} frames")
 
     frames_bgr     = []
     landmarks_list = []
@@ -337,9 +414,11 @@ def _extract_frames(video_path, face_detector, hand_detector):
         landmarks_list.append(lm)
 
     cap.release()
+    print(f"[_extract_frames] Extracted {len(frames_bgr)} frames, {hand_count} hands detected")
 
     # ── Build 5-channel frame tensor ─────────────────────────────────────────
     flow_array = _compute_optical_flow(frames_bgr)   # [T, 2, H, W]
+    print(f"[_extract_frames] Optical flow computed: shape {flow_array.shape}")
 
     frame_tensors = []
     for i, bgr in enumerate(frames_bgr):
@@ -355,16 +434,21 @@ def _extract_frames(video_path, face_detector, hand_detector):
         frame_tensors.append(torch.cat([rgb, flow], dim=0))                # [5, H, W]
 
     frames_tensor = torch.stack(frame_tensors).unsqueeze(0)                # [1, T, 5, H, W]
+    print(f"[_extract_frames] Frames tensor built: {frames_tensor.shape}")
 
     # ── Build landmark tensor ─────────────────────────────────────────────────
     landmarks_np     = np.stack(landmarks_list, axis=0)                    # [T, 63]
     landmarks_tensor = torch.from_numpy(landmarks_np).unsqueeze(0)         # [1, T, 63]
+    print(f"[_extract_frames] Landmarks tensor built: {landmarks_tensor.shape}")
 
     debug_info = {
         "total_frames"  : total,
         "hand_detected" : hand_count,
         "hand_ratio"    : round(hand_count / TARGET_FRAMES, 2),
     }
+    
+    elapsed = time.time() - start_time
+    print(f"[_extract_frames] ✓ Complete in {elapsed:.2f}s. Hands: {hand_count}/{TARGET_FRAMES}")
 
     return frames_tensor, landmarks_tensor, debug_info
 
@@ -388,6 +472,10 @@ def _sliding_window_predict(model, frames_tensor, landmarks_tensor, device, clas
         confidence : float — confidence score in [0, 1]
         all_windows: list of dicts — per-window results for debugging
     """
+    import time
+    start_time = time.time()
+    print(f"[_sliding_window_predict] Starting sliding window inference on {frames_tensor.shape}")
+    
     T           = frames_tensor.shape[1]
     all_windows = []
     best_conf   = 0.0
@@ -401,6 +489,8 @@ def _sliding_window_predict(model, frames_tensor, landmarks_tensor, device, clas
         # Always include a window starting at 0 covering the full clip
         if 0 not in starts:
             starts = [0] + starts
+        
+        print(f"[_sliding_window_predict] Will run {len(starts)} window(s) at positions: {starts}")
 
         for start in starts:
             end = start + TARGET_FRAMES
@@ -415,6 +505,10 @@ def _sliding_window_predict(model, frames_tensor, landmarks_tensor, device, clas
             conf, idx   = probs.max(dim=0)
             conf_val    = conf.item()
             sign_val    = class_names[idx.item()]
+
+            print(f"[_sliding_window_predict] Window [{start}:{end}] → sign='{sign_val}', confidence={conf_val:.4f}")
+            print(f"[_sliding_window_predict]   Raw logits: {logits[0]}")
+            print(f"[_sliding_window_predict]   Softmax probs: {probs}")
 
             all_windows.append({
                 "start"     : start,
@@ -432,6 +526,10 @@ def _sliding_window_predict(model, frames_tensor, landmarks_tensor, device, clas
         best_window = max(all_windows, key=lambda w: w["confidence"])
         best_sign   = best_window["sign"]
         best_conf   = best_window["confidence"]
+        print(f"[_sliding_window_predict] No window exceeded threshold {CONFIDENCE_THRESHOLD}, using best: {best_sign} ({best_conf})")
+
+    elapsed = time.time() - start_time
+    print(f"[_sliding_window_predict] ✓ Complete in {elapsed:.2f}s. Final: sign='{best_sign}', confidence={best_conf:.4f}")
 
     return best_sign, best_conf, all_windows
 
@@ -449,6 +547,8 @@ def _build_model(checkpoint_path, device):
     Also handles legacy checkpoints saved as a raw state_dict (no metadata keys).
     In that case, num_classes is inferred from the FC layer weight shape.
     """
+    print(f"[_build_model] Loading checkpoint from {checkpoint_path} on device {device}")
+    
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
     if isinstance(checkpoint, dict) and "model_state" in checkpoint:
@@ -456,12 +556,13 @@ def _build_model(checkpoint_path, device):
         num_classes = checkpoint["num_classes"]
         class_names = checkpoint["class_names"]
         state_dict  = checkpoint["model_state"]
+        print(f"[_build_model] New checkpoint format: {num_classes} classes")
     else:
         # Legacy format — raw state_dict only
         state_dict  = checkpoint
         num_classes = state_dict["fc.weight"].shape[0]
         class_names = [str(i) for i in range(num_classes)]
-        print(f"[Model] WARNING: legacy checkpoint detected — no class_names metadata. "
+        print(f"[_build_model] WARNING: legacy checkpoint detected — no class_names metadata. "
               f"Upload new checkpoint via: modal volume put juansign-model-vol "
               f"<path>/juansign_model.pth /model/juansign_model.pth")
 
@@ -469,8 +570,8 @@ def _build_model(checkpoint_path, device):
     model.load_state_dict(state_dict)
     model.eval()
 
-    print(f"[Model] Loaded checkpoint from {checkpoint_path}")
-    print(f"[Model] Classes ({num_classes}): {class_names}")
+    print(f"[_build_model] ✓ Model loaded. Classes ({num_classes}): {class_names}")
+    print(f"[_build_model] FC layer shape: {model.fc.weight.shape}")
 
     return model, class_names
 
@@ -514,7 +615,8 @@ class JuanSignInference:
 
         Request body (JSON):
             token       : str  — Supabase JWT for the authenticated user
-            video_b64   : str  — base64-encoded video bytes (.webm or .mp4)
+            video_b64   : str  — base64-encoded video bytes (accepts 'video_b64' or 'video' key)
+            video       : str  — alternative key name for base64 video (fallback)
             target_sign : str  — the sign the user was attempting (for scoring)
             lesson_id   : str  — Supabase lesson UUID
 
@@ -526,9 +628,16 @@ class JuanSignInference:
             debug       : dict  — hand detection stats + per-window results
             error       : str   — present only if something went wrong
         """
+        import time
         from supabase import create_client
 
+        print("\n" + "="*80)
+        print("[predict] ===== PREDICTION REQUEST STARTED =====")
+        print("="*80)
+        request_start = time.time()
+
         # ── Auth ──────────────────────────────────────────────────────────────
+        print("\n[predict] Step 1: Verifying JWT token...")
         supabase_url = os.environ["SUPABASE_URL"]
         supabase_key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
         supabase     = create_client(supabase_url, supabase_key)
@@ -536,27 +645,37 @@ class JuanSignInference:
         try:
             user_resp = supabase.auth.get_user(request["token"])
             user_id   = user_resp.user.id
+            print(f"[predict] ✓ Token verified. User ID: {user_id}")
         except Exception as e:
+            print(f"[predict] ❌ Auth failed: {str(e)}")
             return {"error": f"Auth failed: {str(e)}"}
 
-        # ── Decode video ──────────────────────────────────────────────────────
+        # ── Decode & Convert video to MP4 ────────────────────────────────────────
+        print("\n[predict] Step 2: Decoding base64 video and converting to MP4...")
+        mp4_path = None
         try:
-            video_bytes = base64.b64decode(request["video_b64"])
+            # Accept both "video_b64" and "video" as keys (fallback for frontend compatibility)
+            video_b64 = request.get("video_b64") or request.get("video")
+            if not video_b64:
+                raise KeyError("Missing video data: expected 'video_b64' or 'video' key")
+            
+            print(f"[predict] Video key found: {('video_b64' if 'video_b64' in request else 'video')}")
+            mp4_path = _decode_base64_to_mp4(video_b64)
+            print(f"[predict] ✓ MP4 ready: {mp4_path}")
         except Exception as e:
-            return {"error": f"Failed to decode video: {str(e)}"}
-
-        # Write to a temp file — OpenCV needs a file path
-        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
-            tmp.write(video_bytes)
-            tmp_path = tmp.name
+            print(f"[predict] ❌ Failed to convert video to MP4: {str(e)}")
+            return {"error": f"Failed to convert video to MP4: {str(e)}"}
 
         try:
             # ── Frame extraction ───────────────────────────────────────────────
+            print("\n[predict] Step 3: Extracting frames, landmarks, and optical flow...")
             frames_tensor, landmarks_tensor, debug_info = _extract_frames(
-                tmp_path, self.face_detector, self.hand_detector
+                mp4_path, self.face_detector, self.hand_detector
             )
+            print(f"[predict] ✓ Frames: {frames_tensor.shape}, Landmarks: {landmarks_tensor.shape}")
 
             # ── Inference ─────────────────────────────────────────────────────
+            print("\n[predict] Step 4: Running sliding window inference...")
             sign, confidence, window_results = _sliding_window_predict(
                 self.model,
                 frames_tensor,
@@ -564,20 +683,32 @@ class JuanSignInference:
                 self.device,
                 self.class_names,
             )
+            print(f"[predict] ✓ Final prediction: '{sign}' with {confidence:.4f} confidence")
 
         except Exception as e:
+            print(f"[predict] ❌ Inference failed: {str(e)}")
+            import traceback
+            print(f"[predict] Traceback:\n{traceback.format_exc()}")
             return {"error": f"Inference failed: {str(e)}"}
 
         finally:
-            os.unlink(tmp_path)   # always clean up temp file
+            if mp4_path:
+                print(f"[predict] Cleaning up MP4 file: {mp4_path}")
+                try:
+                    os.unlink(mp4_path)
+                except Exception as cleanup_err:
+                    print(f"[predict] ⚠️  Failed to clean up MP4: {cleanup_err}")
 
         # ── Score ─────────────────────────────────────────────────────────────
+        print("\n[predict] Step 5: Evaluating correctness...")
         target_sign = request.get("target_sign", "")
         is_correct  = sign.upper() == target_sign.upper()
+        print(f"[predict] Expected: '{target_sign}', Predicted: '{sign}', Correct: {is_correct}")
 
         # ── Write to Supabase ─────────────────────────────────────────────────
+        print("\n[predict] Step 6: Writing results to Supabase...")
         try:
-            supabase.table("practice_sessions").insert({
+            session_result = supabase.table("practice_sessions").insert({
                 "user_id"    : user_id,
                 "lesson_id"  : request.get("lesson_id"),
                 "sign"       : sign,
@@ -585,6 +716,7 @@ class JuanSignInference:
                 "confidence" : round(confidence, 4),
                 "is_correct" : is_correct,
             }).execute()
+            print(f"[predict] ✓ Practice session recorded")
 
             supabase.table("cnn_feedback").insert({
                 "user_id"       : user_id,
@@ -593,6 +725,7 @@ class JuanSignInference:
                 "confidence"    : round(confidence, 4),
                 "hand_ratio"    : debug_info["hand_ratio"],
             }).execute()
+            print(f"[predict] ✓ CNN feedback recorded")
 
             # Compute running accuracy for this user
             sessions = (
@@ -606,13 +739,18 @@ class JuanSignInference:
                 sum(1 for r in records if r["is_correct"]) / len(records)
                 if records else 0.0
             )
+            print(f"[predict] Running accuracy: {accuracy:.4f} ({sum(1 for r in records if r['is_correct'])}/{len(records)} correct)")
 
         except Exception as e:
             # DB write failure should not fail the prediction response
-            print(f"[Supabase] Write error: {str(e)}")
+            print(f"[predict] ⚠️  Supabase write error: {str(e)}")
             accuracy = 0.0
 
-        return {
+
+
+        # ── Response ───────────────────────────────────────────────────────────
+        print("\n[predict] Step 7: Preparing response...")
+        response = {
             "sign"      : sign,
             "confidence": round(confidence, 4),
             "is_correct": is_correct,
@@ -622,3 +760,11 @@ class JuanSignInference:
                 "windows": window_results,
             },
         }
+        print(f"[predict] ✓ Response: {response}")
+        
+        elapsed = time.time() - request_start
+        print(f"\n[predict] ===== PREDICTION COMPLETE =====")
+        print(f"[predict] Total processing time: {elapsed:.2f}s")
+        print("="*80 + "\n")
+
+        return response
