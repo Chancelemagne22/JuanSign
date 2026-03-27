@@ -42,27 +42,72 @@ export default function ResetPasswordPage() {
       const token = searchParams.get('token');
       const type = searchParams.get('type');
 
+      // Debug: Show actual URL
+      console.log('[reset] Starting token verification...');
+      console.log('[reset] Current URL:', window.location.href);
+      console.log('[reset] URL search string:', window.location.search);
+      console.log('[reset] URL hash:', window.location.hash);
+      console.log('[reset] Token length:', token?.length);
+      console.log('[reset] Type:', type);
+
+      // Check if token is in URL at all
+      const urlHasToken = window.location.href.includes('token=');
+      const urlHasType = window.location.href.includes('type=');
+      console.log('[reset] URL has token param:', urlHasToken);
+      console.log('[reset] URL has type param:', urlHasType);
+
       if (!token || type !== 'recovery') {
+        console.error('[reset] ❌ Missing token or invalid type');
+        console.error('[reset] ℹ️ This means the recovery link did not include token/type parameters');
+        console.error('[reset] ℹ️ The email link might not have been formatted correctly by Supabase');
         setError('Invalid or expired reset link. Please request a new one.');
         setTokenChecking(false);
         return;
       }
 
-      // Try to verify the token is valid by checking if we can get the user
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        token_hash: token,
-        type: 'recovery',
-      });
+      try {
+        // Supabase recovery flow: Supabase automatically creates a session
+        // when the recovery link is clicked. We just need to verify it.
+        // Using verifyOtp with type: 'recovery' and the token_hash from URL
+        console.log('[reset] Calling verifyOtp with type: recovery');
+        
+        const { data, error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: token,
+          type: 'recovery',
+        });
 
-      if (verifyError || !data?.user) {
+        if (verifyError) {
+          console.error('[reset] ❌ verifyOtp error:', verifyError.message || JSON.stringify(verifyError));
+          // Sometimes the token might already be valid in the session
+          // Check if we have an active session anyway
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData?.session) {
+            console.log('[reset] ℹ️  Session found despite verifyOtp error - allowing reset');
+            setTokenValid(true);
+            setTokenChecking(false);
+            return;
+          }
+          setError('Invalid or expired reset link. Please request a new one.');
+          setTokenChecking(false);
+          return;
+        }
+
+        if (!data?.user) {
+          console.error('[reset] ❌ No user returned after verifyOtp');
+          setError('Invalid or expired reset link. Please request a new one.');
+          setTokenChecking(false);
+          return;
+        }
+
+        console.log('[reset] ✅ Token verified successfully. User:', data.user.email);
+        // Token is valid and session is established
+        setTokenValid(true);
+        setTokenChecking(false);
+      } catch (err) {
+        console.error('[reset] ❌ Token verification exception:', err instanceof Error ? err.message : String(err));
         setError('Invalid or expired reset link. Please request a new one.');
         setTokenChecking(false);
-        return;
       }
-
-      // Token is valid
-      setTokenValid(true);
-      setTokenChecking(false);
     }
 
     verifyToken();
@@ -154,7 +199,7 @@ export default function ResetPasswordPage() {
             <div className="text-center py-8">
               <p className="text-red-800 font-semibold mb-4">{error}</p>
               <Link
-                href="/"
+                href="/reset-password"
                 className="inline-block px-6 py-2 bg-[#2E8B2E] text-white font-bold rounded-full hover:bg-[#329932] transition-colors text-sm md:text-base"
               >
                 Back to Home

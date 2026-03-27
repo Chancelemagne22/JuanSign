@@ -630,6 +630,7 @@ class JuanSignInference:
         """
         import time
         from supabase import create_client
+        from starlette.responses import JSONResponse
 
         print("\n" + "="*80)
         print("[predict] ===== PREDICTION REQUEST STARTED =====")
@@ -648,7 +649,10 @@ class JuanSignInference:
             print(f"[predict] ✓ Token verified. User ID: {user_id}")
         except Exception as e:
             print(f"[predict] ❌ Auth failed: {str(e)}")
-            return {"error": f"Auth failed: {str(e)}"}
+            return JSONResponse(
+                {"error": f"Unauthorized: {str(e)}"}, 
+                status_code=401
+            )
 
         # ── Decode & Convert video to MP4 ────────────────────────────────────────
         print("\n[predict] Step 2: Decoding base64 video and converting to MP4...")

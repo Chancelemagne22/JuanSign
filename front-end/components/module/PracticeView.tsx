@@ -184,10 +184,12 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       // 3. POST to Next.js proxy (avoids CORS — server calls Modal directly)
       const res = await fetch('/api/predict', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({
           video:         base64Video,
-          token,
           expected_sign: letter,
           level_id:      levelId,
         }),
