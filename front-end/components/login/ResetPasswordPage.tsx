@@ -37,81 +37,47 @@ export default function ResetPasswordPage() {
   const [tokenChecking, setTokenChecking] = useState(true);
 
   useEffect(() => {
-    // Verify that the reset token is valid
-    async function verifyToken() {
-      const token = searchParams.get('token');
-      const type = searchParams.get('type');
+  async function verifyToken() {
+    // 1. Get the parameters from the URL
+    const code = searchParams.get('code');   // Modern PKCE flow
+    const token = searchParams.get('token'); // Legacy Implicit flow
+    const type = searchParams.get('type');
 
-      // Debug: Show actual URL
-      console.log('[reset] Starting token verification...');
-      console.log('[reset] Current URL:', window.location.href);
-      console.log('[reset] URL search string:', window.location.search);
-      console.log('[reset] URL hash:', window.location.hash);
-      console.log('[reset] Token length:', token?.length);
-      console.log('[reset] Type:', type);
+    console.log("[DEBUG] Params detected:", { code: !!code, token: !!token, type });
 
-      // Check if token is in URL at all
-      const urlHasToken = window.location.href.includes('token=');
-      const urlHasType = window.location.href.includes('type=');
-      console.log('[reset] URL has token param:', urlHasToken);
-      console.log('[reset] URL has type param:', urlHasType);
-
-      if (!token || type !== 'recovery') {
-        console.error('[reset] ❌ Missing token or invalid type');
-        console.error('[reset] ℹ️ This means the recovery link did not include token/type parameters');
-        console.error('[reset] ℹ️ The email link might not have been formatted correctly by Supabase');
-        setError('Invalid or expired reset link. Please request a new one.');
-        setTokenChecking(false);
-        return;
-      }
-
-      try {
-        // Supabase recovery flow: Supabase automatically creates a session
-        // when the recovery link is clicked. We just need to verify it.
-        // Using verifyOtp with type: 'recovery' and the token_hash from URL
-        console.log('[reset] Calling verifyOtp with type: recovery');
-        
-        const { data, error: verifyError } = await supabase.auth.verifyOtp({
-          token_hash: token,
-          type: 'recovery',
-        });
-
-        if (verifyError) {
-          console.error('[reset] ❌ verifyOtp error:', verifyError.message || JSON.stringify(verifyError));
-          // Sometimes the token might already be valid in the session
-          // Check if we have an active session anyway
-          const { data: sessionData } = await supabase.auth.getSession();
-          if (sessionData?.session) {
-            console.log('[reset] ℹ️  Session found despite verifyOtp error - allowing reset');
-            setTokenValid(true);
-            setTokenChecking(false);
-            return;
-          }
-          setError('Invalid or expired reset link. Please request a new one.');
-          setTokenChecking(false);
-          return;
-        }
-
-        if (!data?.user) {
-          console.error('[reset] ❌ No user returned after verifyOtp');
-          setError('Invalid or expired reset link. Please request a new one.');
-          setTokenChecking(false);
-          return;
-        }
-
-        console.log('[reset] ✅ Token verified successfully. User:', data.user.email);
-        // Token is valid and session is established
-        setTokenValid(true);
-        setTokenChecking(false);
-      } catch (err) {
-        console.error('[reset] ❌ Token verification exception:', err instanceof Error ? err.message : String(err));
-        setError('Invalid or expired reset link. Please request a new one.');
-        setTokenChecking(false);
-      }
+    // 2. Check if a session already exists 
+    // (Supabase often exchanges the code for a session automatically)
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData?.session) {
+      console.log("[DEBUG] Active session found, allowing password update.");
+      setTokenValid(true);
+      setTokenChecking(false);
+      return;
     }
 
-    verifyToken();
-  }, [searchParams]);
+    // 3. If no session, manually exchange the code/token
+    try {
+      if (code) {
+        // This is what is likely missing! You must exchange the code for a session.
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) throw error;
+        setTokenValid(true);
+      } else if (token && type === 'recovery') {
+        setTokenValid(true);
+      } else {
+        // If we get here, neither code nor token is present
+        setError('Invalid reset link. Please try requesting a new email.');
+      }
+    } catch (err: any) {
+      console.error("[DEBUG] Verification error:", err.message);
+      setError('Your reset link has expired or been used already.');
+    } finally {
+      setTokenChecking(false);
+    }
+  }
+
+  verifyToken();
+}, [searchParams]);
 
   async function handleResetPassword() {
     setError(null);
