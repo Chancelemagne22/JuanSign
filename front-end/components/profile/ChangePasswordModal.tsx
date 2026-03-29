@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
+import WoodArc from '@/public/images/svgs/arc.svg';
 import { supabase } from '@/lib/supabase';
 
 function EyeIcon({ open }: { open: boolean }) {
@@ -122,27 +124,47 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
       className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4"
       onClick={onClose}
     >
-      {/* ── Card ─────────────────────────────────────────────────── */}
+      {/* ── Card ───────────────────────── ────────────────────────── */}
       <div
-        className="modal-responsive rounded-3xl border-[5px] border-[#C47A3A] bg-[#F5C47A] shadow-2xl"
+        className="modal-responsive-sm rounded-[38px]"
+        style={{
+          backgroundImage: 'url(/images/svgs/banner.svg)',
+          backgroundSize: 'contain',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── Banner tab ───────────────────────────────────────── */}
-        <div className="absolute -top-[46px] left-1/2 -translate-x-1/2 w-[70%]">
-          <div className="relative bg-[#C47A3A] rounded-2xl pt-3 pb-4 px-6 shadow-[0_4px_12px_rgba(0,0,0,0.4)]">
-            <div className="absolute top-1.5 left-3 right-3 h-[2px] bg-white/20 rounded-full" />
-            <p
-              className="text-white text-center font-black uppercase tracking-[0.18em] text-[clamp(0.95rem,3vw,1.35rem)] leading-none"
-              style={{ textShadow: '0 2px 4px rgba(0,0,0,0.4)' }}
-            >
-              CHANGE PASSWORD
-            </p>
+        {/* ── Arc.svg — "CHANGE PASSWORD" sign ───────────────────────────── */}
+        <div className="absolute left-1/2 w-[85%] max-w-[300px]"
+          style={{ 
+            top: '0',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 100,
+            filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3))'
+          }}>
+          <div className="relative">
+            <Image
+              src={WoodArc}
+              alt=""
+              width={250}
+              height={70}
+              className="w-full h-auto"
+              aria-hidden
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <p
+                className="text-white font-black uppercase tracking-[0.25em] text-[clamp(0.75rem,3vw,1.1rem)] leading-none"
+                style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
+              >
+                CHANGE PASSWORD
+              </p>
+            </div>
           </div>
-          <div className="absolute -bottom-[5px] left-4 right-4 h-3 bg-[#C47A3A] rounded-b-sm" />
         </div>
 
         {/* ── Body ─────────────────────────────────────────────── */}
-        <div className="pt-10 pb-8 px-responsive-md">
+        <div className="relative z-10 pt-12 pb-8 px-10 flex flex-col gap-1 max-w-[320px] mx-auto w-full">
           {/* Success message */}
           {success && (
             <div className="mb-5 p-3 rounded-lg bg-green-100 border border-green-400">
@@ -161,7 +183,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
 
           {/* Current Password Field */}
           <div className="mb-4">
-            <label className="block text-sm font-bold text-[#7B3F00] mb-2">
+            <label className="block text-[0.95rem] font-semibold text-[#7B3F00] mb-1">
               Current Password
             </label>
             <div className="relative">
@@ -171,13 +193,13 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 disabled={loading || success}
                 placeholder="Enter your current password"
-                className="w-full px-4 py-3 rounded-full bg-[#D4956A] text-[#7B3F00] placeholder-[#8B6F47]/60 focus:outline-none focus:ring-2 focus:ring-[#7B3F00] disabled:opacity-60 shadow-inner"
+                className="w-full rounded-full bg-[#D4956A] text-[#5D3A1A] placeholder-[#A86040] font-medium px-5 py-2 outline-none border-2 border-[#B87D54] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] text-sm md:text-base disabled:opacity-60"
               />
               <button
                 type="button"
                 onClick={() => setShowCurrentPw(!showCurrentPw)}
                 disabled={loading || success}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#7B3F00] hover:opacity-70 disabled:opacity-40"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#7B3F00] hover:text-[#5D3A1A] transition-colors disabled:opacity-40"
               >
                 <EyeIcon open={showCurrentPw} />
               </button>
@@ -186,7 +208,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
 
           {/* New Password Field */}
           <div className="mb-4">
-            <label className="block text-sm font-bold text-[#7B3F00] mb-2">
+            <label className="block text-[0.95rem] font-semibold text-[#7B3F00] mb-1">
               New Password
             </label>
             <div className="relative">
@@ -196,13 +218,13 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
                 onChange={(e) => setNewPassword(e.target.value)}
                 disabled={loading || success}
                 placeholder="Enter your new password"
-                className="w-full px-4 py-3 rounded-full bg-[#D4956A] text-[#7B3F00] placeholder-[#8B6F47]/60 focus:outline-none focus:ring-2 focus:ring-[#7B3F00] disabled:opacity-60 shadow-inner"
+                className="w-full rounded-full bg-[#D4956A] text-[#5D3A1A] placeholder-[#A86040] font-medium px-5 py-2 outline-none border-2 border-[#B87D54] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] text-sm md:text-base disabled:opacity-60"
               />
               <button
                 type="button"
                 onClick={() => setShowNewPw(!showNewPw)}
                 disabled={loading || success}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#7B3F00] hover:opacity-70 disabled:opacity-40"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#7B3F00] hover:text-[#5D3A1A] transition-colors disabled:opacity-40"
               >
                 <EyeIcon open={showNewPw} />
               </button>
@@ -211,7 +233,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
 
           {/* Confirm Password Field */}
           <div className="mb-6">
-            <label className="block text-sm font-bold text-[#7B3F00] mb-2">
+            <label className="block text-[0.95rem] font-semibold text-[#7B3F00] mb-1">
               Confirm New Password
             </label>
             <div className="relative">
@@ -221,13 +243,13 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 disabled={loading || success}
                 placeholder="Confirm your new password"
-                className="w-full px-4 py-3 rounded-full bg-[#D4956A] text-[#7B3F00] placeholder-[#8B6F47]/60 focus:outline-none focus:ring-2 focus:ring-[#7B3F00] disabled:opacity-60 shadow-inner"
+                className="w-full rounded-full bg-[#D4956A] text-[#5D3A1A] placeholder-[#A86040] font-medium px-5 py-2 outline-none border-2 border-[#B87D54] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] text-sm md:text-base disabled:opacity-60"
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPw(!showConfirmPw)}
                 disabled={loading || success}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#7B3F00] hover:opacity-70 disabled:opacity-40"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#7B3F00] hover:text-[#5D3A1A] transition-colors disabled:opacity-40"
               >
                 <EyeIcon open={showConfirmPw} />
               </button>
@@ -240,22 +262,30 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
           </p>
 
           {/* Buttons */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 justify-center">
             <button
               onClick={onClose}
               disabled={loading}
-              className="flex-1 py-3 px-4 rounded-full bg-gray-400 text-white font-bold uppercase tracking-wider hover:opacity-90 disabled:opacity-50 transition-all"
+              className="py-2 px-4 rounded-full bg-gray-400 text-white font-bold uppercase tracking-wide hover:bg-gray-500 shadow-[0_4px_0_rgba(0,0,0,0.3),0_6px_12px_rgba(0,0,0,0.2)] active:shadow-[0_2px_0_rgba(0,0,0,0.3),0_4px_6px_rgba(0,0,0,0.1)] active:translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-xs md:text-sm"
             >
               Cancel
             </button>
             <button
               onClick={handleChangePassword}
               disabled={loading || success}
-              className="flex-1 py-3 px-4 rounded-full font-bold uppercase tracking-wider text-white transition-all"
+              className="py-2 px-4 rounded-full font-bold uppercase tracking-wide text-white shadow-[0_4px_0_#1a5c1a,0_6px_12px_rgba(0,0,0,0.2)] active:shadow-[0_2px_0_#1a5c1a,0_4px_6px_rgba(0,0,0,0.1)] active:translate-y-1 transition-all disabled:opacity-60 disabled:cursor-not-allowed text-xs md:text-sm"
               style={{
                 backgroundColor: success ? '#4CAF50' : '#2E8B2E',
-                boxShadow: success ? 'none' : '0 6px 0 #1a5c1a',
-                transform: loading ? 'translateY(2px)' : 'translateY(0)',
+              }}
+              onMouseEnter={(e) => {
+                if (!loading && !success) {
+                  (e.target as HTMLButtonElement).style.backgroundColor = '#329932';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!loading && !success) {
+                  (e.target as HTMLButtonElement).style.backgroundColor = '#2E8B2E';
+                }
               }}
             >
               {loading ? 'UPDATING...' : success ? '✓ SUCCESS' : 'CHANGE PASSWORD'}
