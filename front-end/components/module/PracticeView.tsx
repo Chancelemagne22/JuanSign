@@ -211,6 +211,15 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       onResult?.(result.accuracy);
 
     } catch (err) {
+      const message = err instanceof Error ? err.message.toLowerCase() : '';
+
+      // Recover from stale auth cookies/tokens without spamming console errors.
+      if (message.includes('invalid refresh token') || message.includes('refresh token not found')) {
+        await supabase.auth.signOut({ scope: 'local' });
+        setFeedback('Session expired. Please log in again.');
+        return;
+      }
+
       console.error('[PracticeView] upload error:', err);
       setFeedback('Upload failed. Please try again.');
     } finally {
