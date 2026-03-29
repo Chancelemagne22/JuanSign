@@ -1,0 +1,190 @@
+'use client';
+
+// PAGE: Lesson Viewer (Video Only)
+// ROUTE: /dashboard/lessons/[lessonId]
+//
+// Cycles through each letter/sign video in the chapter.
+// On completing the last video:
+//   - Updates user_progress.lessons_completed for this level
+//   - Unlocks the next level (sets is_unlocked = true on the next level's user_progress row)
+//   - Navigates back to /dashboard/lessons
+
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import LessonView from '@/components/module/LessonView';
+
+interface LetterUnit {
+  label:    string;
+  videoUrl: string | null;
+}
+
+interface LevelMeta {
+  levelNum: number;
+  label:    string;
+}
+
+export default function LessonPage() {
+  const router             = useRouter();
+  const { lessonId }       = useParams<{ lessonId: string }>();
+
+  const [letters,     setLetters]     = useState<LetterUnit[]>([]);
+  const [levelMeta,   setLevelMeta]   = useState<LevelMeta | null>(null);
+  const [letterIndex, setLetterIndex] = useState(0);
+  const [loading,     setLoading]     = useState(true);
+
+  useEffect(() => {
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.replace('/'); return; }
+
+      const [progressRes, levelRes, lessonsRes] = await Promise.all([
+        supabase
+          .from('user_progress')
+          .select('is_unlocked')
+          .eq('auth_user_id', user.id)
+          .eq('level_id', lessonId)
+          .single(),
+        supabase
+          .from('levels')
+          .select('level_name, level_order')
+          .eq('level_id', lessonId)
+          .single(),
+        supabase
+          .from('lessons')
+          .select('lesson_id, lesson_title, video_url, lesson_order')
+          .eq('level_id', lessonId)
+          .order('lesson_order'),
+      ]);
+
+      if (!progressRes.data?.is_unlocked) {
+        router.replace('/dashboard/lessons');
+        return;
+      }
+
+      setLetters((lessonsRes.data ?? []).map((r) => ({ label: r.lesson_title, videoUrl: r.video_url })));
+      setLevelMeta({
+        levelNum: levelRes.data?.level_order ?? 1,
+        label:    levelRes.data?.level_name        ?? 'Chapter',
+      });
+      setLoading(false);
+    }
+    init();
+  }, [lessonId, router]);
+
+  async function handleNext() {
+    if (letterIndex < letters.length - 1) {
+      // Advance to next letter
+      setLetterIndex((i) => i + 1);
+    } else {
+      // Last letter finished — mark lesson complete and unlock next level
+      await completeLesson();
+      router.replace('/dashboard/lessons');
+    }
+  }
+
+  async function completeLesson() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+
+    // Mark lessons_completed for this level
+    await supabase
+      .from('user_progress')
+      .update({ lessons_completed: letters.length })
+      .eq('auth_user_id', user.id)
+      .eq('level_id', lessonId);
+    // Unlock the next level (find level where previous_level_id = lessonId)
+    const { data: nextLevel } = await supabase
+      .from('levels')
+      .select('level_id')
+      .eq('previous_level_id', lessonId)
+      .single();
+
+    if (nextLevel) {
+      // upsert: creates the row if it doesn't exist yet, updates it if it does.
+      // .update() would silently do nothing when the row is missing.
+      await supabase
+        .from('user_progress')
+        .upsert(
+          { auth_user_id: user.id, level_id: nextLevel.level_id, is_unlocked: true },
+          { onConflict: 'auth_user_id,level_id' },
+        );
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <p className="text-[#7B3F00] font-bold text-lg animate-pulse">Loading…</p>
+      </div>
+    );
+  }
+
+  if (!levelMeta || letters.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white px-6">
+        <p className="text-[#7B3F00] font-semibold text-center">
+          No videos available for this chapter yet.
+        </p>
+      </div>
+    );
+  }
+
+  const currentLetter = letters[letterIndex];
+  const isLast        = letterIndex === letters.length - 1;
+
+  return (
+    <div className="h-screen overflow-hidden bg-white px-6 pt-5 pb-6 flex flex-col">
+
+      {/* ── Top bar ──────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between mb-4 shrink-0">
+        <button
+          onClick={() => router.replace('/dashboard/lessons')}
+          className="icon-circle-btn"
+          aria-label="Back to lessons"
+        >
+          <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
+            <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+          </svg>
+        </button>
+
+        {/* Letter progress indicator */}
+        <p className="text-[#4A2C0A] font-bold text-sm">
+          {letterIndex + 1} / {letters.length}
+        </p>
+      </div>
+
+      {/* ── Page heading ─────────────────────────────────────────── */}
+      <div className="text-center mb-4 shrink-0">
+        <h1
+          className="font-black text-[2rem] leading-tight"
+          style={{
+            fontFamily:       'var(--font-spicy-rice)',
+            color:            '#2E7D1C',
+            WebkitTextStroke: '1.5px #1a4d10',
+            textShadow:       '2px 2px 0 #1a4d10',
+          }}
+        >
+          Let&apos;s learn FSL!
+        </h1>
+        <p className="text-[#4A2C0A] font-bold text-sm mt-1">
+          Build your FSL skills one lesson at a time
+        </p>
+      </div>
+
+      {/* ── Lesson video — fills remaining height ─────────────────── */}
+      <div className="flex-1 min-h-0">
+        <LessonView
+          letter={currentLetter.label}
+          videoUrl={currentLetter.videoUrl}
+          levelNum={levelMeta.levelNum}
+          levelLabel={levelMeta.label}
+          onNext={handleNext}
+          nextLabel={isLast ? 'Finish ✓' : undefined}
+        />
+      </div>
+
+    </div>
+  );
+}
