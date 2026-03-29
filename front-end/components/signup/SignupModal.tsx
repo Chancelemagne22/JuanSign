@@ -219,7 +219,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
 
         {/* ── Form body ────────────────────────────────────────── */}
         {!signupDone && (
-        <div className="relative z-10 pt-20 pb-6 px-22 flex flex-col gap-3 max-w-[480px] mx-auto w-full">
+        <div className="relative z-10 pt-15 pb-7 px-20 flex flex-col gap-3 max-w-[460px] mx-auto w-full">
 
           {/* First Name + Last Name — Grid layout for visual grouping */}
           <div className="grid grid-cols-2 gap-2">
