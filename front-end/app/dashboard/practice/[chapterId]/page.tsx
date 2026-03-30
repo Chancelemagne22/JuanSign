@@ -148,13 +148,28 @@ export default function PracticeChapterPage() {
   const current = questions[currentIndex];
 
   return (
-    <div className="h-screen overflow-hidden bg-white px-6 pt-5 pb-6 flex flex-col">
+    <div className="h-screen overflow-hidden bg-white px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 flex flex-col">
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-4 shrink-0">
+      <div className="relative z-20 flex items-center justify-between mb-3 sm:mb-4 shrink-0">
         <button
           onClick={() => router.replace('/dashboard/practice')}
-          className="icon-circle-btn"
+          className="flex items-center justify-center flex-shrink-0 transition-transform"
+          style={{
+            zIndex: 9999,
+            width: 'clamp(36px, 6vw, 44px)',
+            height: 'clamp(36px, 6vw, 44px)',
+            borderRadius: '50%',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            background: 'linear-gradient(180deg, #ffcc44 0%, #ff9900 100%)',
+            boxShadow: '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
+          onMouseDown={(e) => (e.currentTarget.style.transform = 'translateY(4px) scale(0.96)', e.currentTarget.style.boxShadow = '0 2px 0 #b86a00, 0 4px 8px rgba(0, 0, 0, 0.2)')}
+          onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
           aria-label="Back to practice"
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
@@ -168,7 +183,7 @@ export default function PracticeChapterPage() {
       </div>
 
       {/* ── Page heading ─────────────────────────────────────────── */}
-      <div className="text-center mb-4 shrink-0">
+      <div className="relative z-20 text-center mb-3 sm:mb-4 shrink-0">
         <h1
           className="font-black text-[2rem] leading-tight"
           style={{ fontFamily: 'var(--font-baloo)', color: '#CC2200' }}
@@ -183,7 +198,7 @@ export default function PracticeChapterPage() {
       </div>
 
       {/* ── Question view — fills remaining height ────────────────── */}
-      <div className="flex-1 min-h-0">
+      <div className="relative z-10 flex-1 min-h-0 overflow-hidden pt-1 sm:pt-2">
         {current.type === 'perform' ? (
           <PracticeView
             key={current.id}
@@ -206,6 +221,7 @@ export default function PracticeChapterPage() {
             correctAnswer={current.correctAnswer}
             questionIndex={currentIndex}
             totalQuestions={questions.length}
+            sideBySide
             onNext={(accuracy) => handleNext(accuracy)}
           />
         )}
