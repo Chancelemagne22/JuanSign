@@ -141,7 +141,22 @@ export default function LessonPage() {
       <div className="flex items-center justify-between mb-4 shrink-0">
         <button
           onClick={() => router.replace('/dashboard/lessons')}
-          className="icon-circle-btn"
+          className="flex items-center justify-center flex-shrink-0 transition-transform"
+          style={{
+            zIndex: 9999,
+            width: 'clamp(36px, 6vw, 44px)',
+            height: 'clamp(36px, 6vw, 44px)',
+            borderRadius: '50%',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            background: 'linear-gradient(180deg, #ffcc44 0%, #ff9900 100%)',
+            boxShadow: '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
+          onMouseDown={(e) => (e.currentTarget.style.transform = 'translateY(4px) scale(0.96)', e.currentTarget.style.boxShadow = '0 2px 0 #b86a00, 0 4px 8px rgba(0, 0, 0, 0.2)')}
+          onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
           aria-label="Back to lessons"
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
@@ -150,7 +165,7 @@ export default function LessonPage() {
         </button>
 
         {/* Letter progress indicator */}
-        <p className="text-[#4A2C0A] font-bold text-sm">
+        <p className="text-[#4A2C0A] font-bold text-base sm:text-lg">
           {letterIndex + 1} / {letters.length}
         </p>
       </div>
@@ -158,12 +173,11 @@ export default function LessonPage() {
       {/* ── Page heading ─────────────────────────────────────────── */}
       <div className="text-center mb-4 shrink-0">
         <h1
-          className="font-black text-[2rem] leading-tight"
+          className="font-black leading-tight text-[1.75rem] sm:text-[1.9rem]"
           style={{
             fontFamily:       'var(--font-spicy-rice)',
             color:            '#2E7D1C',
-            WebkitTextStroke: '1.5px #1a4d10',
-            textShadow:       '2px 2px 0 #1a4d10',
+            WebkitTextStroke: '1px #1a4d10',
           }}
         >
           Let&apos;s learn FSL!
