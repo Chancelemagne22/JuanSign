@@ -151,7 +151,7 @@ export default function PracticeChapterPage() {
     <div className="h-screen overflow-hidden bg-white px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 flex flex-col">
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
-      <div className="relative z-20 flex items-center justify-between mb-3 sm:mb-4 shrink-0">
+      <div className="relative z-20 flex items-center justify-start mb-3 sm:mb-4 shrink-0">
         <button
           onClick={() => router.replace('/dashboard/practice')}
           className="flex items-center justify-center flex-shrink-0 transition-transform"
@@ -177,9 +177,6 @@ export default function PracticeChapterPage() {
           </svg>
         </button>
 
-        <p className="text-[#4A2C0A] font-bold text-sm">
-          {currentIndex + 1} / {questions.length}
-        </p>
       </div>
 
       {/* ── Page heading ─────────────────────────────────────────── */}

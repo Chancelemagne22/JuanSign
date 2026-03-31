@@ -185,10 +185,10 @@ export default function IdentifyView({
             key={key}
             disabled={confirmed}
             onClick={() => setSelected(key)}
-            className={`rounded-2xl border-[3px] px-4 py-3 font-bold text-sm text-left transition-all shadow-sm disabled:cursor-default ${bg}`}
+            className={`rounded-2xl border-[3px] px-5 py-3 font-bold text-sm text-center transition-all shadow-sm disabled:cursor-default ${bg}`}
             style={{ fontFamily: 'var(--font-fredoka)' }}
           >
-            <span className="font-black mr-1">{key}.</span> {options[key]}
+            {options[key]}
           </button>
         );
       })}
@@ -198,7 +198,7 @@ export default function IdentifyView({
   if (sideBySide) {
     return (
       <div className="h-full min-h-0 flex flex-col gap-3 overflow-y-auto pb-2">
-        <p className="text-center text-[#4A2C0A] font-bold text-sm">
+        <p className="text-center text-[#7B3F00] font-black text-base sm:text-lg">
           Question {questionIndex + 1} / {totalQuestions}
         </p>
 
@@ -251,10 +251,10 @@ export default function IdentifyView({
                     key={key}
                     disabled={confirmed}
                     onClick={() => setSelected(key)}
-                    className={`rounded-2xl border-[3px] px-4 py-3 font-bold text-sm text-left transition-all shadow-sm disabled:cursor-default ${bg}`}
+                    className={`rounded-2xl border-[3px] px-5 py-3 font-bold text-sm text-center transition-all shadow-sm disabled:cursor-default ${bg}`}
                     style={{ fontFamily: 'var(--font-fredoka)' }}
                   >
-                    <span className="font-black mr-1">{key}.</span> {options[key]}
+                    {options[key]}
                   </button>
                 );
               })}
@@ -282,7 +282,7 @@ export default function IdentifyView({
     <div className="flex flex-col gap-4 h-full overflow-y-auto pb-4">
 
       {/* ── Progress ──────────────────────────────────────────────── */}
-      <p className="text-center text-[#4A2C0A] font-bold text-sm">
+      <p className="text-center text-[#7B3F00] font-black text-base sm:text-lg">
         Question {questionIndex + 1} / {totalQuestions}
       </p>
 
