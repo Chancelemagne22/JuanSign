@@ -68,7 +68,7 @@ function MascotPlaceholder() {
       alt="JuanSign Mascot"
       width={90}
       height={110}
-      className="object-contain flex-shrink-0"
+      className="object-contain flex-shrink-0 w-[clamp(56px,8vw,90px)] h-auto"
     />
   );
 }
@@ -77,6 +77,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
   const mediaRef   = useRef<MediaRecorder | null>(null);
   const chunksRef  = useRef<Blob[]>([]);
   const streamRef  = useRef<MediaStream | null>(null);
+  const pendingUploadRef = useRef(false);
 
   const [recordState,      setRecordState]      = useState<RecordState>('idle');
   const [recordedBlob,     setRecordedBlob]     = useState<Blob | null>(null);
@@ -93,7 +94,11 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.play();
+          videoRef.current.play().catch((err: unknown) => {
+            // Browser can throw AbortError if play is interrupted by a source reload.
+            if (err instanceof DOMException && err.name === 'AbortError') return;
+            console.warn('[PracticeView] camera preview play failed:', err);
+          });
         }
       } catch {
         setCamError('Camera access denied. Please allow camera permissions and reload.');
@@ -119,6 +124,15 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       const blob = new Blob(chunksRef.current, { type: 'video/webm' });
       setRecordedBlob(blob);
       setRecordState('done');
+
+      if (pendingUploadRef.current) {
+        pendingUploadRef.current = false;
+        if (blob.size > 0) {
+          void uploadPrediction(blob);
+        } else {
+          setFeedback('No video captured yet. Please try recording again.');
+        }
+      }
     };
     mediaRef.current = recorder;
     recorder.start();
@@ -141,6 +155,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
   }
 
   function resetRecording() {
+    pendingUploadRef.current = false;
     if (mediaRef.current && mediaRef.current.state !== 'inactive') {
       mediaRef.current.stop();
     }
@@ -163,8 +178,8 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
    * 4. Modal writes cnn_feedback to Supabase (service role).
    * 5. Show result overlay; call onResult() so the page can track accuracy.
    * ─────────────────────────────────────────────────────────────────────── */
-  async function handleUploadPrediction() {
-    if (!recordedBlob || isUploading) return;
+  async function uploadPrediction(blob: Blob) {
+    if (isUploading) return;
     setIsUploading(true);
     setPredictionResult(null);
 
@@ -175,7 +190,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       if (!token) throw new Error('Not authenticated');
 
       // 2. Base64 encode blob
-      const buffer   = await recordedBlob.arrayBuffer();
+      const buffer   = await blob.arrayBuffer();
       const bytes    = new Uint8Array(buffer);
       let   binary   = '';
       bytes.forEach((b) => (binary += String.fromCharCode(b)));
@@ -227,6 +242,29 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
     }
   }
 
+  async function handleUploadPrediction() {
+    if (isUploading) return;
+
+    // If user taps upload while still recording, finalize first then auto-upload.
+    if (recordState === 'recording' || recordState === 'paused') {
+      pendingUploadRef.current = true;
+      stopRecording();
+      return;
+    }
+
+    if (!recordedBlob) {
+      setFeedback('Record your sign first, then upload.');
+      return;
+    }
+
+    if (recordedBlob.size === 0) {
+      setFeedback('No video captured yet. Please try recording again.');
+      return;
+    }
+
+    await uploadPrediction(recordedBlob);
+  }
+
   /* ── Derived button states ─────────────────────────────────────────────── */
   const isIdle      = recordState === 'idle';
   const isRecording = recordState === 'recording';
@@ -245,13 +283,16 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       : `Show the sign for "${letter}"!`;
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="h-full min-h-0 overflow-hidden flex flex-col gap-3">
 
-      {/* ── Camera box — portrait 3:6, centred horizontally ───────────────── */}
-      <div className="flex-1 min-h-0 flex justify-center">
+      {/* ── Camera box — responsive 2:1, centered horizontally ─────────────── */}
+      <div className="flex-1 min-h-0 flex items-center justify-center">
       <div
-        className="relative h-full rounded-[24px] border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A]"
-        style={{ aspectRatio: '6/3' }}
+        className="relative w-full max-w-full rounded-[24px] border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A]"
+        style={{
+          aspectRatio: '6/3',
+          width: 'min(100%, calc((100vh - 390px) * 2))',
+        }}
       >
         {camError ? (
           <div className="absolute inset-0 flex items-center justify-center px-6">
@@ -263,7 +304,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
             ref={videoRef}
             muted
             playsInline
-            className="absolute inset-0 w-full h-full object-contain scale-x-[-1]"
+            className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"
           />
         )}
 
@@ -350,21 +391,21 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       </div>
 
       {/* ── Below box: mascot | speech bubble + star bar | buttons ─────────── */}
-      <div className="flex items-end gap-3 px-1">
+      <div className="shrink-0 flex items-end gap-2 sm:gap-3 px-1">
 
         {/* Left: mascot character */}
         <MascotPlaceholder />
 
         {/* Center: speech bubble stacked above star bar — same width, aligned */}
-        <div className="flex-1 flex flex-col gap-2">
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5 sm:gap-2 items-start">
 
           {/* Speech bubble (tail points bottom-left toward mascot) */}
-          <div className="bg-[#E8E8E8] border border-[#C8C8C8] rounded-2xl rounded-bl-none px-4 py-2.5 shadow-sm">
-            <p className="text-[#2E7D1C] font-black text-sm leading-snug">{bubbleText}</p>
+          <div className="self-start inline-flex w-fit max-w-[min(68vw,30rem)] sm:max-w-[min(62vw,34rem)] bg-[#F8F8F8] border border-[#D9D9D9] rounded-[20px] rounded-bl-[8px] px-4 sm:px-5 py-2.5 sm:py-3 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
+            <p className="text-[#2E7D1C] font-black text-[clamp(0.88rem,1.5vw,1.05rem)] leading-snug">{bubbleText}</p>
           </div>
 
           {/* Star progress bar */}
-          <div className="relative w-full h-9 flex items-center">
+          <div className="relative self-stretch w-full h-9 flex items-center">
             {/* Track */}
             <div className="absolute inset-x-4 my-auto h-3 bg-[#E8C49A] rounded-full border-2 border-[#BF7B45]" />
             {/* Fill */}
@@ -399,7 +440,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
         <div className="flex flex-col items-end gap-2 flex-shrink-0">
           <button
             onClick={handleUploadPrediction}
-            disabled={!isDone || isUploading}
+            disabled={isUploading}
             className="
               bg-white border-2 border-[#BF7B45] text-[#2a7abf]
               font-black text-sm px-5 py-2 rounded-full shadow-sm

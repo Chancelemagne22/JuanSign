@@ -31,13 +31,13 @@ function LockIcon() {
 
 function ChapterCard({ chapter, onPress }: { chapter: ChapterItem; onPress: () => void }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="chapter-card-item flex flex-col gap-1 sm:gap-1.5">
       <button
         onClick={onPress}
         disabled={!chapter.isUnlocked}
         aria-label={chapter.isUnlocked ? `Open ${chapter.title}` : `${chapter.title} — locked`}
         className={`
-          relative w-full aspect-5/3 rounded-[28px] border-[5px] overflow-hidden transition-transform
+          chapter-card-button relative overflow-hidden transition-transform
           ${chapter.isUnlocked
             ? 'bg-[#E8A87C] border-[#BF7B45] hover:scale-[0.95] cursor-pointer shadow-md'
             : 'bg-[#C49070] border-[#8B6040] cursor-not-allowed opacity-80'
@@ -63,7 +63,7 @@ function ChapterCard({ chapter, onPress }: { chapter: ChapterItem; onPress: () =
           </div>
         )}
       </button>
-      <p className="text-[#4A2C0A] text-sm">
+      <p className="chapter-card-caption text-[#4A2C0A]">
         <span className="font-black">Chapter {chapter.chapterNum}</span>
         {'  '}
         <span className="font-medium">{chapter.title}</span>
@@ -72,13 +72,21 @@ function ChapterCard({ chapter, onPress }: { chapter: ChapterItem; onPress: () =
   );
 }
 
-const CHAPTERS_PER_PAGE = 5;
-
 export default function PracticePage() {
   const router = useRouter();
-  const [chapters,    setChapters]    = useState<ChapterItem[]>([]);
-  const [loading,     setLoading]     = useState(true);
+  const [chapters, setChapters] = useState<ChapterItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
+  const [usePagedLayout, setUsePagedLayout] = useState(false);
+
+  const DESKTOP_PAGE_SIZE = 8;
+
+  useEffect(() => {
+    const updateLayoutMode = () => setUsePagedLayout(window.innerWidth >= 1024);
+    updateLayoutMode();
+    window.addEventListener('resize', updateLayoutMode);
+    return () => window.removeEventListener('resize', updateLayoutMode);
+  }, []);
 
   useEffect(() => {
     async function init() {
@@ -134,6 +142,21 @@ export default function PracticePage() {
     init();
   }, [router]);
 
+  const totalPages = usePagedLayout
+    ? Math.max(1, Math.ceil(chapters.length / DESKTOP_PAGE_SIZE))
+    : 1;
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages - 1));
+  }, [totalPages]);
+
+  const visibleChapters = usePagedLayout
+    ? chapters.slice(currentPage * DESKTOP_PAGE_SIZE, (currentPage + 1) * DESKTOP_PAGE_SIZE)
+    : chapters;
+
+  const hasPrev = currentPage > 0;
+  const hasNext = currentPage < totalPages - 1;
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
@@ -142,22 +165,29 @@ export default function PracticePage() {
     );
   }
 
-  const pages: ChapterItem[][] = [];
-  for (let i = 0; i < chapters.length; i += CHAPTERS_PER_PAGE) {
-    pages.push(chapters.slice(i, i + CHAPTERS_PER_PAGE));
-  }
-  const totalPages = pages.length;
-  const hasNext    = currentPage < totalPages - 1;
-  const hasPrev    = currentPage > 0;
-
   return (
-    <div className="min-h-screen bg-white px-6 pt-5 pb-12 overflow-x-hidden">
+    <div className="h-screen bg-white px-4 sm:px-6 pt-4 pb-3 overflow-hidden flex flex-col">
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
         <button
           onClick={() => router.replace('/dashboard')}
-          className="icon-circle-btn"
+          className="flex items-center justify-center flex-shrink-0 transition-transform"
+          style={{
+            zIndex: 9999,
+            width: 'clamp(36px, 6vw, 44px)',
+            height: 'clamp(36px, 6vw, 44px)',
+            borderRadius: '50%',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            background: 'linear-gradient(180deg, #ffcc44 0%, #ff9900 100%)',
+            boxShadow: '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+          onMouseDown={(e) => (e.currentTarget.style.transform = 'translateY(4px) scale(0.96)', e.currentTarget.style.boxShadow = '0 2px 0 #b86a00, 0 4px 8px rgba(0, 0, 0, 0.2)')}
+          onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
           aria-label="Back to menu"
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
@@ -165,22 +195,37 @@ export default function PracticePage() {
           </svg>
         </button>
         <button
-          className="icon-circle-btn"
+          className="flex items-center justify-center flex-shrink-0 transition-transform"
+          style={{
+            zIndex: 9999,
+            width: 'clamp(36px, 6vw, 44px)',
+            height: 'clamp(36px, 6vw, 44px)',
+            borderRadius: '50%',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            background: 'linear-gradient(180deg, #ffcc44 0%, #ff9900 100%)',
+            boxShadow: '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+          onMouseDown={(e) => (e.currentTarget.style.transform = 'translateY(4px) scale(0.96)', e.currentTarget.style.boxShadow = '0 2px 0 #b86a00, 0 4px 8px rgba(0, 0, 0, 0.2)')}
+          onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
           aria-label="Settings"
         >
-          <Image src={GearIcon} alt="" width={22} height={22} aria-hidden />
+          <Image src={GearIcon} alt="" style={{ width: '50%', height: '50%' }} />
         </button>
       </div>
 
       {/* ── Title ────────────────────────────────────────────────── */}
-      <div className="text-center mb-8">
+      <div className="text-center mb-2 sm:mb-3">
         <h1
-          className="font-black text-[2rem] leading-tight"
+          className="heading-xl"
           style={{
             fontFamily:       'var(--font-spicy-rice)',
-            color:            '#CC2200',
-            WebkitTextStroke: '1.5px #881500',
-            textShadow:       '2px 2px 0 #881500',
+            color:            '#FF6600',
+            WebkitTextStroke: '1px #A14E08',
+            textShadow:       '1px 1px 0 #A14E08',
           }}
         >
           Practice
@@ -190,86 +235,50 @@ export default function PracticePage() {
         </p>
       </div>
 
-      {/* ── Chapter grid ─────────────────────────────────────────── */}
-      <div className="relative mt-4">
-        {hasPrev && (
-          <div className="absolute left-0 top-[38%] -translate-y-1/2 -translate-x-5 z-10">
-            <button
-              onClick={() => setCurrentPage((p) => p - 1)}
-              className="icon-circle-btn"
-              aria-label="Previous page"
-            >
-              <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
-                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
-              </svg>
-            </button>
-          </div>
-        )}
-        {hasNext && (
-          <div className="absolute right-0 top-[38%] -translate-y-1/2 translate-x-5 z-10">
-            <button
-              onClick={() => setCurrentPage((p) => p + 1)}
-              className="icon-circle-btn"
-              aria-label="Next page"
-            >
-              <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
-                <path d="M4 11h12.17l-5.59-5.59L12 4l8 8-8 8-1.41-1.41L16.17 13H4v-2z" />
-              </svg>
-            </button>
-          </div>
-        )}
-
-        <div className="overflow-hidden">
-          <div
-            className="flex transition-transform duration-500 ease-in-out"
-            style={{ transform: `translateX(-${currentPage * 100}%)` }}
-          >
-            {pages.map((page, pageIdx) => {
-              const row1 = page.slice(0, 3);
-              const row2 = page.slice(3, 5);
-              return (
-                <div key={pageIdx} className="w-full flex-shrink-0 flex flex-col gap-6">
-                  <div className="chapter-grid-row1">
-                    {row1.map((ch) => (
-                      <ChapterCard
-                        key={ch.id}
-                        chapter={ch}
-                        onPress={() => router.push(`/dashboard/practice/${ch.id}`)}
-                      />
-                    ))}
-                  </div>
-                  {row2.length > 0 && (
-                    <div className="chapter-grid-row2">
-                      {row2.map((ch) => (
-                        <ChapterCard
-                          key={ch.id}
-                          chapter={ch}
-                          onPress={() => router.push(`/dashboard/practice/${ch.id}`)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+      {/* ── Chapter gallery ──────────────────────────────────────── */}
+      <div className="mt-2 flex-1 min-h-0 overflow-hidden">
+        <div
+          className={`lesson-gallery-scroll h-full px-0 sm:px-1 ${
+            usePagedLayout ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'
+          }`}
+        >
+          <div className="lesson-gallery-shell mx-auto">
+            <div className="lesson-gallery-grid">
+              {visibleChapters.map((ch) => (
+                <ChapterCard
+                  key={ch.id}
+                  chapter={ch}
+                  onPress={() => router.push(`/dashboard/practice/${ch.id}`)}
+                />
+              ))}
+            </div>
           </div>
         </div>
-
-        {totalPages > 1 && (
-          <div className="flex justify-center gap-2 mt-6">
-            {pages.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrentPage(i)}
-                aria-label={`Go to page ${i + 1}`}
-                className={`rounded-full transition-all duration-300 ${
-                  i === currentPage ? 'w-5 h-2.5 bg-[#BF7B45]' : 'w-2.5 h-2.5 bg-[#BF7B45]/30 hover:bg-[#BF7B45]/60'
-                }`}
-              />
-            ))}
-          </div>
-        )}
       </div>
+
+      {usePagedLayout && (
+        <div className="flex-shrink-0 mt-3 sm:mt-4 flex items-center justify-center gap-2">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+            disabled={!hasPrev}
+            className="px-3 py-1.5 rounded-full text-sm font-bold border border-[#BF7B45] text-[#7B3F00] disabled:opacity-40"
+            aria-label="Previous practice page"
+          >
+            Previous
+          </button>
+          <span className="text-xs sm:text-sm text-[#7B3F00] font-semibold px-2">
+            {currentPage + 1} / {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={!hasNext}
+            className="px-3 py-1.5 rounded-full text-sm font-bold border border-[#BF7B45] text-[#7B3F00] disabled:opacity-40"
+            aria-label="Next practice page"
+          >
+            Next
+          </button>
+        </div>
+      )}
 
     </div>
   );
