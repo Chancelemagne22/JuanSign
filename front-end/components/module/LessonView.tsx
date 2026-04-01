@@ -76,68 +76,71 @@ export default function LessonView({ letter, videoUrl, levelNum, levelLabel, onN
   }
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex h-full min-h-0 flex-col gap-4">
 
       {/* ── Video box ──────────────────────────────────────────────────────── */}
-      <div
-        className="relative w-full flex-1 min-h-0 rounded-[24px] border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A]"
-      >
-        {videoUrl && !videoError ? (
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            playsInline
-            preload="auto"
-            className="absolute inset-0 w-full h-full object-contain"
-            onError={() => setVideoError(true)}
-            onLoadedData={() => console.log('[LessonView] video loaded:', videoUrl)}
-          />
-        ) : (
-          /* Placeholder — shown when no videoUrl or when the URL fails to load */
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 select-none">
-            <span
-              className="font-black text-white/60 leading-none"
-              style={{ fontSize: 'clamp(5rem, 18vw, 11rem)' }}
-            >
-              {letter}
-            </span>
-            <p className="text-white/50 font-semibold text-sm">
-              {videoError ? 'Video unavailable' : 'Video coming soon'}
-            </p>
+      <div className="flex-1 min-h-0 flex items-center justify-center">
+        <div
+          className="relative w-full max-w-[1280px] aspect-video rounded-[24px] border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A]"
+          style={{ width: 'min(100%, calc((100vh - 280px) * 16 / 9))' }}
+        >
+          {videoUrl && !videoError ? (
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              playsInline
+              preload="auto"
+              className="absolute inset-0 w-full h-full object-contain"
+              onError={() => setVideoError(true)}
+              onLoadedData={() => console.log('[LessonView] video loaded:', videoUrl)}
+            />
+          ) : (
+            /* Placeholder — shown when no videoUrl or when the URL fails to load */
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 select-none">
+              <span
+                className="font-black text-white/60 leading-none"
+                style={{ fontSize: 'clamp(5rem, 18vw, 11rem)' }}
+              >
+                {letter}
+              </span>
+              <p className="text-white/50 font-semibold text-sm">
+                {videoError ? 'Video unavailable' : 'Video coming soon'}
+              </p>
+            </div>
+          )}
+
+          {/* ── Controls overlay (bottom-left inside the box) ───────────────── */}
+          <div className="absolute bottom-4 left-4 flex gap-2.5 z-10">
+            <ControlBtn onClick={play} ariaLabel="Play">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </ControlBtn>
+
+            <ControlBtn onClick={pause} ariaLabel="Pause">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
+                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+              </svg>
+            </ControlBtn>
+
+            <ControlBtn onClick={restart} ariaLabel="Restart">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
+                <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
+              </svg>
+            </ControlBtn>
+
+            <ControlBtn onClick={stop} ariaLabel="Stop">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
+                <path d="M6 6h12v12H6z" />
+              </svg>
+            </ControlBtn>
           </div>
-        )}
-
-        {/* ── Controls overlay (bottom-left inside the box) ───────────────── */}
-        <div className="absolute bottom-4 left-4 flex gap-2.5 z-10">
-          <ControlBtn onClick={play} ariaLabel="Play">
-            <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </ControlBtn>
-
-          <ControlBtn onClick={pause} ariaLabel="Pause">
-            <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
-              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-            </svg>
-          </ControlBtn>
-
-          <ControlBtn onClick={restart} ariaLabel="Restart">
-            <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
-              <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
-            </svg>
-          </ControlBtn>
-
-          <ControlBtn onClick={stop} ariaLabel="Stop">
-            <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
-              <path d="M6 6h12v12H6z" />
-            </svg>
-          </ControlBtn>
         </div>
       </div>
 
-      {/* ── Below box: level label (left) + next arrow (right) ─────────────── */}
-      <div className="flex items-center justify-between px-1 shrink-0">
-        <p className="text-[#4A2C0A] text-base">
+      {/* ── Below box: centered level label + next arrow (right) ────────────── */}
+      <div className="grid grid-cols-3 items-center px-1 shrink-0">
+        <p className="text-[#4A2C0A] text-lg sm:text-xl justify-self-center text-center col-start-2">
           <span className="font-black">Level {levelNum}</span>
           {'  '}
           <span className="font-semibold">{levelLabel}</span>
@@ -148,6 +151,7 @@ export default function LessonView({ letter, videoUrl, levelNum, levelLabel, onN
           onClick={onNext}
           aria-label={nextLabel ?? 'Next'}
           className="
+            justify-self-end col-start-3
             rounded-full px-5 h-12
             bg-[#33AA11] border-[3px] border-[#228800]
             flex items-center justify-center gap-2

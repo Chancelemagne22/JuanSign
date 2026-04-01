@@ -193,7 +193,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 disabled={loading || success}
                 placeholder="Enter your current password"
-                className="w-full rounded-full bg-[#D4956A] text-[#5D3A1A] placeholder-[#A86040] font-medium px-5 py-2 outline-none border-2 border-[#B87D54] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] text-sm md:text-base disabled:opacity-60"
+                className="hide-native-reveal w-full rounded-full bg-[#D4956A] text-[#5D3A1A] placeholder-[#A86040] font-medium px-5 py-2 outline-none border-2 border-[#B87D54] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] text-xs md:text-sm disabled:opacity-60"
               />
               <button
                 type="button"
@@ -218,7 +218,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
                 onChange={(e) => setNewPassword(e.target.value)}
                 disabled={loading || success}
                 placeholder="Enter your new password"
-                className="w-full rounded-full bg-[#D4956A] text-[#5D3A1A] placeholder-[#A86040] font-medium px-5 py-2 outline-none border-2 border-[#B87D54] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] text-sm md:text-base disabled:opacity-60"
+                className="hide-native-reveal w-full rounded-full bg-[#D4956A] text-[#5D3A1A] placeholder-[#A86040] font-medium px-5 py-2 outline-none border-2 border-[#B87D54] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] text-xs md:text-sm disabled:opacity-60"
               />
               <button
                 type="button"
@@ -243,7 +243,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 disabled={loading || success}
                 placeholder="Confirm your new password"
-                className="w-full rounded-full bg-[#D4956A] text-[#5D3A1A] placeholder-[#A86040] font-medium px-5 py-2 outline-none border-2 border-[#B87D54] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] text-sm md:text-base disabled:opacity-60"
+                className="hide-native-reveal w-full rounded-full bg-[#D4956A] text-[#5D3A1A] placeholder-[#A86040] font-medium px-5 py-2 outline-none border-2 border-[#B87D54] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] text-xs md:text-sm disabled:opacity-60"
               />
               <button
                 type="button"
