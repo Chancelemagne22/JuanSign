@@ -22,7 +22,7 @@ function EyeIcon({ open }: { open: boolean }) {
   );
 }
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -280,4 +280,8 @@ export default function ResetPasswordPage() {
       </div>
     </div>
   );
+}
+
+export default function ResetPasswordPage() {
+  return <ResetPasswordContent />;
 }

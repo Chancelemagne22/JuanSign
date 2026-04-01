@@ -56,7 +56,7 @@ def get_criterion(device):
     # and slightly decrease 'B' (Index 1) so the model has to be 
     # extremely sure before it guesses 'B'.
     weights[0] = 1.5  # Increase 'A' importance by 50%
-    weights[1] = 0.8  # Decrease 'B' importance by 20%
+    weights[1] = 0.8  # Decrease 'B' importance by 20% hmmm
     
     # Keep 'C' weight low as planned
     if "C" in CLASS_NAMES:
