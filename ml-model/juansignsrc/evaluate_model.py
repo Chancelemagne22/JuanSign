@@ -82,7 +82,16 @@ def run_evaluation():
             
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
-
+                # Add this inside the 'with torch.no_grad():' loop in evaluate_model.py
+        for i in range(len(all_preds)):
+            if all_preds[i] != all_labels[i]:
+                true_name = CLASS_NAMES[all_labels[i]]
+                pred_name = CLASS_NAMES[all_preds[i]]
+                # This assumes your dataset stores the path. 
+                # If not, we can find them by index in test_ds.samples
+                sample_path = test_ds.samples[i][0] 
+                print(f"❌ MISCLASSIFIED: True={true_name}, Pred={pred_name}")
+                print(f"   Path: {sample_path}\n")
     # ══════════════════════════════════════════════════════════════════════════
     # METRICS CALCULATION
     # ══════════════════════════════════════════════════════════════════════════
