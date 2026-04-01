@@ -35,7 +35,7 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
     setLoading(true);
 
     try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      await supabase.auth.resetPasswordForEmail(
         email.trim(),
         {
           redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/reset-password`,
@@ -44,12 +44,8 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
 
       setLoading(false);
 
-      if (resetError) {
-        setError(resetError.message || 'Failed to send reset email. Please try again.');
-        return;
-      }
-
-      // Success
+      // Always show success message - don't reveal if email exists (security best practice)
+      // This prevents account enumeration attacks
       setSuccess(true);
       setEmail('');
 
@@ -57,6 +53,7 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
       setTimeout(onBackToLogin, 4000);
     } catch (err) {
       setLoading(false);
+      // Show generic error message - don't expose internal errors
       setError('An unexpected error occurred. Please try again.');
       console.error('Forgot password error:', err);
     }
@@ -114,10 +111,10 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
           {success && (
             <div className="mb-5 p-4 rounded-lg bg-green-100 border border-green-400">
               <p className="text-green-800 text-sm font-semibold text-center mb-2">
-                ✓ Reset link sent!
+                ✓ Check your email
               </p>
               <p className="text-green-700 text-xs text-center">
-                Check your email for a password reset link. It will expire in 24 hours.
+                If this email exists in our system, you'll receive a password reset link. It will expire in 24 hours.
               </p>
             </div>
           )}
