@@ -62,6 +62,8 @@ const FSL_LETTERS = [
   'N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
 ]
 
+const OPTION_KEYS = ['A', 'B', 'C', 'D'] as const
+
 const emptyLesson = (): Omit<Lesson, 'lesson_id'> => ({
   lesson_title: '', video_url: '', content_text: '', lesson_order: 1,
 })
@@ -416,9 +418,9 @@ function QuestionForm({
           <div style={{ marginBottom: '14px' }}>
             <label style={labelSt}>Answer Options</label>
             <div className="grid grid-cols-2 gap-3">
-              {(['A', 'B', 'C', 'D'] as const).map(opt => (
+              {OPTION_KEYS.map((opt, idx) => (
                 <div key={opt}>
-                  <label style={{ ...labelSt, fontWeight: 500, fontSize: '0.85rem' }}>Option {opt}</label>
+                  <label style={{ ...labelSt, fontWeight: 500, fontSize: '0.85rem' }}>Choice {idx + 1}</label>
                   <select
                     value={form[`option_${opt.toLowerCase()}` as keyof typeof form] as string}
                     onChange={e => set(`option_${opt.toLowerCase()}`, e.target.value)}
@@ -435,8 +437,10 @@ function QuestionForm({
           <Field label="Correct Answer">
             <div style={{ width: '50%' }}>
               <select value={form.correct_answer} onChange={e => set('correct_answer', e.target.value)} style={selectStyle}>
-                {(['A', 'B', 'C', 'D'] as const).map(opt => (
-                  <option key={opt} value={opt}>Option {opt}</option>
+                {OPTION_KEYS.map((opt, idx) => (
+                  <option key={opt} value={opt}>
+                    {form[`option_${opt.toLowerCase()}` as keyof typeof form] || `Choice ${idx + 1}`}
+                  </option>
                 ))}
               </select>
             </div>
