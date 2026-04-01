@@ -20,7 +20,7 @@ LANDMARK_HIDDEN  = 128   # UPDATED: More capacity for two-hand coordination
 LSTM_HIDDEN      = 256   # per direction
 LSTM_LAYERS      = 2
 LSTM_TOTAL_OUT   = LSTM_HIDDEN * 2   # 512 total
-DROPOUT_P        = 0.5
+DROPOUT_P        = 0.7
 
 # ══════════════════════════════════════════════════════════════════════════════
 # STREAM A — VISUAL ENCODER (5-channel ResNet18)
@@ -108,7 +108,7 @@ class ResNetLSTM(nn.Module):
             num_layers    = LSTM_LAYERS,
             batch_first   = True,
             bidirectional = True,
-            dropout       = 0.4, # Slightly higher dropout for phrase complexity
+            dropout       = 0.6, # Slightly higher dropout for phrase complexity
         )
 
         self.dropout = nn.Dropout(p=DROPOUT_P)
