@@ -37,7 +37,7 @@ LOG_DIR         = "./ml-model/runs"
 EPOCHS              = 50     # Increased for phrase complexity
 BATCH_SIZE          = 8      # Use 8 if GPU memory allows, otherwise stay at 4
 LEARNING_RATE       = 1e-4   
-FREEZE_EPOCHS       = 15     # More time for BiLSTM to learn motion before unfreezing ResNet
+FREEZE_EPOCHS       = 3     # More time for BiLSTM to learn motion before unfreezing ResNet
 EARLY_STOP_PATIENCE = 7      
 LR_PATIENCE         = 3      
 LR_FACTOR           = 0.5
@@ -46,24 +46,36 @@ SEED                = 42
 # ══════════════════════════════════════════════════════════════════════════════
 # LOSS FUNCTION WITH "C-BIAS" FIX
 # ══════════════════════════════════════════════════════════════════════════════
-
-def get_criterion(device):
-    # Standard weights are 1.0
-    weights = torch.ones(NUM_CLASSES).to(device)
+def get_criterion(train_dataset, device):
+    """
+    AUTOMATED WEIGHTING:
+    Calculates weights based on the inverse frequency of samples.
+    If you have 90 videos for every class, all weights will be 1.0.
+    If one class has fewer videos, its weight will automatically increase.
+    """
+    from collections import Counter
     
-    # We found that A is being confused with B. 
-    # Let's increase the importance of 'A' (Index 0) 
-    # and slightly decrease 'B' (Index 1) so the model has to be 
-    # extremely sure before it guesses 'B'.
-    weights[0] = 1.5  # Increase 'A' importance by 50%
-    weights[1] = 0.8  # Decrease 'B' importance by 20% hmmm
+    # Get all labels from the dataset
+    labels = [s[1] for s in train_dataset.samples]
+    label_counts = Counter(labels)
+    total_samples = len(labels)
+    num_classes = len(train_dataset.classes)
     
-    # Keep 'C' weight low as planned
-    if "C" in CLASS_NAMES:
-        weights[CLASS_NAMES.index("C")] = 0.5
-
-    return nn.CrossEntropyLoss(weight=weights, label_smoothing=0.05) # Lower smoothing for pilot
-
+    # Calculate weights: Total / (Num_Classes * Class_Count)
+    weights = []
+    for i in range(num_classes):
+        count = label_counts.get(i, 1)
+        weight = total_samples / (num_classes * count)
+        weights.append(weight)
+        
+    weights_tensor = torch.FloatTensor(weights).to(device)
+    
+    print("\n--- Automated Weights Applied ---")
+    for name, weight in zip(train_dataset.classes, weights):
+        print(f"  {name}: {weight:.2f}")
+    
+    # Use 0.1 label smoothing to help with the 100% vs 80% overfitting gap
+    return nn.CrossEntropyLoss(weight=weights_tensor, label_smoothing=0.1)
 # ══════════════════════════════════════════════════════════════════════════════
 # TRAINING LOGIC
 # ══════════════════════════════════════════════════════════════════════════════
@@ -126,7 +138,7 @@ def train():
     model.freeze_backbone() # Start with frozen ResNet
     
     # 3. Loss & Optimizer
-    criterion = get_criterion(device)
+    criterion = get_criterion(train_ds, device)
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=LR_FACTOR, patience=LR_PATIENCE)
     writer    = SummaryWriter(log_dir=LOG_DIR)
@@ -135,13 +147,31 @@ def train():
     epochs_no_improve = 0
 
     for epoch in range(1, EPOCHS + 1):
-        # Unfreeze Backbone logic
+        # ── Unfreeze backbone logic (V2.1 Strategy) ───────────────────────────
         if epoch == FREEZE_EPOCHS + 1:
             model.unfreeze_backbone()
-            # Lower LR for fine-tuning
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = LEARNING_RATE * 0.1
-            print(f"--- Backbone UNFROZEN at Epoch {epoch} ---")
+
+            # DIFFERENTIAL LEARNING RATE:
+            # We want the ResNet (Visual) to adapt slowly (1e-6) 
+            # while the Landmark/BiLSTM (Geometric/Motion) continues at 1e-4.
+            # This prevents the model from "forgetting" how to see objects.
+            optimizer = optim.Adam([
+                {'params': model.visual_encoder.parameters(),   'lr': 1e-6}, # Very slow
+                {'params': model.landmark_encoder.parameters(), 'lr': 1e-4}, # Standard
+                {'params': model.bilstm.parameters(),           'lr': 1e-4}, # Standard
+                {'params': model.fc.parameters(),               'lr': 1e-4}  # Standard
+            ], weight_decay=1e-4)
+
+            # Re-link the scheduler to the new optimizer
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer,
+                mode    = "min",
+                factor  = LR_FACTOR,
+                patience= LR_PATIENCE,
+            )
+            
+            print(f"\n[Epoch {epoch}] --- BACKBONE UNFROZEN ---")
+            print(f"  Applied Differential LR: ResNet (1e-6), Rest (1e-4)")
 
         train_loss, train_acc = train_one_epoch(model, train_loader, criterion, optimizer, device, epoch)
         val_loss, val_acc     = evaluate(model, val_loader, criterion, device)
