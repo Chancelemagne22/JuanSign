@@ -24,9 +24,7 @@ from resnet_lstm_architecture import ResNetLSTM
 
 # UPDATE THIS: List your 28 phrase/letter classes here in alphabetical order
 CLASS_NAMES = [
-    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", 
-    "K", "L", "M", "N", "N~", "O", "P", "Q", "R", "S", 
-    "T", "U", "V", "W", "X", "Y", "Z", "Ñ" # Example 28 classes
+    "A", "B", "C", "D", "E" # Example 28 classes
 ]
 NUM_CLASSES = len(CLASS_NAMES)
 
