@@ -48,23 +48,21 @@ SEED                = 42
 # ══════════════════════════════════════════════════════════════════════════════
 
 def get_criterion(device):
-    """
-    Creates a Weighted Cross Entropy Loss.
-    We reduce the weight of class 'C' to force the model to prioritize 
-    other letters/phrases.
-    """
+    # Standard weights are 1.0
     weights = torch.ones(NUM_CLASSES).to(device)
     
-    # Identify the index of 'C' (the over-predicted class)
+    # We found that A is being confused with B. 
+    # Let's increase the importance of 'A' (Index 0) 
+    # and slightly decrease 'B' (Index 1) so the model has to be 
+    # extremely sure before it guesses 'B'.
+    weights[0] = 1.5  # Increase 'A' importance by 50%
+    weights[1] = 0.8  # Decrease 'B' importance by 20%
+    
+    # Keep 'C' weight low as planned
     if "C" in CLASS_NAMES:
-        c_idx = CLASS_NAMES.index("C")
-        # Give 'C' only 40% of the weight of other classes
-        weights[c_idx] = 0.4 
-        print(f"[Loss] Applied weight 0.4 to class 'C' at index {c_idx}")
+        weights[CLASS_NAMES.index("C")] = 0.5
 
-    # Label smoothing (0.1) makes the model less 'stubborn' and helps 
-    # prevent it from defaulting to a majority class.
-    return nn.CrossEntropyLoss(weight=weights, label_smoothing=0.1)
+    return nn.CrossEntropyLoss(weight=weights, label_smoothing=0.05) # Lower smoothing for pilot
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TRAINING LOGIC
