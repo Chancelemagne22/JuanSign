@@ -15,7 +15,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from fsl_dataset import FSLDataset, collate_fn
+from fsl_datasets import FSLDataset, collate_fn
 from resnet_lstm_architecture import ResNetLSTM
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -30,8 +30,8 @@ NUM_CLASSES = len(CLASS_NAMES)
 
 # Paths
 FRAME_ROOT      = "./processed_output/frame_extracted"
-MODEL_SAVE_PATH = "./ml-model/juansignmodel/juansign_model.pth"
-LOG_DIR         = "./ml-model/runs"
+MODEL_SAVE_PATH = "./juansignmodel/juansign_model.pth"
+LOG_DIR         = "./runs"
 
 # Hyperparameters
 EPOCHS              = 50     # Increased for phrase complexity
@@ -55,11 +55,22 @@ def get_criterion(train_dataset, device):
     """
     from collections import Counter
     
+<<<<<<< Updated upstream
     # Get all labels from the dataset
     labels = [s[1] for s in train_dataset.samples]
     label_counts = Counter(labels)
     total_samples = len(labels)
     num_classes = len(train_dataset.classes)
+=======
+    # We found that A is being confused with B. 
+    # Let's increase the importance of 'A' (Index 0) 
+    # and slightly decrease 'B' (Index 1) so the model has to be 
+    # extremely sure before it guesses 'B'.
+    weights[0] = 1.5  # Increase 'A' importance by 50%
+    weights[1] = 0.8  # Decrease 'B' importance by 20% hmmm
+    weights[3] = 1.5
+    weights[4] = 0.8
+>>>>>>> Stashed changes
     
     # Calculate weights: Total / (Num_Classes * Class_Count)
     weights = []
