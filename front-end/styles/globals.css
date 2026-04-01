@@ -65,6 +65,23 @@ body {
   box-shadow: 0 0 0 4px var(--focus-ring-shadow);
 }
 
+/* Hide built-in browser password reveal controls when custom eye icons are used */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
+/* Explicit opt-in class for fields with custom eye icons */
+.hide-native-reveal::-ms-reveal,
+.hide-native-reveal::-ms-clear,
+.hide-native-reveal::-webkit-credentials-auto-fill-button,
+.hide-native-reveal::-webkit-strong-password-auto-fill-button,
+.hide-native-reveal::-webkit-contacts-auto-fill-button {
+  display: none !important;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* ── JuanSign title text ───────────────────────────────────────── */
 /* Used in WelcomePage — matches the large bubbly orange lettering  */
 .juansign-title {
@@ -232,31 +249,80 @@ body {
   transform: scale(1.05);
 }
 
-/* Shared chapter grid layout for lessons/practice/assessment list screens */
-.chapter-grid-row1 {
+/* Shared chapter layout for lessons/practice/assessment list screens */
+.chapter-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: 1fr;
+  gap: clamp(0.4rem, 1.2vw, 0.85rem);
+  width: 100%;
 }
 
-.chapter-grid-row2 {
+.chapter-card-item {
   width: 100%;
-  margin-left: auto;
-  margin-right: auto;
+}
+
+.chapter-card-button {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 18px;
+  border-width: 4px;
+}
+
+.chapter-card-caption {
+  font-size: clamp(0.72rem, 1.25vw, 0.92rem);
+  line-height: 1.2;
+}
+
+/* Lessons-only fluid gallery layout */
+.lesson-gallery-scroll {
+  scrollbar-gutter: stable;
+}
+
+.lesson-gallery-shell {
+  width: min(100%, 1420px);
+}
+
+.lesson-gallery-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: clamp(0.5rem, 1vw, 0.95rem);
+  align-content: start;
+  padding: 0.15rem 0.2rem 1rem;
 }
 
 @media (min-width: 640px) {
-  .chapter-grid-row1 {
+  .chapter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) {
+  .chapter-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.5rem;
+    gap: clamp(0.3rem, 0.75vw, 0.75rem);
+  }
+}
+
+@media (min-width: 1024px) {
+  .chapter-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: clamp(0.35rem, 0.6vw, 0.8rem);
   }
 
-  .chapter-grid-row2 {
-    width: 66.666667%;
-    gap: 1.5rem;
+  .lesson-gallery-shell {
+    width: min(100%, 1080px);
+  }
+
+  .lesson-gallery-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: clamp(0.18rem, 0.35vw, 0.42rem);
+    padding: 0;
+    align-content: center;
+  }
+
+  .lesson-gallery-grid .chapter-card-caption {
+    font-size: clamp(0.68rem, 0.75vw, 0.85rem);
+    line-height: 1.15;
   }
 }
 

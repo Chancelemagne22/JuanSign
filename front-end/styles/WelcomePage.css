@@ -108,8 +108,8 @@
 
 .settings-btn {
   z-index: 9999;
-  width: clamp(44px, 8vw, 56px);
-  height: clamp(44px, 8vw, 56px);
+  width: clamp(36px, 6vw, 44px);
+  height: clamp(36px, 6vw, 44px);
   border-radius: 50%;
   border: none;
   cursor: pointer;

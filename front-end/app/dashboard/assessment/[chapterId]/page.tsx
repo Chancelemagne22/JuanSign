@@ -98,7 +98,22 @@ export default function AssessmentChapterPage() {
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={() => router.replace('/dashboard/assessment')}
-          className="icon-circle-btn"
+          className="flex items-center justify-center flex-shrink-0 transition-transform"
+          style={{
+            zIndex: 9999,
+            width: 'clamp(36px, 6vw, 44px)',
+            height: 'clamp(36px, 6vw, 44px)',
+            borderRadius: '50%',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            background: 'linear-gradient(180deg, #ffcc44 0%, #ff9900 100%)',
+            boxShadow: '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
+          onMouseDown={(e) => (e.currentTarget.style.transform = 'translateY(4px) scale(0.96)', e.currentTarget.style.boxShadow = '0 2px 0 #b86a00, 0 4px 8px rgba(0, 0, 0, 0.2)')}
+          onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
           aria-label="Back to assessment list"
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
