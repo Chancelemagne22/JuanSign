@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
+import { useLanguage } from '@/hooks/useLanguage';
 
 function EyeIcon({ open }: { open: boolean }) {
   return open ? (
@@ -25,6 +26,7 @@ function EyeIcon({ open }: { open: boolean }) {
 function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -85,17 +87,17 @@ function ResetPasswordContent() {
 
     // Validation
     if (!newPassword.trim()) {
-      setError('Please enter a new password.');
+      setError(t('resetPassword.newPasswordRequired'));
       return;
     }
 
     if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters long.');
+      setError(t('resetPassword.minPasswordLength'));
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError(t('resetPassword.passwordsDoNotMatch'));
       return;
     }
 
@@ -110,7 +112,7 @@ function ResetPasswordContent() {
       setLoading(false);
 
       if (updateError) {
-        setError(updateError.message || 'Failed to reset password. Please try again.');
+        setError(updateError.message || t('resetPassword.updateFailed'));
         return;
       }
 
@@ -125,7 +127,7 @@ function ResetPasswordContent() {
       }, 3000);
     } catch (err) {
       setLoading(false);
-      setError('An unexpected error occurred. Please try again.');
+      setError(t('resetPassword.unexpectedError'));
       console.error('Password reset error:', err);
     }
   }
@@ -145,10 +147,10 @@ function ResetPasswordContent() {
               textShadow: '1px 1px 0 #1a4d10',
             }}
           >
-            Reset Password
+            {t('resetPassword.title')}
           </h1>
           <p className="text-[#F5C47A] font-semibold text-sm md:text-base">
-            Enter your new password below
+            {t('resetPassword.subtitle')}
           </p>
         </div>
 
@@ -157,7 +159,7 @@ function ResetPasswordContent() {
           
           {tokenChecking && (
             <div className="text-center py-8">
-              <p className="text-[#7B3F00] font-semibold">Verifying your reset link...</p>
+              <p className="text-[#7B3F00] font-semibold">{t('resetPassword.verifyingLink')}</p>
             </div>
           )}
 
@@ -168,7 +170,7 @@ function ResetPasswordContent() {
                 href="/reset-password"
                 className="inline-block px-6 py-2 bg-[#2E8B2E] text-white font-bold rounded-full hover:bg-[#329932] transition-colors text-sm md:text-base"
               >
-                Back to Home
+                {t('resetPassword.backToHome')}
               </Link>
             </div>
           )}
@@ -177,12 +179,12 @@ function ResetPasswordContent() {
             <>
               {/* Success message */}
               {success && (
-                <div className="mb-6 p-4 rounded-lg bg-green-100 border border-green-400">
+                <div className="mb-6 p-4 rounded-lg bg-green-100 border border-green-100">
                   <p className="text-green-800 text-sm font-semibold text-center mb-2">
-                    ✓ Password reset successfully!
+                    {`✓ ${t('resetPassword.successTitle')}`}
                   </p>
                   <p className="text-green-700 text-xs text-center">
-                    Redirecting to login page...
+                    {t('resetPassword.redirectingToLogin')}
                   </p>
                 </div>
               )}
@@ -199,7 +201,7 @@ function ResetPasswordContent() {
                   {/* New Password Field */}
                   <div className="mb-4">
                     <label className="block text-sm font-bold text-[#7B3F00] mb-2">
-                      New Password
+                      {t('resetPassword.newPassword')}
                     </label>
                     <div className="relative">
                       <input
@@ -207,7 +209,7 @@ function ResetPasswordContent() {
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         disabled={loading}
-                        placeholder="Enter your new password"
+                        placeholder={t('resetPassword.newPasswordPlaceholder')}
                         className="w-full px-4 py-3 rounded-full bg-[#D4956A] text-[#7B3F00] placeholder-[#8B6F47]/60 focus:outline-none focus:ring-2 focus:ring-[#7B3F00] disabled:opacity-60 shadow-inner text-sm md:text-base"
                       />
                       <button
@@ -224,7 +226,7 @@ function ResetPasswordContent() {
                   {/* Confirm Password Field */}
                   <div className="mb-6">
                     <label className="block text-sm font-bold text-[#7B3F00] mb-2">
-                      Confirm Password
+                      {t('resetPassword.confirmPassword')}
                     </label>
                     <div className="relative">
                       <input
@@ -232,7 +234,7 @@ function ResetPasswordContent() {
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         disabled={loading}
-                        placeholder="Confirm your password"
+                        placeholder={t('resetPassword.confirmPasswordPlaceholder')}
                         className="w-full px-4 py-3 rounded-full bg-[#D4956A] text-[#7B3F00] placeholder-[#8B6F47]/60 focus:outline-none focus:ring-2 focus:ring-[#7B3F00] disabled:opacity-60 shadow-inner text-sm md:text-base"
                       />
                       <button
@@ -248,7 +250,7 @@ function ResetPasswordContent() {
 
                   {/* Password requirements */}
                   <p className="text-xs text-[#7B3F00] mb-6 text-center opacity-75">
-                    Password must be at least 6 characters long
+                    {t('resetPassword.passwordRule')}
                   </p>
 
                   {/* Submit Button */}
@@ -262,7 +264,7 @@ function ResetPasswordContent() {
                       transform: loading ? 'translateY(2px)' : 'translateY(0)',
                     }}
                   >
-                    {loading ? 'RESETTING...' : 'RESET PASSWORD'}
+                    {loading ? t('resetPassword.resetting') : t('resetPassword.resetButton')}
                   </button>
 
                   {/* Back to Login */}
@@ -270,7 +272,7 @@ function ResetPasswordContent() {
                     href="/"
                     className="block text-center text-[#7B3F00] font-semibold text-sm hover:text-[#5D3A1A] underline transition-colors"
                   >
-                    Back to Login
+                    {t('resetPassword.backToLogin')}
                   </Link>
                 </>
               )}

@@ -11,8 +11,13 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import LessonView from '@/components/module/LessonView';
+import GearIcon from '@/public/images/svgs/gear-icon.svg';
+import SettingsModal from '@/components/settings/SettingsModal';
+import { useSettings } from '@/hooks/useSettings';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface LetterUnit {
   label:    string;
@@ -27,11 +32,14 @@ interface LevelMeta {
 export default function LessonPage() {
   const router             = useRouter();
   const { lessonId }       = useParams<{ lessonId: string }>();
+  const { t } = useLanguage();
+  const { settings, updateSetting } = useSettings();
 
   const [letters,     setLetters]     = useState<LetterUnit[]>([]);
   const [levelMeta,   setLevelMeta]   = useState<LevelMeta | null>(null);
   const [letterIndex, setLetterIndex] = useState(0);
   const [loading,     setLoading]     = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -65,12 +73,12 @@ export default function LessonPage() {
       setLetters((lessonsRes.data ?? []).map((r) => ({ label: r.lesson_title, videoUrl: r.video_url })));
       setLevelMeta({
         levelNum: levelRes.data?.level_order ?? 1,
-        label:    levelRes.data?.level_name        ?? 'Chapter',
+        label:    levelRes.data?.level_name ?? t('common.chapterLabel').replace('{{number}}', ''),
       });
       setLoading(false);
     }
     init();
-  }, [lessonId, router]);
+  }, [lessonId, router, t]);
 
   async function handleNext() {
     if (letterIndex < letters.length - 1) {
@@ -116,7 +124,7 @@ export default function LessonPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <p className="text-[#7B3F00] font-bold text-lg animate-pulse">Loading…</p>
+        <p className="text-[#7B3F00] font-bold text-lg animate-pulse">{t('common.loading')}</p>
       </div>
     );
   }
@@ -125,7 +133,7 @@ export default function LessonPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white px-6">
         <p className="text-[#7B3F00] font-semibold text-center">
-          No videos available for this chapter yet.
+          {t('common.noVideosForChapter')}
         </p>
       </div>
     );
@@ -157,7 +165,7 @@ export default function LessonPage() {
           onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
           onMouseDown={(e) => (e.currentTarget.style.transform = 'translateY(4px) scale(0.96)', e.currentTarget.style.boxShadow = '0 2px 0 #b86a00, 0 4px 8px rgba(0, 0, 0, 0.2)')}
           onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
-          aria-label="Back to lessons"
+          aria-label={t('lessonsPage.backToLessons')}
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
             <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
@@ -168,7 +176,37 @@ export default function LessonPage() {
         <p className="text-[#4A2C0A] font-bold text-base sm:text-lg">
           {letterIndex + 1} / {letters.length}
         </p>
+
+        <button
+          onClick={() => setShowSettings(true)}
+          className="flex items-center justify-center flex-shrink-0 transition-transform"
+          style={{
+            zIndex: 9999,
+            width: 'clamp(36px, 6vw, 44px)',
+            height: 'clamp(36px, 6vw, 44px)',
+            borderRadius: '50%',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            background: 'linear-gradient(180deg, #ffcc44 0%, #ff9900 100%)',
+            boxShadow: '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+          onMouseDown={(e) => (e.currentTarget.style.transform = 'translateY(4px) scale(0.96)', e.currentTarget.style.boxShadow = '0 2px 0 #b86a00, 0 4px 8px rgba(0, 0, 0, 0.2)')}
+          onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
+          aria-label={t('settings.openSettings')}
+        >
+          <Image src={GearIcon} alt="" style={{ width: '50%', height: '50%' }} />
+        </button>
       </div>
+
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        settings={settings}
+        updateSetting={updateSetting}
+      />
 
       {/* ── Page heading ─────────────────────────────────────────── */}
       <div className="text-center mb-4 shrink-0">
@@ -180,11 +218,13 @@ export default function LessonPage() {
             WebkitTextStroke: '1px #1a4d10',
           }}
         >
-          Let&apos;s learn FSL!
+          {t('lessonsPage.letsLearn')}
         </h1>
-        <p className="text-[#4A2C0A] font-bold text-sm mt-1">
-          Build your FSL skills one lesson at a time
-        </p>
+        {settings.showCaptions && (
+          <p className="text-[#4A2C0A] font-bold text-sm mt-1">
+            {t('lessonsPage.buildSkills')}
+          </p>
+        )}
       </div>
 
       {/* ── Lesson video — fills remaining height ─────────────────── */}
@@ -195,7 +235,10 @@ export default function LessonPage() {
           levelNum={levelMeta.levelNum}
           levelLabel={levelMeta.label}
           onNext={handleNext}
-          nextLabel={isLast ? 'Finish ✓' : undefined}
+          autoplayNext={settings.autoplayLesson}
+          playbackSpeed={settings.playbackSpeed}
+          showCaptions={settings.showCaptions}
+          nextLabel={isLast ? `${t('module.finish')} ✓` : undefined}
         />
       </div>
 

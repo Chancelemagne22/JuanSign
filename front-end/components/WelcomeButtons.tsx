@@ -1,1 +1,1 @@
-export { default, TRANSLATIONS } from "./welcome/WelcomePage";
+export { default } from "./welcome/WelcomePage";

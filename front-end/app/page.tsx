@@ -1,30 +1,43 @@
 "use client";
 
+import { Suspense } from "react";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import WelcomeButtons, { TRANSLATIONS } from "@/components/WelcomeButtons";
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import WelcomeButtons from "@/components/WelcomeButtons";
 import { ControlsCluster } from "@/components/welcome/WelcomePage";
 import SignupModal from "@/components/signup/SignupModal";
 import LoginModal from "@/components/login/LoginModal";
 import ForgotPasswordModal from "@/components/login/ForgotPasswordModal";
 import UserProfileModal from "@/components/profile/UserProfileModal";
+import { useLanguage } from "@/hooks/useLanguage";
 import WelcomeBG from "../public/images/svgs/welcome-bg.png";
 import JuanTitle from "../public/images/svgs/juansign-title.svg";
 import Image from "next/image";
 import "@/styles/page.css";
 import type { UserData } from "@/types/user";
 
-export default function Home() {
+function HomeContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { t } = useLanguage();
 
-  const [selectedLang, setSelectedLang] = useState<"English" | "Filipino">("English");
   const [showSignup,        setShowSignup]        = useState(false);
   const [showLogin,         setShowLogin]         = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showProfile,       setShowProfile]       = useState(false);
   const [user,              setUser]              = useState<UserData | null>(null);
+  const [loginNotice,       setLoginNotice]       = useState<string | null>(null);
 
-  const t = TRANSLATIONS[selectedLang] || TRANSLATIONS["English"];
+  useEffect(() => {
+    const verified = searchParams.get('verified');
+    if (verified === '1') {
+      setShowSignup(false);
+      setShowForgotPassword(false);
+      setShowLogin(true);
+      setLoginNotice(t('auth.emailVerifiedSuccess'));
+    }
+  }, [searchParams, t]);
 
   function openSignup() { setShowLogin(false); setShowForgotPassword(false); setShowSignup(true); }
   function openLogin()  { setShowSignup(false); setShowForgotPassword(false); setShowLogin(true);  }
@@ -55,13 +68,11 @@ export default function Home() {
 
       {/* Controls cluster at root level for fixed positioning */}
       <ControlsCluster
-        onSettings={() => console.log("Settings")}
-        selectedLang={selectedLang}
-        setSelectedLang={setSelectedLang}
+        onSettings={() => console.log(t('common.settings'))}
       />
 
       <div className="welcome-title-wrapper">
-        <p className="welcome-title-text">{t.welcomeTo}</p>
+        <p className="welcome-title-text">{t('welcome.welcomeTo')}</p>
       </div>
 
       <Image
@@ -71,16 +82,14 @@ export default function Home() {
       />
 
       <div className="welcome-tagline-wrapper">
-        <p className="welcome-tagline-text">{t.tagline}</p>
+        <p className="welcome-tagline-text">{t('welcome.tagline')}</p>
       </div>
 
       <div className="welcome-buttons-wrapper">
         <WelcomeButtons
           onGetStarted={openSignup}
           onLogin={openLogin}
-          onSettings={() => console.log("Settings")}
-          selectedLang={selectedLang}
-          setSelectedLang={setSelectedLang}
+          onSettings={() => console.log(t('common.settings'))}
         />
       </div>
 
@@ -98,6 +107,7 @@ export default function Home() {
           onLogin={handleAuthSuccess}
           onSignupClick={openSignup}
           onForgotPasswordClick={openForgotPassword}
+          noticeMessage={loginNotice ?? undefined}
         />
       )}
 
@@ -117,5 +127,13 @@ export default function Home() {
       )}
 
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
   );
 }
