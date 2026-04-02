@@ -124,7 +124,7 @@ export default function PracticeChapterPage() {
       setRawQuestions(fetchedQuestions);
       setLevelMeta({
         levelNum: levelRes.data?.level_order ?? 1,
-        label:    levelRes.data?.level_name  ?? t('common.chapterLabel').replace('{{number}}', ''),
+        label:    levelRes.data?.level_name  ?? t('common.levelLabel').replace('{{number}}', ''),
       });
       setLoading(false);
     }
@@ -182,7 +182,7 @@ export default function PracticeChapterPage() {
         </p>
         <button
           onClick={() => router.replace('/dashboard/practice')}
-          className="mt-2 bg-[#E8A87C] border-[3px] border-[#BF7B45] text-white font-black px-8 py-2 rounded-full shadow-md hover:scale-105 transition-transform"
+          className="mt-2 bg-[#E8A87C] border-[3px] border-[#E8A87C] text-white font-black px-8 py-2 rounded-full shadow-md hover:scale-105 transition-transform"
         >
           {t('common.goBack')}
         </button>
@@ -263,7 +263,7 @@ export default function PracticeChapterPage() {
           {t('practicePage.letsPractice')}
         </h1>
         <p className="text-[#4A2C0A] font-bold text-sm mt-1">
-          <span className="font-black">{t('common.chapterLabel').replace('{{number}}', String(levelMeta.levelNum))}</span>
+          <span className="font-black">{t('common.levelLabel').replace('{{number}}', String(levelMeta.levelNum))}</span>
           {'  '}
           <span className="font-semibold">{levelMeta.label}</span>
         </p>

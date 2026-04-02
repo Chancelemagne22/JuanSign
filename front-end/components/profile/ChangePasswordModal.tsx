@@ -169,7 +169,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
         <div className="relative z-10 pt-12 pb-8 px-10 flex flex-col gap-1 max-w-[320px] mx-auto w-full">
           {/* Success message */}
           {success && (
-            <div className="mb-5 p-3 rounded-lg bg-green-100 border border-green-400">
+            <div className="mb-5 p-3 rounded-lg bg-green-100 border border-green-100">
               <p className="text-green-800 text-sm font-semibold text-center">
                 ✓ {t('settings.passwordChangedSuccess')}
               </p>

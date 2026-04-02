@@ -30,7 +30,7 @@ export default function VerifyEmailPrompt({
         {t('verifyEmail.subtitle')}
       </p>
 
-      <div className="mt-4 rounded-xl bg-[#FAD3AE] border border-[#D4956A] px-4 py-3">
+      <div className="mt-4 rounded-xl bg-[#FAD3AE] border border-[#FAD3AE] px-4 py-3">
         <p className="text-[#7B3F00] text-xs font-bold uppercase tracking-wide">{t('verifyEmail.registeredEmail')}</p>
         <p className="text-[#5D3A1A] text-sm font-black break-all mt-1">{email || t('verifyEmail.noEmailFound')}</p>
       </div>

@@ -80,7 +80,7 @@ export default function AssessmentView({
       )}
 
       {/* Trophy icon placeholder */}
-      <div className="w-24 h-24 rounded-full bg-[#F5C47A] border-[5px] border-[#BF7B45] flex items-center justify-center shadow-lg">
+      <div className="w-24 h-24 rounded-full bg-[#F5C47A] border-[5px] border-[#F5C47A] flex items-center justify-center shadow-lg">
         <svg viewBox="0 0 24 24" className="w-12 h-12 text-[#7B3F00]" fill="currentColor" aria-hidden>
           <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0 0 11 15.9V18H9v2h6v-2h-2v-2.1a5.01 5.01 0 0 0 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zm-2 3c0 1.65-1.35 3-3 3s-3-1.35-3-3V5h6v3zm-8 0c0 1.65-1.35 3-3 3S3 9.65 3 8V7h2v1zm8 0H7V7h10v1z" />
         </svg>
@@ -106,7 +106,7 @@ export default function AssessmentView({
       </div>
 
       {/* Coming soon card */}
-      <div className="w-full max-w-sm bg-[#FFF8EE] border-4 border-[#BF7B45] rounded-[24px] px-8 py-8 shadow-md">
+      <div className="w-full max-w-sm bg-[#FFF8EE] border-4 border-[#FFF8EE] rounded-[24px] px-8 py-8 shadow-md">
         <p className="text-[#7B3F00] font-black text-lg mb-2">{t('common.comingSoon')}</p>
         <p className="text-[#A86040] font-semibold text-sm leading-relaxed">
           {t('assessmentView.completedLetters')}

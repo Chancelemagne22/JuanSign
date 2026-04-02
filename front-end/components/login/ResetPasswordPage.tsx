@@ -213,7 +213,7 @@ export default function ResetPasswordPage() {
             <>
               {/* Success message */}
               {success && (
-                <div className="mb-6 p-4 rounded-lg bg-green-100 border border-green-400">
+                <div className="mb-6 p-4 rounded-lg bg-green-100 border border-green-100">
                   <p className="text-green-800 text-sm font-semibold text-center mb-2">
                     {`✓ ${t('resetPassword.successTitle')}`}
                   </p>

@@ -40,7 +40,7 @@ function ControlBtn({
       aria-label={ariaLabel}
       className="
         w-11 h-11 rounded-full
-        bg-[#33AA11] border-[3px] border-[#228800]
+        bg-[#33AA11] border-[3px] border-[#33AA11]
         flex items-center justify-center
         shadow-[0_4px_0_#165c00]
         active:translate-y-1 active:shadow-[0_1px_0_#165c00]
@@ -180,7 +180,7 @@ export default function LessonView({
           className="
             justify-self-end col-start-3
             rounded-full px-5 h-12
-            bg-[#33AA11] border-[3px] border-[#228800]
+            bg-[#33AA11] border-[3px] border-[#33AA11]
             flex items-center justify-center gap-2
             text-white font-black text-sm
             shadow-[0_4px_0_#165c00]

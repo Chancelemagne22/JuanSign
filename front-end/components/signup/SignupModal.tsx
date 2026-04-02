@@ -24,7 +24,7 @@ function EyeIcon({ open }: { open: boolean }) {
 /* Green checkbox used next to the uploaded filename */
 function GreenCheck() {
   return (
-    <div className="w-6 h-6 bg-green-500 rounded border-2 border-green-600 flex items-center justify-center flex-shrink-0">
+    <div className="w-6 h-6 bg-green-500 rounded border-2 border-green-500 flex items-center justify-center flex-shrink-0">
       <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3.5} d="M5 13l4 4L19 7" />
       </svg>
@@ -219,7 +219,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
               {' '}{t('signup.accountCreatedBody2')}
             </p>
             {avatarWarn && (
-              <div className="mt-3 bg-amber-100 border border-amber-400 rounded-2xl px-4 py-3 w-full max-w-[80%]">
+              <div className="mt-3 bg-amber-100 border border-amber-100 rounded-2xl px-4 py-3 w-full max-w-[80%]">
                 <p className="text-amber-800 font-semibold text-xs leading-snug">{avatarWarn}</p>
               </div>
             )}

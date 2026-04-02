@@ -409,7 +409,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
           {/* Star progress bar */}
           <div className="relative self-stretch w-full h-9 flex items-center">
             {/* Track */}
-            <div className="absolute inset-x-4 my-auto h-3 bg-[#E8C49A] rounded-full border-2 border-[#BF7B45]" />
+            <div className="absolute inset-x-4 my-auto h-3 bg-[#E8C49A] rounded-full border-2 border-[#E8C49A]" />
             {/* Fill */}
             <div
               className="absolute left-4 my-auto h-3 bg-[#33AA11] rounded-full transition-all duration-500"
