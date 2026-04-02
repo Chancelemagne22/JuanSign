@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import WoodArc from '@/public/images/svgs/arc.svg';
 import { supabase } from '@/lib/supabase';
@@ -40,6 +40,17 @@ export default function UserProfileModal({ user, onContinue, onClose }: Props) {
   const [editingPw,   setEditingPw]   = useState(false);
   const [saving,      setSaving]      = useState(false);
 
+  useEffect(() => {
+    function blockEscapeClose(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    window.addEventListener('keydown', blockEscapeClose, true);
+    return () => window.removeEventListener('keydown', blockEscapeClose, true);
+  }, []);
+
   async function saveUsername() {
     setEditingUser(false);
     const trimmed = username.trim();
@@ -68,7 +79,6 @@ export default function UserProfileModal({ user, onContinue, onClose }: Props) {
     /* ── Backdrop ──────────────────────────────────────────────── */
     <div
       className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4"
-      onClick={onClose}
     >
       {/* ── Card ─────────────────────────────────────────────────── */}
       <div

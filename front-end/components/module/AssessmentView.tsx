@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 // COMPONENT: AssessmentView — TEMPLATE PLACEHOLDER
 //
 // Full implementation TODO:
@@ -16,11 +18,64 @@ interface Props {
   levelNum:   number;
   levelLabel: string;
   onFinish:   () => void;
+  confirmSubmit?: boolean;
+  reviewBeforeSubmit?: boolean;
 }
 
-export default function AssessmentView({ levelNum, levelLabel, onFinish }: Props) {
+export default function AssessmentView({
+  levelNum,
+  levelLabel,
+  onFinish,
+  confirmSubmit = true,
+  reviewBeforeSubmit = true,
+}: Props) {
+  const [showReviewPrompt, setShowReviewPrompt] = useState(false);
+
+  function finalizeSubmit() {
+    if (confirmSubmit && !window.confirm('Submit your assessment now?')) return;
+    onFinish();
+  }
+
+  function handleFinishClick() {
+    if (reviewBeforeSubmit) {
+      setShowReviewPrompt(true);
+      return;
+    }
+    finalizeSubmit();
+  }
+
   return (
     <div className="flex flex-col items-center justify-center gap-6 py-12 px-4 text-center">
+
+      {showReviewPrompt && (
+        <div
+          className="fixed inset-0 z-40 bg-black/45 flex items-center justify-center px-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowReviewPrompt(false);
+          }}
+        >
+          <div className="w-full max-w-md rounded-2xl border-4 border-[#BF7B45] bg-white p-5 text-left">
+            <p className="text-[#7B3F00] font-black text-lg mb-2">Review Before Submit</p>
+            <p className="text-[#5D3A1A] font-semibold text-sm leading-relaxed">
+              Review mode is enabled. Once submitted, your assessment session will be completed.
+            </p>
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                onClick={() => setShowReviewPrompt(false)}
+                className="px-4 py-2 rounded-xl border-2 border-[#BF7B45] text-[#7B3F00] font-bold"
+              >
+                Back
+              </button>
+              <button
+                onClick={finalizeSubmit}
+                className="px-4 py-2 rounded-xl bg-[#2E8B2E] text-white font-black"
+              >
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Trophy icon placeholder */}
       <div className="w-24 h-24 rounded-full bg-[#F5C47A] border-[5px] border-[#BF7B45] flex items-center justify-center shadow-lg">
@@ -66,7 +121,7 @@ export default function AssessmentView({ levelNum, levelLabel, onFinish }: Props
 
       {/* Back to Dashboard */}
       <button
-        onClick={onFinish}
+        onClick={handleFinishClick}
         className="
           bg-[#2E8B2E] hover:bg-[#329932] text-white
           font-black uppercase tracking-widest text-base

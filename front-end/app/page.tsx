@@ -1,7 +1,9 @@
 "use client";
 
+import { Suspense } from "react";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import WelcomeButtons, { TRANSLATIONS } from "@/components/WelcomeButtons";
 import { ControlsCluster } from "@/components/welcome/WelcomePage";
 import SignupModal from "@/components/signup/SignupModal";
@@ -14,8 +16,9 @@ import Image from "next/image";
 import "@/styles/page.css";
 import type { UserData } from "@/types/user";
 
-export default function Home() {
+function HomeContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [selectedLang, setSelectedLang] = useState<"English" | "Filipino">("English");
   const [showSignup,        setShowSignup]        = useState(false);
@@ -23,8 +26,19 @@ export default function Home() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showProfile,       setShowProfile]       = useState(false);
   const [user,              setUser]              = useState<UserData | null>(null);
+  const [loginNotice,       setLoginNotice]       = useState<string | null>(null);
 
   const t = TRANSLATIONS[selectedLang] || TRANSLATIONS["English"];
+
+  useEffect(() => {
+    const verified = searchParams.get('verified');
+    if (verified === '1') {
+      setShowSignup(false);
+      setShowForgotPassword(false);
+      setShowLogin(true);
+      setLoginNotice('Email verified successfully. You can now log in.');
+    }
+  }, [searchParams]);
 
   function openSignup() { setShowLogin(false); setShowForgotPassword(false); setShowSignup(true); }
   function openLogin()  { setShowSignup(false); setShowForgotPassword(false); setShowLogin(true);  }
@@ -98,6 +112,7 @@ export default function Home() {
           onLogin={handleAuthSuccess}
           onSignupClick={openSignup}
           onForgotPasswordClick={openForgotPassword}
+          noticeMessage={loginNotice ?? undefined}
         />
       )}
 
@@ -117,5 +132,13 @@ export default function Home() {
       )}
 
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
   );
 }

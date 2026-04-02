@@ -120,7 +120,7 @@ export default function ChapterTemplate({
             flex-1 bg-[#E8A87C] hover:bg-[#D4956A] text-[#4A2C0A]
             font-black uppercase tracking-widest text-sm
             py-3 rounded-full
-            border-[3px] border-[#BF7B45]
+            border-[3px] border-[#E8A87C]
             shadow-[0_5px_0_#8B6040]
             active:translate-y-1 active:shadow-[0_2px_0_#8B6040]
             transition-all
