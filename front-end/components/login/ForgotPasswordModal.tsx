@@ -37,7 +37,7 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
     setLoading(true);
 
     try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      await supabase.auth.resetPasswordForEmail(
         email.trim(),
         {
           redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/reset-password`,
@@ -46,12 +46,8 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
 
       setLoading(false);
 
-      if (resetError) {
-        setError(resetError.message || t('forgotPassword.sendFailed'));
-        return;
-      }
-
-      // Success
+      // Always show success message - don't reveal if email exists (security best practice)
+      // This prevents account enumeration attacks
       setSuccess(true);
       setEmail('');
 
@@ -119,12 +115,12 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
           
           {/* Success message */}
           {success && (
-            <div className="w-full rounded-2xl bg-green-100 border-2 border-green-100 px-4 py-4 shadow-sm">
-              <p className="text-green-800 text-[1rem] font-bold text-center mb-2 leading-tight">
-                {`✓ ${t('forgotPassword.successTitle')}`}
+            <div className="mb-5 p-4 rounded-lg bg-green-100 border border-green-400">
+              <p className="text-green-800 text-sm font-semibold text-center mb-2">
+                ✓ Check your email
               </p>
-              <p className="text-green-700 text-[0.9rem] text-center leading-relaxed break-words max-w-[250px] mx-auto">
-                {t('forgotPassword.successMessage')}
+              <p className="text-green-700 text-xs text-center">
+                If this email exists in our system, you'll receive a password reset link. It will expire in 24 hours.
               </p>
             </div>
           )}
