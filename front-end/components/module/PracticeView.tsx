@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface Props {
   letter:       string;
@@ -48,7 +49,7 @@ function ControlBtn({
       aria-label={ariaLabel}
       className="
         w-11 h-11 rounded-full
-        bg-[#33AA11] border-[3px] border-[#228800]
+        bg-[#33AA11] border-[3px] border-[#33AA11]
         flex items-center justify-center
         shadow-[0_4px_0_#165c00]
         active:translate-y-1 active:shadow-[0_1px_0_#165c00]
@@ -73,6 +74,7 @@ function MascotPlaceholder() {
   );
 }
 export default function PracticeView({ letter, letterIndex, totalLetters, levelId, onNext, onResult }: Props) {
+  const { t } = useLanguage();
   const videoRef   = useRef<HTMLVideoElement>(null);
   const mediaRef   = useRef<MediaRecorder | null>(null);
   const chunksRef  = useRef<Blob[]>([]);
@@ -101,7 +103,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
           });
         }
       } catch {
-        setCamError('Camera access denied. Please allow camera permissions and reload.');
+        setCamError(t('practicePage.cameraAccessDenied'));
       }
     }
 
@@ -130,7 +132,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
         if (blob.size > 0) {
           void uploadPrediction(blob);
         } else {
-          setFeedback('No video captured yet. Please try recording again.');
+          setFeedback(t('module.noVideoCaptured'));
         }
       }
     };
@@ -220,8 +222,8 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       setPredictionResult(result);
       setFeedback(
         result.is_correct
-          ? `Nice job! You signed "${result.sign}" correctly!`
-          : `Not quite — try again! (model saw "${result.sign}")`,
+          ? `${t('module.niceJobSigned')} "${result.sign}" ${t('module.correctly')}`
+          : `${t('module.notQuiteModelSaw')} "${result.sign}")`,
       );
       onResult?.(result.accuracy);
 
@@ -231,12 +233,12 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       // Recover from stale auth cookies/tokens without spamming console errors.
       if (message.includes('invalid refresh token') || message.includes('refresh token not found')) {
         await supabase.auth.signOut({ scope: 'local' });
-        setFeedback('Session expired. Please log in again.');
+        setFeedback(t('module.sessionExpired'));
         return;
       }
 
       console.error('[PracticeView] upload error:', err);
-      setFeedback('Upload failed. Please try again.');
+      setFeedback(t('module.uploadFailed'));
     } finally {
       setIsUploading(false);
     }
@@ -253,12 +255,12 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
     }
 
     if (!recordedBlob) {
-      setFeedback('Record your sign first, then upload.');
+      setFeedback(t('module.recordYourSign'));
       return;
     }
 
     if (recordedBlob.size === 0) {
-      setFeedback('No video captured yet. Please try recording again.');
+      setFeedback(t('module.noVideoCaptured'));
       return;
     }
 
@@ -279,8 +281,8 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
   const bubbleText = feedback
     ? feedback
     : isDone
-      ? 'Great! Upload your video!'
-      : `Show the sign for "${letter}"!`;
+      ? t('module.greatUpload')
+      : `${t('module.showSignFor')} "${letter}"!`;
 
   return (
     <div className="h-full min-h-0 overflow-hidden flex flex-col gap-3">
@@ -312,7 +314,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
         {isRecording && (
           <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/50 rounded-full px-3 py-1.5 z-10">
             <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-white text-xs font-bold tracking-wide">REC</span>
+            <span className="text-white text-xs font-bold tracking-wide">{t('module.rec')}</span>
           </div>
         )}
 
@@ -320,7 +322,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
         {isUploading && (
           <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-3 z-20">
             <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin" />
-            <p className="text-white font-bold text-sm">Analysing…</p>
+            <p className="text-white font-bold text-sm">{t('module.analyzing')}</p>
           </div>
         )}
 
@@ -332,17 +334,17 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
           >
             <span className="text-5xl">{predictionResult.is_correct ? '✓' : '✗'}</span>
             <p className="text-white font-black text-lg">
-              {predictionResult.is_correct ? 'Correct!' : 'Try Again'}
+              {predictionResult.is_correct ? t('module.correct') : t('module.tryAgain')}
             </p>
             <p className="text-white/90 font-semibold text-sm">
-              AI saw: <span className="font-black">{predictionResult.sign}</span>
+              {t('module.aiSaw')} <span className="font-black">{predictionResult.sign}</span>
               {'  '}({Number(predictionResult.confidence ?? 0).toFixed(1)}%)
             </p>
             <button
               onClick={() => setPredictionResult(null)}
               className="mt-2 bg-white/20 hover:bg-white/30 text-white font-bold text-xs px-4 py-1.5 rounded-full transition-colors"
             >
-              Dismiss
+              {t('module.dismiss')}
             </button>
           </div>
         )}
@@ -354,7 +356,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
           <ControlBtn
             onClick={isPaused ? resumeRecording : startRecording}
             disabled={isRecording || isDone}
-            ariaLabel={isPaused ? 'Resume recording' : 'Start recording'}
+            ariaLabel={isPaused ? t('module.resumeRecording') : t('module.startRecording')}
           >
             <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
               <path d="M8 5v14l11-7z" />
@@ -362,14 +364,14 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
           </ControlBtn>
 
           {/* Pause */}
-          <ControlBtn onClick={pauseRecording} disabled={!isRecording} ariaLabel="Pause recording">
+          <ControlBtn onClick={pauseRecording} disabled={!isRecording} ariaLabel={t('module.pauseRecording')}>
             <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
               <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
             </svg>
           </ControlBtn>
 
           {/* Restart — discard current recording and go back to idle */}
-          <ControlBtn onClick={resetRecording} disabled={isIdle} ariaLabel="Restart recording">
+          <ControlBtn onClick={resetRecording} disabled={isIdle} ariaLabel={t('module.restartRecording')}>
             <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
               <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
             </svg>
@@ -379,7 +381,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
           <ControlBtn
             onClick={stopRecording}
             disabled={isIdle || isDone}
-            ariaLabel="Stop recording"
+            ariaLabel={t('module.stopRecording')}
           >
             <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
               <path d="M6 6h12v12H6z" />
@@ -437,31 +439,31 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
         </div>
 
         {/* Right: Upload Video + Next buttons */}
-        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+        <div className="-translate-y-1 flex flex-col items-center gap-2 flex-shrink-0">
           <button
             onClick={handleUploadPrediction}
             disabled={isUploading}
             className="
-              bg-white border-2 border-[#BF7B45] text-[#2a7abf]
-              font-black text-sm px-5 py-2 rounded-full shadow-sm
-              hover:bg-[#f0f8ff] transition-colors
+              bg-[#E5E5E5] border-2 border-[#E5E5E5] text-[#2a7abf]
+              font-black text-sm px-5 py-2 rounded-full shadow-[0_4px_0_#BEBEBE,0_6px_12px_rgba(0,0,0,0.18)]
+              hover:bg-[#DCDCDC] transition-colors
               disabled:opacity-40 disabled:cursor-not-allowed
             "
           >
-            {isUploading ? 'Uploading…' : 'Upload Video'}
+            {isUploading ? t('module.uploading') : t('module.uploadVideo')}
           </button>
 
           <button
             onClick={onNext}
             className="
-              bg-[#33AA11] border-[3px] border-[#228800] text-white
+              bg-[#33AA11] border-[3px] border-[#33AA11] text-white
               font-black text-sm px-5 py-2 rounded-full
               shadow-[0_4px_0_#165c00]
               active:translate-y-1 active:shadow-[0_1px_0_#165c00]
               transition-transform hover:brightness-110
             "
           >
-            {letterIndex < totalLetters - 1 ? 'Next →' : 'Finish →'}
+            {letterIndex < totalLetters - 1 ? t('module.next') : t('module.finish')}
           </button>
         </div>
 

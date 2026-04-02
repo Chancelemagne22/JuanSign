@@ -73,14 +73,15 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
         className="modal-responsive-sm rounded-[38px]"
         style={{
           backgroundImage: 'url(/images/svgs/banner.svg)',
-          backgroundSize: 'contain',
+          backgroundSize: '100% 100%',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
+          minHeight: '430px',
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Arc.svg — "RESET PASSWORD" sign ───────────────────────────── */}
-        <div className="absolute left-1/2 w-[85%] max-w-[200px]"
+        <div className="absolute left-1/2 w-[92%] max-w-[250px]"
           style={{ 
             top: '0',
             transform: 'translate(-50%, -50%)',
@@ -108,15 +109,19 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
         </div>
 
         {/* ── Body ─────────────────────────────────────────────── */}
-        <div className="relative z-10 pt-12 pb-8 px-10 flex flex-col gap-1 max-w-[290px] mx-auto w-full">
+        <div
+          className={success
+            ? 'relative z-10 h-full min-h-[430px] px-5 flex flex-col items-center justify-center text-center gap-5 max-w-[320px] mx-auto w-full'
+            : 'relative z-10 h-full min-h-[430px] pt-20 pb-8 px-10 flex flex-col gap-3 max-w-[290px] mx-auto w-full'}
+        >
           
           {/* Success message */}
           {success && (
-            <div className="mb-5 p-4 rounded-lg bg-green-100 border border-green-400">
-              <p className="text-green-800 text-sm font-semibold text-center mb-2">
+            <div className="w-full rounded-2xl bg-green-100 border-2 border-green-400 px-4 py-4 shadow-sm">
+              <p className="text-green-800 text-[1rem] font-bold text-center mb-2 leading-tight">
                 ✓ Reset link sent!
               </p>
-              <p className="text-green-700 text-xs text-center">
+              <p className="text-green-700 text-[0.9rem] text-center leading-relaxed break-words max-w-[250px] mx-auto">
                 Check your email for a password reset link. It will expire in 24 hours.
               </p>
             </div>
@@ -132,12 +137,12 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
           {!success && (
             <>
               {/* Explanation text */}
-              <p className="text-[#7B3F00] text-sm text-center mb-6">
+              <p className="text-[#7B3F00] text-sm text-center leading-relaxed mb-2">
                 Enter your email address and we'll send you a link to reset your password.
               </p>
 
               {/* Email Field */}
-              <div className="mb-4">
+              <div className="mb-2">
                 <label className="block text-[0.95rem] font-semibold text-[#7B3F00] mb-1">
                   Email Address
                 </label>
@@ -152,12 +157,12 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
               </div>
 
               {/* Info text */}
-              <p className="text-xs text-[#7B3F00] mb-6 text-center opacity-75">
+              <p className="text-xs text-[#7B3F00] text-center opacity-75 leading-relaxed mt-1">
                 The reset link will expire in 24 hours.
               </p>
 
               {/* Buttons */}
-              <div className="flex gap-3 justify-center">
+              <div className="mt-auto pt-6 flex gap-3 justify-center">
                 <button
                   onClick={onBackToLogin}
                   disabled={loading}

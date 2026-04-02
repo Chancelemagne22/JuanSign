@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import WoodArc from '@/public/images/svgs/arc.svg';
 import { supabase } from '@/lib/supabase';
+import { useLanguage } from '@/hooks/useLanguage';
 
 function EyeIcon({ open }: { open: boolean }) {
   return open ? (
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
+  const { t } = useLanguage();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -39,27 +41,27 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
 
     // Validation
     if (!currentPassword.trim()) {
-      setError('Please enter your current password.');
+      setError(t('settings.currentPasswordRequired'));
       return;
     }
 
     if (!newPassword.trim()) {
-      setError('Please enter a new password.');
+      setError(t('settings.newPasswordRequired'));
       return;
     }
 
     if (newPassword.length < 6) {
-      setError('New password must be at least 6 characters long.');
+      setError(t('settings.minPasswordLength'));
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('New passwords do not match.');
+      setError(t('settings.passwordsDoNotMatch'));
       return;
     }
 
     if (currentPassword === newPassword) {
-      setError('New password must be different from your current password.');
+      setError(t('settings.passwordMustDiffer'));
       return;
     }
 
@@ -69,7 +71,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
       // First, verify the current password by attempting to sign in
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user?.email) {
-        setError('Unable to verify your account. Please log in again.');
+        setError(t('settings.verifyAccountFailed'));
         setLoading(false);
         return;
       }
@@ -81,7 +83,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
       });
 
       if (verifyError) {
-        setError('Current password is incorrect.');
+        setError(t('settings.currentPasswordIncorrect'));
         setLoading(false);
         return;
       }
@@ -94,7 +96,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
       setLoading(false);
 
       if (updateError) {
-        setError(updateError.message || 'Failed to update password. Please try again.');
+        setError(updateError.message || t('settings.updatePasswordFailed'));
         return;
       }
 
@@ -113,7 +115,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
       }
     } catch (err) {
       setLoading(false);
-      setError('An unexpected error occurred. Please try again.');
+      setError(t('settings.unexpectedError'));
       console.error('Password change error:', err);
     }
   }
@@ -154,10 +156,10 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
             />
             <div className="absolute inset-0 flex items-center justify-center">
               <p
-                className="text-white font-black uppercase tracking-[0.25em] text-[clamp(0.75rem,3vw,1.1rem)] leading-none"
+                className="text-white font-black uppercase tracking-[0.12em] text-[clamp(0.58rem,2.3vw,0.95rem)] leading-tight text-center px-5"
                 style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
               >
-                CHANGE PASSWORD
+                {t('settings.changePasswordTitle')}
               </p>
             </div>
           </div>
@@ -169,7 +171,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
           {success && (
             <div className="mb-5 p-3 rounded-lg bg-green-100 border border-green-400">
               <p className="text-green-800 text-sm font-semibold text-center">
-                ✓ Password changed successfully!
+                ✓ {t('settings.passwordChangedSuccess')}
               </p>
             </div>
           )}
@@ -184,7 +186,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
           {/* Current Password Field */}
           <div className="mb-4">
             <label className="block text-[0.95rem] font-semibold text-[#7B3F00] mb-1">
-              Current Password
+              {t('settings.currentPasswordLabel')}
             </label>
             <div className="relative">
               <input
@@ -192,8 +194,8 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 disabled={loading || success}
-                placeholder="Enter your current password"
-                className="hide-native-reveal w-full rounded-full bg-[#D4956A] text-[#5D3A1A] placeholder-[#A86040] font-medium px-5 py-2 outline-none border-2 border-[#B87D54] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] text-xs md:text-sm disabled:opacity-60"
+                placeholder={t('settings.currentPasswordPlaceholder')}
+                className="hide-native-reveal w-full rounded-full bg-[#D4956A] text-[#5D3A1A] placeholder-[#A86040] font-medium pl-5 pr-11 py-2.5 outline-none border-2 border-[#B87D54] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] text-[clamp(0.7rem,2vw,0.8rem)] placeholder:text-[clamp(0.64rem,1.8vw,0.74rem)] leading-[1.2] disabled:opacity-60"
               />
               <button
                 type="button"
@@ -209,7 +211,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
           {/* New Password Field */}
           <div className="mb-4">
             <label className="block text-[0.95rem] font-semibold text-[#7B3F00] mb-1">
-              New Password
+              {t('settings.newPasswordLabel')}
             </label>
             <div className="relative">
               <input
@@ -217,8 +219,8 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 disabled={loading || success}
-                placeholder="Enter your new password"
-                className="hide-native-reveal w-full rounded-full bg-[#D4956A] text-[#5D3A1A] placeholder-[#A86040] font-medium px-5 py-2 outline-none border-2 border-[#B87D54] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] text-xs md:text-sm disabled:opacity-60"
+                placeholder={t('settings.newPasswordPlaceholder')}
+                className="hide-native-reveal w-full rounded-full bg-[#D4956A] text-[#5D3A1A] placeholder-[#A86040] font-medium pl-5 pr-11 py-2.5 outline-none border-2 border-[#B87D54] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] text-[clamp(0.7rem,2vw,0.8rem)] placeholder:text-[clamp(0.64rem,1.8vw,0.74rem)] leading-[1.2] disabled:opacity-60"
               />
               <button
                 type="button"
@@ -234,7 +236,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
           {/* Confirm Password Field */}
           <div className="mb-6">
             <label className="block text-[0.95rem] font-semibold text-[#7B3F00] mb-1">
-              Confirm New Password
+              {t('settings.confirmNewPasswordLabel')}
             </label>
             <div className="relative">
               <input
@@ -242,8 +244,8 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 disabled={loading || success}
-                placeholder="Confirm your new password"
-                className="hide-native-reveal w-full rounded-full bg-[#D4956A] text-[#5D3A1A] placeholder-[#A86040] font-medium px-5 py-2 outline-none border-2 border-[#B87D54] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] text-xs md:text-sm disabled:opacity-60"
+                placeholder={t('settings.confirmNewPasswordPlaceholder')}
+                className="hide-native-reveal w-full rounded-full bg-[#D4956A] text-[#5D3A1A] placeholder-[#A86040] font-medium pl-5 pr-11 py-2.5 outline-none border-2 border-[#B87D54] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] text-[clamp(0.7rem,2vw,0.8rem)] placeholder:text-[clamp(0.64rem,1.8vw,0.74rem)] leading-[1.2] disabled:opacity-60"
               />
               <button
                 type="button"
@@ -258,22 +260,22 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
 
           {/* Password requirements */}
           <p className="text-xs text-[#7B3F00] mb-6 text-center opacity-75">
-            Password must be at least 6 characters long
+            {t('settings.passwordRequirements')}
           </p>
 
           {/* Buttons */}
-          <div className="flex gap-3 justify-center">
+          <div className="grid grid-cols-2 gap-3 items-stretch">
             <button
               onClick={onClose}
               disabled={loading}
-              className="py-2 px-4 rounded-full bg-gray-400 text-white font-bold uppercase tracking-wide hover:bg-gray-500 shadow-[0_4px_0_rgba(0,0,0,0.3),0_6px_12px_rgba(0,0,0,0.2)] active:shadow-[0_2px_0_rgba(0,0,0,0.3),0_4px_6px_rgba(0,0,0,0.1)] active:translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-xs md:text-sm"
+              className="w-full min-h-[48px] px-4 rounded-full bg-gray-400 text-white font-bold uppercase tracking-[0.04em] hover:bg-gray-500 shadow-[0_4px_0_rgba(0,0,0,0.3),0_6px_12px_rgba(0,0,0,0.2)] active:shadow-[0_2px_0_rgba(0,0,0,0.3),0_4px_6px_rgba(0,0,0,0.1)] active:translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-[clamp(0.64rem,2.2vw,0.8rem)] leading-[1.2] text-center"
             >
-              Cancel
+              {t('settings.cancel')}
             </button>
             <button
               onClick={handleChangePassword}
               disabled={loading || success}
-              className="py-2 px-4 rounded-full font-bold uppercase tracking-wide text-white shadow-[0_4px_0_#1a5c1a,0_6px_12px_rgba(0,0,0,0.2)] active:shadow-[0_2px_0_#1a5c1a,0_4px_6px_rgba(0,0,0,0.1)] active:translate-y-1 transition-all disabled:opacity-60 disabled:cursor-not-allowed text-xs md:text-sm"
+              className="w-full min-h-[48px] px-4 rounded-full font-bold uppercase tracking-[0.04em] text-white shadow-[0_4px_0_#1a5c1a,0_6px_12px_rgba(0,0,0,0.2)] active:shadow-[0_2px_0_#1a5c1a,0_4px_6px_rgba(0,0,0,0.1)] active:translate-y-1 transition-all disabled:opacity-60 disabled:cursor-not-allowed text-[clamp(0.64rem,2.2vw,0.8rem)] leading-[1.2] text-center"
               style={{
                 backgroundColor: success ? '#4CAF50' : '#2E8B2E',
               }}
@@ -288,7 +290,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
                 }
               }}
             >
-              {loading ? 'UPDATING...' : success ? '✓ SUCCESS' : 'CHANGE PASSWORD'}
+              {loading ? t('settings.updating') : success ? `✓ ${t('settings.success')}` : t('settings.changePasswordButton')}
             </button>
           </div>
         </div>

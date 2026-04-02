@@ -11,8 +11,12 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import LessonView from '@/components/module/LessonView';
+import GearIcon from '@/public/images/svgs/gear-icon.svg';
+import SettingsModal from '@/components/settings/SettingsModal';
+import { useSettings } from '@/hooks/useSettings';
 
 interface LetterUnit {
   label:    string;
@@ -27,11 +31,13 @@ interface LevelMeta {
 export default function LessonPage() {
   const router             = useRouter();
   const { lessonId }       = useParams<{ lessonId: string }>();
+  const { settings, updateSetting } = useSettings();
 
   const [letters,     setLetters]     = useState<LetterUnit[]>([]);
   const [levelMeta,   setLevelMeta]   = useState<LevelMeta | null>(null);
   const [letterIndex, setLetterIndex] = useState(0);
   const [loading,     setLoading]     = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -168,7 +174,37 @@ export default function LessonPage() {
         <p className="text-[#4A2C0A] font-bold text-base sm:text-lg">
           {letterIndex + 1} / {letters.length}
         </p>
+
+        <button
+          onClick={() => setShowSettings(true)}
+          className="flex items-center justify-center flex-shrink-0 transition-transform"
+          style={{
+            zIndex: 9999,
+            width: 'clamp(36px, 6vw, 44px)',
+            height: 'clamp(36px, 6vw, 44px)',
+            borderRadius: '50%',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            background: 'linear-gradient(180deg, #ffcc44 0%, #ff9900 100%)',
+            boxShadow: '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+          onMouseDown={(e) => (e.currentTarget.style.transform = 'translateY(4px) scale(0.96)', e.currentTarget.style.boxShadow = '0 2px 0 #b86a00, 0 4px 8px rgba(0, 0, 0, 0.2)')}
+          onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
+          aria-label="Settings"
+        >
+          <Image src={GearIcon} alt="" style={{ width: '50%', height: '50%' }} />
+        </button>
       </div>
+
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        settings={settings}
+        updateSetting={updateSetting}
+      />
 
       {/* ── Page heading ─────────────────────────────────────────── */}
       <div className="text-center mb-4 shrink-0">
@@ -182,9 +218,11 @@ export default function LessonPage() {
         >
           Let&apos;s learn FSL!
         </h1>
-        <p className="text-[#4A2C0A] font-bold text-sm mt-1">
-          Build your FSL skills one lesson at a time
-        </p>
+        {settings.showCaptions && (
+          <p className="text-[#4A2C0A] font-bold text-sm mt-1">
+            Build your FSL skills one lesson at a time
+          </p>
+        )}
       </div>
 
       {/* ── Lesson video — fills remaining height ─────────────────── */}
@@ -195,6 +233,9 @@ export default function LessonPage() {
           levelNum={levelMeta.levelNum}
           levelLabel={levelMeta.label}
           onNext={handleNext}
+          autoplayNext={settings.autoplayLesson}
+          playbackSpeed={settings.playbackSpeed}
+          showCaptions={settings.showCaptions}
           nextLabel={isLast ? 'Finish ✓' : undefined}
         />
       </div>

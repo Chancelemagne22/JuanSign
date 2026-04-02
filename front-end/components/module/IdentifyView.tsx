@@ -20,6 +20,10 @@ interface Props {
   onNext: (accuracy: number) => void;
   /** Enables side-by-side layout used on Practice chapter pages */
   sideBySide?: boolean;
+  /** Controls whether feedback reveals the correct answer text when wrong */
+  showCorrectAnswerAfterSubmit?: boolean;
+  /** Enables simple success/failure tone feedback */
+  soundEffects?: boolean;
 }
 
 const OPTION_KEYS = ['A', 'B', 'C', 'D'] as const;
@@ -60,6 +64,8 @@ export default function IdentifyView({
   totalQuestions,
   onNext,
   sideBySide = false,
+  showCorrectAnswerAfterSubmit = true,
+  soundEffects = true,
 }: Props) {
   const options = { A: optionA, B: optionB, C: optionC, D: optionD };
 
@@ -129,6 +135,12 @@ export default function IdentifyView({
 
   function handleConfirm() {
     if (!selected || confirmed) return;
+
+    if (soundEffects) {
+      const isCorrect = selected === correctAnswer;
+      playFeedbackTone(isCorrect);
+    }
+
     setConfirmed(true);
   }
 
@@ -138,7 +150,30 @@ export default function IdentifyView({
 
   const feedbackText = selected === correctAnswer
     ? '✓ Correct!'
-    : `✗ Wrong — the answer is ${options[correctAnswer as keyof typeof options] || correctAnswer}`;
+    : showCorrectAnswerAfterSubmit
+      ? `✗ Wrong — the answer is ${options[correctAnswer as keyof typeof options] || correctAnswer}`
+      : '✗ Wrong.';
+
+  function playFeedbackTone(isCorrect: boolean) {
+    try {
+      const audioCtx = new (window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.value = isCorrect ? 720 : 320;
+      gain.gain.value = 0.05;
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.15);
+      setTimeout(() => void audioCtx.close(), 250);
+    } catch {
+      // Ignore sound errors silently to avoid breaking quiz flow.
+    }
+  }
 
   const actionButton = !confirmed ? (
     <button

@@ -24,9 +24,16 @@ interface Props {
   onLogin: (user: UserData) => void;
   onSignupClick: () => void;
   onForgotPasswordClick?: () => void;
+  noticeMessage?: string;
 }
 
-export default function LoginModal({ onClose, onLogin, onSignupClick, onForgotPasswordClick }: Props) {
+export default function LoginModal({
+  onClose,
+  onLogin,
+  onSignupClick,
+  onForgotPasswordClick,
+  noticeMessage,
+}: Props) {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -149,6 +156,14 @@ export default function LoginModal({ onClose, onLogin, onSignupClick, onForgotPa
         {/* ── Form body ────────────────────────────────────────── */}
         <div className="relative z-10 pt-12 pb-8 px-10 flex flex-col gap-1 max-w-[300px] mx-auto w-full">
 
+          {noticeMessage && (
+            <div className="mb-3 p-2.5 rounded-lg bg-green-100 border border-green-400">
+              <p className="text-green-800 text-xs font-semibold text-center leading-snug">
+                {noticeMessage}
+              </p>
+            </div>
+          )}
+
           {/* Username */}
           <label className="block text-[#7B3F00] font-semibold text-[0.95rem] mb-1">
             Username
@@ -202,13 +217,17 @@ export default function LoginModal({ onClose, onLogin, onSignupClick, onForgotPa
               type="button"
               onClick={handleLogin}
               disabled={loading}
-              className="
-                bg-[#2E8B2E] hover:bg-[#329932] text-white font-black uppercase
-                tracking-widest text-sm md:text-xl px-10 md:px-20 py-3 rounded-full
-                shadow-[0_6px_0_#1a5c1a,0_8px_16px_rgba(0,0,0,0.3)]
-                active:shadow-[0_2px_0_#1a5c1a,0_4px_8px_rgba(0,0,0,0.2)] active:translate-y-1
-                transition-all disabled:opacity-60 disabled:cursor-not-allowed
-              "
+              className={[
+                'bg-[#2E8B2E] hover:bg-[#329932] text-white font-black uppercase rounded-full',
+                'py-3 whitespace-nowrap leading-none',
+                'px-8 md:px-14',
+                'shadow-[0_6px_0_#1a5c1a,0_8px_16px_rgba(0,0,0,0.3)]',
+                'active:shadow-[0_2px_0_#1a5c1a,0_4px_8px_rgba(0,0,0,0.2)] active:translate-y-1',
+                'transition-all disabled:opacity-60 disabled:cursor-not-allowed',
+                loading
+                  ? 'text-xs md:text-sm tracking-wide'
+                  : 'text-sm md:text-xl tracking-widest',
+              ].join(' ')}
             >
               {loading ? 'LOGGING IN...' : 'LOGIN'}
             </button>

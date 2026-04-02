@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import WoodArc from '@/public/images/svgs/arc.svg';
 import { supabase } from '@/lib/supabase';
 import type { UserData } from '@/types/user';
@@ -37,6 +38,7 @@ interface Props {
 }
 
 export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props) {
+  const router = useRouter();
   const [firstName,   setFirstName]   = useState('');
   const [lastName,    setLastName]    = useState('');
   const [username,    setUsername]    = useState('');
@@ -73,6 +75,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
       email,
       password,
       options: {
+        emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/confirm?next=/`,
         data: {
           username:   username.trim(),
           first_name: firstName.trim(),
@@ -115,9 +118,17 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
     setLoading(false);
 
     // Email confirmation is ON — session is null until the user clicks the link.
-    // Do NOT call onSuccess (which would open UserProfileModal and route to /dashboard).
+    // Send users directly to the verify-email prompt flow.
     if (!session) {
-      setSignupDone(true);
+      await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim(),
+        options: {
+          emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/confirm?next=/`,
+        },
+      }).catch(() => {});
+
+      router.push(`/verify-email-wait?email=${encodeURIComponent(email.trim())}`);
       return;
     }
 
@@ -191,28 +202,33 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
 
         {/* ── Post-signup result screen ────────────────────────── */}
         {signupDone && (
-          <div className="relative z-10 pt-24 pb-8 mt-10 flex flex-col items-center gap-4 text-center px-8">
-            <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+          <div className="relative z-10 flex flex-col items-center justify-start text-center px-6 py-8 mt-[40px]">
+            <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center shadow-lg mb-4">
               <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className="text-[#5D3A1A] font-black text-lg">Account Created!</p>
-            <p className="text-[#7B3F00] font-semibold text-sm leading-snug">
+            <p className="text-[#5D3A1A] font-bold text-[21px] leading-tight mb-3">Account Created!</p>
+            <p
+              className="text-[#7B3F00] font-semibold text-[14px] leading-[1.5] w-full max-w-[260px] mx-auto px-1"
+              style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+            >
               We sent a confirmation link to <span className="font-black">{email}</span>.
-              Please check your inbox and click the link before logging in.
+              {' '}Please check your inbox and click the link before logging in.
             </p>
             {avatarWarn && (
-              <div className="bg-amber-100 border border-amber-400 rounded-2xl px-4 py-3 w-full">
+              <div className="mt-3 bg-amber-100 border border-amber-400 rounded-2xl px-4 py-3 w-full max-w-[80%]">
                 <p className="text-amber-800 font-semibold text-xs leading-snug">{avatarWarn}</p>
               </div>
             )}
             <button
               type="button"
-              onClick={onClose}
-              className="mt-2 bg-[#2E8B2E] hover:bg-[#329932] text-white font-black uppercase tracking-widest text-base px-12 py-3 rounded-full shadow-[0_6px_0_#1a5c1a] active:shadow-[0_2px_0_#1a5c1a] active:translate-y-1 transition-all"
+              onClick={() => {
+                router.push(`/verify-email-wait?email=${encodeURIComponent(email.trim())}`);
+              }}
+              className="mt-8 w-[200px] bg-[#2E8B2E] hover:bg-[#329932] text-white font-black uppercase tracking-widest text-base py-3 rounded-full shadow-[0_6px_0_#1a5c1a] active:shadow-[0_2px_0_#1a5c1a] active:translate-y-1 transition-all"
             >
-              Got it
+              Continue
             </button>
           </div>
         )}

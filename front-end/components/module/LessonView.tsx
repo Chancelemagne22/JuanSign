@@ -5,7 +5,7 @@
 // Controls: Play, Pause, Restart (seek to 0 + play), Stop (pause + seek to 0).
 // A "Next →" arrow button advances the user to the Practice step.
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Props {
   letter:     string;
@@ -13,6 +13,9 @@ interface Props {
   levelNum:   number;
   levelLabel: string;
   onNext:     () => void;
+  autoplayNext?: boolean;
+  playbackSpeed?: 0.75 | 1 | 1.25 | 1.5;
+  showCaptions?: boolean;
   /** Override the next button label (e.g. "Finish ✓" on the last letter) */
   nextLabel?: string;
 }
@@ -49,9 +52,24 @@ function ControlBtn({
   );
 }
 
-export default function LessonView({ letter, videoUrl, levelNum, levelLabel, onNext, nextLabel }: Props) {
+export default function LessonView({
+  letter,
+  videoUrl,
+  levelNum,
+  levelLabel,
+  onNext,
+  autoplayNext = false,
+  playbackSpeed = 1,
+  showCaptions = true,
+  nextLabel,
+}: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoError, setVideoError] = useState(false);
+
+  useEffect(() => {
+    if (!videoRef.current) return;
+    videoRef.current.playbackRate = playbackSpeed;
+  }, [playbackSpeed, videoUrl]);
 
   function play() {
     videoRef.current?.play().catch(() => {});
@@ -93,6 +111,9 @@ export default function LessonView({ letter, videoUrl, levelNum, levelLabel, onN
               className="absolute inset-0 w-full h-full object-contain"
               onError={() => setVideoError(true)}
               onLoadedData={() => console.log('[LessonView] video loaded:', videoUrl)}
+              onEnded={() => {
+                if (autoplayNext) onNext();
+              }}
             />
           ) : (
             /* Placeholder — shown when no videoUrl or when the URL fails to load */
@@ -140,11 +161,15 @@ export default function LessonView({ letter, videoUrl, levelNum, levelLabel, onN
 
       {/* ── Below box: centered level label + next arrow (right) ────────────── */}
       <div className="grid grid-cols-3 items-center px-1 shrink-0">
-        <p className="text-[#4A2C0A] text-lg sm:text-xl justify-self-center text-center col-start-2">
-          <span className="font-black">Level {levelNum}</span>
-          {'  '}
-          <span className="font-semibold">{levelLabel}</span>
-        </p>
+        {showCaptions ? (
+          <p className="text-[#4A2C0A] text-lg sm:text-xl justify-self-center text-center col-start-2">
+            <span className="font-black">Level {levelNum}</span>
+            {'  '}
+            <span className="font-semibold">{levelLabel}</span>
+          </p>
+        ) : (
+          <div className="justify-self-center col-start-2" />
+        )}
 
         {/* Next / Finish button */}
         <button

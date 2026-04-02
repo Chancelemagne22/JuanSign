@@ -10,9 +10,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import PracticeView  from '@/components/module/PracticeView';
 import IdentifyView  from '@/components/module/IdentifyView';
+import GearIcon from '@/public/images/svgs/gear-icon.svg';
+import SettingsModal from '@/components/settings/SettingsModal';
+import { useSettings } from '@/hooks/useSettings';
 
 interface QuestionUnit {
   id:            string;
@@ -37,13 +41,52 @@ interface LevelMeta {
 export default function PracticeChapterPage() {
   const router          = useRouter();
   const { chapterId }   = useParams<{ chapterId: string }>();
+  const { settings, updateSetting } = useSettings();
 
+  const [rawQuestions, setRawQuestions] = useState<QuestionUnit[]>([]);
   const [questions,    setQuestions]    = useState<QuestionUnit[]>([]);
   const [levelMeta,    setLevelMeta]    = useState<LevelMeta | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading,      setLoading]      = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
 
   const accuracyScores = useRef<number[]>([]);
+  const activeQuestionIdRef = useRef<string | null>(null);
+
+  function shuffleQuestions(items: QuestionUnit[]) {
+    const next = [...items];
+    for (let i = next.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [next[i], next[j]] = [next[j], next[i]];
+    }
+    return next;
+  }
+
+  useEffect(() => {
+    activeQuestionIdRef.current = questions[currentIndex]?.id ?? null;
+  }, [questions, currentIndex]);
+
+  useEffect(() => {
+    if (rawQuestions.length === 0) {
+      setQuestions([]);
+      return;
+    }
+
+    const nextQuestions = settings.shuffleQuestions
+      ? shuffleQuestions(rawQuestions)
+      : rawQuestions;
+
+    setQuestions(nextQuestions);
+
+    const activeId = activeQuestionIdRef.current;
+    if (!activeId) {
+      setCurrentIndex(0);
+      return;
+    }
+
+    const nextIndex = nextQuestions.findIndex((q) => q.id === activeId);
+    setCurrentIndex(nextIndex >= 0 ? nextIndex : 0);
+  }, [rawQuestions, settings.shuffleQuestions]);
 
   useEffect(() => {
     async function init() {
@@ -63,8 +106,7 @@ export default function PracticeChapterPage() {
           .order('created_at'),
       ]);
 
-      setQuestions(
-        (questionsRes.data ?? []).map((r) => ({
+      const fetchedQuestions = (questionsRes.data ?? []).map((r) => ({
           id:            r.question_id,
           type:          r.question_type as 'identify' | 'perform',
           targetSign:    r.target_sign   ?? '',
@@ -75,8 +117,9 @@ export default function PracticeChapterPage() {
           optionC:       r.option_c      ?? '',
           optionD:       r.option_d      ?? '',
           correctAnswer: r.correct_answer ?? '',
-        }))
-      );
+        }));
+
+      setRawQuestions(fetchedQuestions);
       setLevelMeta({
         levelNum: levelRes.data?.level_order ?? 1,
         label:    levelRes.data?.level_name  ?? 'Chapter',
@@ -177,7 +220,37 @@ export default function PracticeChapterPage() {
           </svg>
         </button>
 
+        <button
+          onClick={() => setShowSettings(true)}
+          className="ml-auto flex items-center justify-center flex-shrink-0 transition-transform"
+          style={{
+            zIndex: 9999,
+            width: 'clamp(36px, 6vw, 44px)',
+            height: 'clamp(36px, 6vw, 44px)',
+            borderRadius: '50%',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            background: 'linear-gradient(180deg, #ffcc44 0%, #ff9900 100%)',
+            boxShadow: '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+          onMouseDown={(e) => (e.currentTarget.style.transform = 'translateY(4px) scale(0.96)', e.currentTarget.style.boxShadow = '0 2px 0 #b86a00, 0 4px 8px rgba(0, 0, 0, 0.2)')}
+          onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
+          aria-label="Settings"
+        >
+          <Image src={GearIcon} alt="" style={{ width: '50%', height: '50%' }} />
+        </button>
+
       </div>
+
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        settings={settings}
+        updateSetting={updateSetting}
+      />
 
       {/* ── Page heading ─────────────────────────────────────────── */}
       <div className="relative z-20 text-center mb-3 sm:mb-4 shrink-0">
@@ -219,6 +292,8 @@ export default function PracticeChapterPage() {
             questionIndex={currentIndex}
             totalQuestions={questions.length}
             sideBySide
+            showCorrectAnswerAfterSubmit={settings.showCorrectAnswer}
+            soundEffects={settings.soundEffects}
             onNext={(accuracy) => handleNext(accuracy)}
           />
         )}
