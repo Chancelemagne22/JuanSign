@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import WoodArc from '@/public/images/svgs/arc.svg';
 import { supabase } from '@/lib/supabase';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { UserData } from '@/types/user';
 
 function EyeIcon({ open }: { open: boolean }) {
@@ -35,6 +36,7 @@ export default function LoginModal({
   noticeMessage,
 }: Props) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPw,   setShowPw]   = useState(false);
@@ -45,7 +47,7 @@ export default function LoginModal({
     setError(null);
 
     if (!username.trim() || !password) {
-      setError('Please enter your username and password.');
+      setError(t('login.missingCredentials'));
       return;
     }
 
@@ -58,7 +60,7 @@ export default function LoginModal({
 
     if (rpcError || !emailData) {
       setLoading(false);
-      setError('Username not found. Please check and try again.');
+      setError(t('login.usernameNotFound'));
       return;
     }
 
@@ -115,7 +117,7 @@ export default function LoginModal({
     >
       {/* ── Card ─────────────────────────────────────────────────── */}
       <div
-        className="modal-responsive-sm rounded-[38px]"
+        className="modal-responsive-sm max-w-[420px] rounded-[38px]"
         style={{ backgroundImage: "url('/images/svgs/banner.svg')", 
           backgroundSize: 'contain',        // or 'contain'
           backgroundPosition: 'center',
@@ -125,7 +127,7 @@ export default function LoginModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Arc.svg — "LOGIN" sign ───────────────────────────── */}
-        <div className="absolute left-1/2 w-[85%] max-w-[200px]"
+        <div className="absolute left-1/2 w-[82%] max-w-[220px]"
                   style={{ 
                     top: '0',
                     transform: 'translate(-50%, -50%)',
@@ -147,7 +149,7 @@ export default function LoginModal({
                         className="text-white font-black uppercase tracking-[0.25em] text-[clamp(1rem,4vw,1.4rem)] leading-none"
                         style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
                       >
-                LOGIN
+                {t('login.title')}
               </p>
             </div>
           </div>
@@ -166,11 +168,11 @@ export default function LoginModal({
 
           {/* Username */}
           <label className="block text-[#7B3F00] font-semibold text-[0.95rem] mb-1">
-            Username
+            {t('login.usernameLabel')}
           </label>
           <input
             type="text"
-            placeholder="Enter your Username"
+            placeholder={t('login.usernamePlaceholder')}
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
@@ -180,12 +182,12 @@ export default function LoginModal({
 
           {/* Password */}
           <label className="block text-[#7B3F00] font-semibold text-[0.95rem] mb-1">
-            Password
+            {t('login.passwordLabel')}
           </label>
           <div className="relative mb-4">
             <input
               type={showPw ? 'text' : 'password'}
-              placeholder="Enter your Password"
+              placeholder={t('login.passwordPlaceholder')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
@@ -196,7 +198,7 @@ export default function LoginModal({
               type="button"
               onClick={() => setShowPw(!showPw)}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-[#7B3F00] hover:text-[#5D3A1A] transition-colors"
-              aria-label="Toggle password visibility"
+              aria-label={t('login.togglePasswordVisibility')}
             >
               <EyeIcon open={showPw} />
             </button>
@@ -212,16 +214,17 @@ export default function LoginModal({
           )}
 
           {/* LOGIN button */}
-          <div className="flex justify-center mb-5">
+          <div className="flex justify-center mb-3">
             <button
               type="button"
               onClick={handleLogin}
               disabled={loading}
               className={[
                 'bg-[#2E8B2E] hover:bg-[#329932] text-white font-black uppercase rounded-full',
-                'py-3 whitespace-nowrap leading-none',
-                'px-8 md:px-14',
+                'py-2.5 whitespace-nowrap leading-none',
+                'px-7 md:px-12',
                 'shadow-[0_6px_0_#1a5c1a,0_8px_16px_rgba(0,0,0,0.3)]',
+                'hover:shadow-[0_6px_0_#1a5c1a,0_8px_16px_rgba(0,0,0,0.3)] hover:translate-y-0 hover:scale-100',
                 'active:shadow-[0_2px_0_#1a5c1a,0_4px_8px_rgba(0,0,0,0.2)] active:translate-y-1',
                 'transition-all disabled:opacity-60 disabled:cursor-not-allowed',
                 loading
@@ -229,7 +232,7 @@ export default function LoginModal({
                   : 'text-sm md:text-xl tracking-widest',
               ].join(' ')}
             >
-              {loading ? 'LOGGING IN...' : 'LOGIN'}
+              {loading ? t('login.loggingIn') : t('login.loginButton')}
             </button>
           </div>
 
@@ -239,7 +242,7 @@ export default function LoginModal({
               onClick={onForgotPasswordClick}
               className="text-[#7B3F00] font-normal text-sm hover:text-[#5D3A1A] underline transition-colors"
             >
-              Forgot your password?
+              {t('login.forgotPassword')}
             </button>
           </div>
 
@@ -251,7 +254,7 @@ export default function LoginModal({
         className="mt-4 text-[#F5C47A] font-normal text-sm"
         onClick={(e) => e.stopPropagation()}
       >
-        Don&apos;t have an Account?{' '}
+        {t('login.noAccount')}{' '}
         <button
           type="button"
           onClick={(e) => {
@@ -260,7 +263,7 @@ export default function LoginModal({
           }}
           className="text-[#2E8B2E] underline font-bold hover:text-[#1a5c1a] transition-colors"
         >
-          Signup.
+          {t('login.signupCta')}
         </button>
       </p>
 
@@ -269,7 +272,7 @@ export default function LoginModal({
         onClick={() => { onClose(); router.push('/admin/login'); }}
         className="mt-2 text-[#2E8B2E] text-l font-semibold hover:text-white transition-colors opacity-100 hover:opacity-100"
       >
-        Admin Access
+        {t('login.adminAccess')}
       </button>
     </div>
   );

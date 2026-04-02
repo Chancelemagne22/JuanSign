@@ -10,9 +10,11 @@ import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
 import ChangePasswordModal from '@/components/profile/ChangePasswordModal';
+import { useLanguage } from '@/hooks/useLanguage';
 
 export default function Dashboard() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [displayName, setDisplayName] = useState('');
   const [showChangePassword, setShowChangePassword] = useState(false);
 
@@ -38,9 +40,9 @@ export default function Dashboard() {
   };
 
   const modes = [
-    { label: 'Lessons',    path: '/dashboard/lessons',    bg: '#009B01', shadow: '#005501', border: '#009B01', text: '#FFFFFF', weight: 400 },
-    { label: 'Practice',   path: '/dashboard/practice',   bg: '#FAA200', shadow: '#D85600', border: '#FAA200', text: '#FFFFFF', weight: 400 },
-    { label: 'Assessment', path: '/dashboard/assessment', bg: '#FF0000', shadow: '#BD0000', border: '#FF0000', text: '#FFFFFF', weight: 400 },
+    { label: t('dashboard.lessons'),    path: '/dashboard/lessons',    bg: '#009B01', shadow: '#005501', border: '#009B01', text: '#FFFFFF', weight: 400 },
+    { label: t('dashboard.practice'),   path: '/dashboard/practice',   bg: '#FAA200', shadow: '#D85600', border: '#FAA200', text: '#FFFFFF', weight: 400 },
+    { label: t('dashboard.assessment'), path: '/dashboard/assessment', bg: '#FF0000', shadow: '#BD0000', border: '#FF0000', text: '#FFFFFF', weight: 400 },
   ];
 
   return (
@@ -57,9 +59,9 @@ export default function Dashboard() {
             active:shadow-[0_1px_0_#b71c1c,0_2px_6px_rgba(0,0,0,0.15)] active:translate-y-1
             transition-all
           "
-          aria-label="Log out"
+          aria-label={t('settings.logOut')}
         >
-          Logout
+          {t('dashboard.logout')}
         </button>
 
         <button
@@ -80,7 +82,7 @@ export default function Dashboard() {
           onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
           onMouseDown={(e) => (e.currentTarget.style.transform = 'translateY(4px) scale(0.96)', e.currentTarget.style.boxShadow = '0 2px 0 #b86a00, 0 4px 8px rgba(0, 0, 0, 0.2)')}
           onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
-          aria-label="Settings"
+          aria-label={t('settings.openSettings')}
         >
           <Image src={GearIcon} alt="" style={{ width: '50%', height: '50%' }} />
         </button>
@@ -97,10 +99,10 @@ export default function Dashboard() {
             textShadow:       '1px 1px 0 #152978',
           }}
         >
-          Welcome back, {displayName}!
+          {t('dashboard.welcomeBack').replace('{{name}}', displayName)}
         </h1>
         <p className="text-[#4A2C0A] font-bold text-base mt-2">
-          What would you like to do today?
+          {t('dashboard.prompt')}
         </p>
       </div>
 

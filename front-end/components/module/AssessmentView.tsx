@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useLanguage } from '@/hooks/useLanguage';
 
 // COMPONENT: AssessmentView — TEMPLATE PLACEHOLDER
 //
@@ -29,10 +30,11 @@ export default function AssessmentView({
   confirmSubmit = true,
   reviewBeforeSubmit = true,
 }: Props) {
+  const { t } = useLanguage();
   const [showReviewPrompt, setShowReviewPrompt] = useState(false);
 
   function finalizeSubmit() {
-    if (confirmSubmit && !window.confirm('Submit your assessment now?')) return;
+    if (confirmSubmit && !window.confirm(t('assessmentView.submitConfirm'))) return;
     onFinish();
   }
 
@@ -55,22 +57,22 @@ export default function AssessmentView({
           }}
         >
           <div className="w-full max-w-md rounded-2xl border-4 border-[#BF7B45] bg-white p-5 text-left">
-            <p className="text-[#7B3F00] font-black text-lg mb-2">Review Before Submit</p>
+            <p className="text-[#7B3F00] font-black text-lg mb-2">{t('assessmentView.reviewBeforeSubmitTitle')}</p>
             <p className="text-[#5D3A1A] font-semibold text-sm leading-relaxed">
-              Review mode is enabled. Once submitted, your assessment session will be completed.
+              {t('assessmentView.reviewBeforeSubmitBody')}
             </p>
             <div className="mt-4 flex justify-end gap-3">
               <button
                 onClick={() => setShowReviewPrompt(false)}
                 className="px-4 py-2 rounded-xl border-2 border-[#BF7B45] text-[#7B3F00] font-bold"
               >
-                Back
+                {t('common.goBack')}
               </button>
               <button
                 onClick={finalizeSubmit}
                 className="px-4 py-2 rounded-xl bg-[#2E8B2E] text-white font-black"
               >
-                Submit
+                {t('assessmentView.submit')}
               </button>
             </div>
           </div>
@@ -95,20 +97,19 @@ export default function AssessmentView({
             textShadow:       '2px 2px 0 #5D3A1A',
           }}
         >
-          Assessment
+          {t('assessmentPage.title')}
         </h2>
         <p className="text-[#4A2C0A] font-bold text-base mt-1">
-          <span className="font-black">Level {levelNum}</span>{'  '}
+          <span className="font-black">{t('lessonView.levelLabel').replace('{{number}}', String(levelNum))}</span>{'  '}
           <span className="font-semibold">{levelLabel}</span>
         </p>
       </div>
 
       {/* Coming soon card */}
       <div className="w-full max-w-sm bg-[#FFF8EE] border-4 border-[#BF7B45] rounded-[24px] px-8 py-8 shadow-md">
-        <p className="text-[#7B3F00] font-black text-lg mb-2">Coming Soon!</p>
+        <p className="text-[#7B3F00] font-black text-lg mb-2">{t('common.comingSoon')}</p>
         <p className="text-[#A86040] font-semibold text-sm leading-relaxed">
-          You&apos;ve completed all the letters in this level.
-          The full assessment quiz will be available in a future update.
+          {t('assessmentView.completedLetters')}
         </p>
 
         {/* Star row placeholder */}
@@ -131,7 +132,7 @@ export default function AssessmentView({
           transition-all
         "
       >
-        Back to Dashboard
+        {t('assessmentView.backToDashboard')}
       </button>
 
     </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import WoodArc from '@/public/images/svgs/arc.svg';
 import { supabase } from '@/lib/supabase';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { UserData } from '@/types/user';
 
 /* Pencil / edit icon */
@@ -34,6 +35,7 @@ interface Props {
 }
 
 export default function UserProfileModal({ user, onContinue, onClose }: Props) {
+  const { t } = useLanguage();
   const [username,    setUsername]    = useState(user.username);
   const [newPassword, setNewPassword] = useState('');
   const [editingUser, setEditingUser] = useState(false);
@@ -113,7 +115,7 @@ export default function UserProfileModal({ user, onContinue, onClose }: Props) {
                 className="text-white font-black uppercase tracking-[0.25em] text-[clamp(0.75rem,3vw,1.1rem)] leading-none"
                 style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
               >
-                USER PROFILE
+                {t('profile.title')}
               </p>
             </div>
           </div>
@@ -130,7 +132,7 @@ export default function UserProfileModal({ user, onContinue, onClose }: Props) {
               {user.photoUrl ? (
                 <Image
                   src={user.photoUrl}
-                  alt="Profile photo"
+                  alt={t('profile.profilePhotoAlt')}
                   width={80}
                   height={100}
                   className="w-full h-full object-cover"
@@ -145,7 +147,7 @@ export default function UserProfileModal({ user, onContinue, onClose }: Props) {
 
               {/* Username */}
               <div>
-                <p className="text-[#7B3F00] font-bold text-xs mb-0.5">Username</p>
+                <p className="text-[#7B3F00] font-bold text-xs mb-0.5">{t('profile.username')}</p>
                 <div className="flex items-center bg-[#D4956A] rounded-full px-2.5 py-1 gap-1">
                   <input
                     type="text"
@@ -160,7 +162,7 @@ export default function UserProfileModal({ user, onContinue, onClose }: Props) {
                     onClick={() => setEditingUser(true)}
                     disabled={saving}
                     className="text-[#7B3F00] hover:text-[#5D3A1A] transition-colors flex-shrink-0 disabled:opacity-50"
-                    aria-label="Edit username"
+                    aria-label={t('profile.editUsername')}
                   >
                     <PencilIcon />
                   </button>
@@ -169,11 +171,11 @@ export default function UserProfileModal({ user, onContinue, onClose }: Props) {
 
               {/* Password */}
               <div>
-                <p className="text-[#7B3F00] font-bold text-xs mb-0.5">Password</p>
+                <p className="text-[#7B3F00] font-bold text-xs mb-0.5">{t('profile.password')}</p>
                 <div className="flex items-center bg-[#D4956A] rounded-full px-2.5 py-1 gap-1">
                   <input
                     type={editingPw ? 'text' : 'password'}
-                    placeholder={editingPw ? 'Enter new password' : ''}
+                    placeholder={editingPw ? t('profile.newPasswordPlaceholder') : ''}
                     value={editingPw ? newPassword : '••••••••'}
                     readOnly={!editingPw}
                     onChange={(e) => setNewPassword(e.target.value)}
@@ -185,7 +187,7 @@ export default function UserProfileModal({ user, onContinue, onClose }: Props) {
                     onClick={() => { setEditingPw(true); setNewPassword(''); }}
                     disabled={saving}
                     className="text-[#7B3F00] hover:text-[#5D3A1A] transition-colors flex-shrink-0 disabled:opacity-50"
-                    aria-label="Change password"
+                    aria-label={t('profile.changePassword')}
                   >
                     <PencilIcon />
                   </button>
@@ -198,14 +200,14 @@ export default function UserProfileModal({ user, onContinue, onClose }: Props) {
           {/* Stats */}
           <div className="flex flex-col items-center gap-1 mb-3 text-[#5D3A1A] font-bold text-xs">
             <p>
-              Star Obtained:{' '}
+              {t('profile.starObtained')}:{' '}
               <span className="inline-flex items-center gap-1">
                 <span>⭐</span>
                 <span className="text-[#E8A020]">{user.stars}</span>
               </span>
             </p>
-            <p>Current Level:&nbsp;&nbsp; Level {user.level}</p>
-            <p>Completion Rate:&nbsp; {user.completionRate}%</p>
+            <p>{t('profile.currentLevel')}:&nbsp;&nbsp; {t('profile.levelLabel')} {user.level}</p>
+            <p>{t('profile.completionRate')}:&nbsp; {user.completionRate}%</p>
           </div>
 
           {/* CONTINUE button */}
@@ -221,7 +223,7 @@ export default function UserProfileModal({ user, onContinue, onClose }: Props) {
                 transition-all
               "
             >
-              CONTINUE
+              {t('profile.continue')}
             </button>
           </div>
 

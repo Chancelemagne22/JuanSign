@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import WoodArc from '@/public/images/svgs/arc.svg';
 import { supabase } from '@/lib/supabase';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { UserData } from '@/types/user';
 
 /* Eye icon — open / closed variants */
@@ -39,6 +40,7 @@ interface Props {
 
 export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [firstName,   setFirstName]   = useState('');
   const [lastName,    setLastName]    = useState('');
   const [username,    setUsername]    = useState('');
@@ -59,11 +61,11 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
     setError(null);
 
     if (!firstName.trim() || !lastName.trim() || !username.trim() || !email.trim() || !password) {
-      setError('Please fill in all required fields.');
+      setError(t('signup.requiredFields'));
       return;
     }
     if (password !== confirm) {
-      setError('Passwords do not match.');
+      setError(t('signup.passwordsDoNotMatch'));
       return;
     }
 
@@ -111,7 +113,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
         const data = await res.json();
         avatarUrl = data.avatarUrl ?? null;
       } else {
-        localAvatarWarn = 'Profile save failed. You can update it later from settings.';
+        localAvatarWarn = t('signup.profileSaveFailed');
       }
     }
 
@@ -194,7 +196,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
                 className="text-white font-black uppercase tracking-[0.25em] text-[clamp(1rem,4vw,1.4rem)] leading-none"
                 style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
               >
-                NEW USER
+                {t('signup.title')}
               </p>
             </div>
           </div>
@@ -208,13 +210,13 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className="text-[#5D3A1A] font-bold text-[21px] leading-tight mb-3">Account Created!</p>
+            <p className="text-[#5D3A1A] font-bold text-[21px] leading-tight mb-3">{t('signup.accountCreated')}</p>
             <p
               className="text-[#7B3F00] font-semibold text-[14px] leading-[1.5] w-full max-w-[260px] mx-auto px-1"
               style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
             >
-              We sent a confirmation link to <span className="font-black">{email}</span>.
-              {' '}Please check your inbox and click the link before logging in.
+              {t('signup.accountCreatedBody')} <span className="font-black">{email}</span>.
+              {' '}{t('signup.accountCreatedBody2')}
             </p>
             {avatarWarn && (
               <div className="mt-3 bg-amber-100 border border-amber-400 rounded-2xl px-4 py-3 w-full max-w-[80%]">
@@ -228,7 +230,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
               }}
               className="mt-8 w-[200px] bg-[#2E8B2E] hover:bg-[#329932] text-white font-black uppercase tracking-widest text-base py-3 rounded-full shadow-[0_6px_0_#1a5c1a] active:shadow-[0_2px_0_#1a5c1a] active:translate-y-1 transition-all"
             >
-              Continue
+              {t('signup.continue')}
             </button>
           </div>
         )}
@@ -241,11 +243,11 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-[#7B3F00] font-bold text-xs mb-0.5">
-                First Name
+                {t('signup.firstName')}
               </label>
               <input
                 type="text"
-                placeholder="First Name"
+                placeholder={t('signup.firstNamePlaceholder')}
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 disabled={loading}
@@ -254,11 +256,11 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
             </div>
             <div>
               <label className="block text-[#7B3F00] font-bold text-xs mb-0.5">
-                Last Name
+                {t('signup.lastName')}
               </label>
               <input
                 type="text"
-                placeholder="Last Name"
+                placeholder={t('signup.lastNamePlaceholder')}
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 disabled={loading}
@@ -270,11 +272,11 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
           {/* Username */}
           <div>
             <label className="block text-[#7B3F00] font-bold text-xs mb-0.5">
-              Username
+              {t('signup.username')}
             </label>
             <input
               type="text"
-              placeholder="Enter your Username"
+              placeholder={t('signup.usernamePlaceholder')}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               disabled={loading}
@@ -285,11 +287,11 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
           {/* Email */}
           <div>
             <label className="block text-[#7B3F00] font-bold text-xs mb-0.5">
-              Email
+              {t('signup.email')}
             </label>
             <input
               type="email"
-              placeholder="Enter your Email"
+              placeholder={t('signup.emailPlaceholder')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
@@ -300,11 +302,11 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
           {/* Password */}
           <div className="relative">
             <label className="block text-[#7B3F00] font-bold text-xs mb-0.5">
-              Password
+              {t('signup.password')}
             </label>
             <input
               type={showPw ? 'text' : 'password'}
-              placeholder="Create your Password"
+              placeholder={t('signup.passwordPlaceholder')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
@@ -314,7 +316,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
               type="button"
               onClick={() => setShowPw(!showPw)}
               className="absolute right-3 top-[1.4rem] text-[#7B3F00] hover:text-[#5D3A1A] transition-colors"
-              aria-label="Toggle password visibility"
+              aria-label={t('login.togglePasswordVisibility')}
             >
               <EyeIcon open={showPw} />
             </button>
@@ -323,11 +325,11 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
           {/* Confirm Password */}
           <div className="relative">
             <label className="block text-[#7B3F00] font-bold text-xs mb-0.5">
-              Confirm Password
+              {t('signup.confirmPassword')}
             </label>
             <input
               type={showCf ? 'text' : 'password'}
-              placeholder="Confirm your Password"
+              placeholder={t('signup.confirmPasswordPlaceholder')}
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               disabled={loading}
@@ -337,7 +339,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
               type="button"
               onClick={() => setShowCf(!showCf)}
               className="absolute right-3 top-[1.4rem] text-[#7B3F00] hover:text-[#5D3A1A] transition-colors"
-              aria-label="Toggle confirm password visibility"
+              aria-label={t('login.togglePasswordVisibility')}
             >
               <EyeIcon open={showCf} />
             </button>
@@ -366,7 +368,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
                 disabled={loading}
                 className="flex-shrink-0 bg-white text-[#5D3A1A] font-semibold text-[0.65rem] rounded-full px-3 py-1.5 shadow border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-60"
               >
-                Upload Profile Photo
+                  {t('signup.uploadProfilePhoto')}
               </button>
               {photo && (
                 <div className="flex items-center gap-1.5 min-w-0">
@@ -391,7 +393,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
                 transition-all disabled:opacity-60 disabled:cursor-not-allowed
               "
             >
-              {loading ? 'SIGNING UP...' : 'SIGNUP'}
+              {loading ? t('signup.signingUp') : t('signup.signupButton')}
             </button>
           </div>
 
@@ -404,7 +406,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
         className="mt-4 text-[#F5C47A] font-bold text-sm"
         onClick={(e) => e.stopPropagation()}
       >
-        Already have an Account?{' '}
+        {t('common.loginPrompt')}{' '}
         <button
           type="button"
           onClick={(e) => {
@@ -413,7 +415,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
           }}
           className="text-green-400 underline font-bold hover:text-green-300 transition-colors"
         >
-          Login.
+          {t('common.login')}
         </button>
       </p>
     </div>
