@@ -79,6 +79,13 @@ export default function PracticeChapterPage() {
       : rawQuestions;
 
     setQuestions(nextQuestions);
+    
+    // Log for verification of randomization
+    if (settings.shuffleQuestions) {
+      console.log('[Practice Page] Questions shuffled randomly:', nextQuestions.map(q => q.id));
+    } else {
+      console.log('[Practice Page] Questions displayed in original order:', nextQuestions.map(q => q.id));
+    }
 
     const activeId = activeQuestionIdRef.current;
     if (!activeId) {
@@ -154,6 +161,13 @@ export default function PracticeChapterPage() {
     const avgAccuracy = scores.length > 0
       ? scores.reduce((a, b) => a + b, 0) / scores.length
       : 0;
+
+    console.log('[Practice Page] Practice session completed', {
+      averageAccuracy: avgAccuracy,
+      totalQuestions: questions.length,
+      isShuffle: settings.shuffleQuestions,
+      questionsOrder: questions.map(q => q.id),
+    });
 
     await supabase.from('practice_sessions').insert({
       auth_user_id:     user.id,

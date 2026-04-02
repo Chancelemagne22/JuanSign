@@ -147,3 +147,48 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const authUserId = new URL(request.url).searchParams.get('authUserId')
+  if (!authUserId) {
+    return NextResponse.json({ error: 'authUserId is required' }, { status: 400 })
+  }
+
+  try {
+    // Delete user profile
+    await supabaseAdmin
+      .from('profiles')
+      .delete()
+      .eq('auth_user_id', authUserId)
+
+    // Delete user progress
+    await supabaseAdmin
+      .from('user_progress')
+      .delete()
+      .eq('auth_user_id', authUserId)
+
+    // Delete practice sessions
+    await supabaseAdmin
+      .from('practice_sessions')
+      .delete()
+      .eq('auth_user_id', authUserId)
+
+    // Delete assessment results
+    await supabaseAdmin
+      .from('assessment_results')
+      .delete()
+      .eq('auth_user_id', authUserId)
+
+    // Delete from Supabase Auth
+    await supabaseAdmin.auth.admin.deleteUser(authUserId)
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('[admin/users DELETE]', error)
+    return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 })
+  }
+}
