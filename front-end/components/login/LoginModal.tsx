@@ -159,7 +159,7 @@ export default function LoginModal({
         <div className="relative z-10 pt-12 pb-8 px-10 flex flex-col gap-1 max-w-[300px] mx-auto w-full">
 
           {noticeMessage && (
-            <div className="mb-3 p-2.5 rounded-lg bg-green-100 border border-green-400">
+            <div className="mb-3 p-2.5 rounded-lg bg-green-100 border border-green-100">
               <p className="text-green-800 text-xs font-semibold text-center leading-snug">
                 {noticeMessage}
               </p>

@@ -44,7 +44,7 @@ function VideoControlBtn({
       aria-label={ariaLabel}
       className="
         w-11 h-11 rounded-full
-        bg-[#33AA11] border-[3px] border-[#228800]
+        bg-[#33AA11] border-[3px] border-[#33AA11]
         flex items-center justify-center
         shadow-[0_4px_0_#165c00]
         active:translate-y-1 active:shadow-[0_1px_0_#165c00]
@@ -212,10 +212,10 @@ export default function IdentifyView({
         const showWrong   = confirmed && selected === key && key !== correctAnswer;
         const isSelected  = selected === key && !confirmed;
 
-        let bg   = 'bg-[#F5E6C8] border-[#BF7B45] text-[#5D3A1A]';
-        if (showCorrect) bg = 'bg-green-500 border-green-700 text-white';
-        else if (showWrong)  bg = 'bg-red-500   border-red-700   text-white';
-        else if (isSelected) bg = 'bg-[#E8A87C] border-[#BF7B45] text-[#5D3A1A]';
+        let bg   = 'bg-[#F5E6C8] border-[#F5E6C8] text-[#5D3A1A]';
+        if (showCorrect) bg = 'bg-green-500 border-green-500 text-white';
+        else if (showWrong)  bg = 'bg-red-500   border-red-500   text-white';
+        else if (isSelected) bg = 'bg-[#E8A87C] border-[#E8A87C] text-[#5D3A1A]';
 
         return (
           <button
@@ -280,10 +280,10 @@ export default function IdentifyView({
                 const showWrong   = confirmed && selected === key && key !== correctAnswer;
                 const isSelected  = selected === key && !confirmed;
 
-                let bg   = 'bg-[#F5E6C8] border-[#BF7B45] text-[#5D3A1A]';
-                if (showCorrect) bg = 'bg-green-500 border-green-700 text-white';
-                else if (showWrong)  bg = 'bg-red-500   border-red-700   text-white';
-                else if (isSelected) bg = 'bg-[#E8A87C] border-[#BF7B45] text-[#5D3A1A]';
+                let bg   = 'bg-[#F5E6C8] border-[#F5E6C8] text-[#5D3A1A]';
+                if (showCorrect) bg = 'bg-green-500 border-green-500 text-white';
+                else if (showWrong)  bg = 'bg-red-500   border-red-500   text-white';
+                else if (isSelected) bg = 'bg-[#E8A87C] border-[#E8A87C] text-[#5D3A1A]';
 
                 return (
                   <button

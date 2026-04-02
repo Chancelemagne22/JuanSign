@@ -47,8 +47,8 @@ function ChapterCard({
         className={`
           chapter-card-button relative overflow-hidden transition-transform
           ${chapter.isUnlocked
-            ? 'bg-[#E8A87C] border-[#BF7B45] hover:scale-[0.95] cursor-pointer shadow-md'
-            : 'bg-[#C49070] border-[#8B6040] cursor-not-allowed opacity-80'
+            ? 'bg-[#E8A87C] border-[#E8A87C] hover:scale-[0.95] cursor-pointer shadow-md'
+            : 'bg-[#C49070] border-[#C49070] cursor-not-allowed opacity-80'
           }
         `}
       >
@@ -69,7 +69,7 @@ function ChapterCard({
       </button>
 
       <p className="chapter-card-caption text-[#4A2C0A]">
-        <span className="font-black">{t('common.chapterLabel').replace('{{number}}', String(chapter.chapterNum))}</span>
+        <span className="font-black">{t('lessonsPage.lessonLabel').replace('{{number}}', String(chapter.chapterNum))}</span>
         {'  '}
         <span className="font-medium">{chapter.title}</span>
       </p>

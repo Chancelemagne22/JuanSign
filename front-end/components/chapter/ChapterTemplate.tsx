@@ -70,7 +70,7 @@ export default function ChapterTemplate({
       )}
 
       {/* ── Video / media slot ───────────────────────────────────────────── */}
-      <div className="w-full aspect-video bg-[#E8A87C]/30 border-4 border-[#BF7B45] rounded-2xl flex items-center justify-center overflow-hidden">
+      <div className="w-full aspect-video bg-[#E8A87C]/30 border-4 border-[#E8A87C]/30 rounded-2xl flex items-center justify-center overflow-hidden">
         {lesson.video_url ? (
           <video
             src={lesson.video_url}

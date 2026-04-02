@@ -68,7 +68,7 @@ export default function AssessmentChapterPage() {
 
       setLevelMeta({
         levelNum: levelRes.data?.level_order ?? 1,
-        label:    levelRes.data?.level_name  ?? t('common.chapterLabel').replace('{{number}}', ''),
+        label:    levelRes.data?.level_name  ?? t('common.levelLabel').replace('{{number}}', ''),
       });
       setHasQuestions((questionsRes.count ?? 0) > 0);
       setLoading(false);
@@ -104,7 +104,7 @@ export default function AssessmentChapterPage() {
         </p>
         <button
           onClick={() => router.replace('/dashboard/assessment')}
-          className="mt-2 bg-[#E8A87C] border-[3px] border-[#BF7B45] text-white font-black px-8 py-2 rounded-full shadow-md hover:scale-105 transition-transform"
+          className="mt-2 bg-[#E8A87C] border-[3px] border-[#E8A87C] text-white font-black px-8 py-2 rounded-full shadow-md hover:scale-105 transition-transform"
         >
           {t('common.goBack')}
         </button>

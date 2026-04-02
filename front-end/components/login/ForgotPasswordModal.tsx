@@ -119,7 +119,7 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
           
           {/* Success message */}
           {success && (
-            <div className="w-full rounded-2xl bg-green-100 border-2 border-green-400 px-4 py-4 shadow-sm">
+            <div className="w-full rounded-2xl bg-green-100 border-2 border-green-100 px-4 py-4 shadow-sm">
               <p className="text-green-800 text-[1rem] font-bold text-center mb-2 leading-tight">
                 {`✓ ${t('forgotPassword.successTitle')}`}
               </p>
