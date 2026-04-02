@@ -13,15 +13,16 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
-import LessonView from '@/components/module/LessonView';
+import LessonPanelView from '@/components/module/LessonPanelView';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
 import SettingsModal from '@/components/settings/SettingsModal';
 import { useSettings } from '@/hooks/useSettings';
 import { useLanguage } from '@/hooks/useLanguage';
 
 interface LetterUnit {
-  label:    string;
-  videoUrl: string | null;
+  label:       string;
+  videoUrl:    string | null;
+  contextText: string | null;
 }
 
 interface LevelMeta {
@@ -60,7 +61,7 @@ export default function LessonPage() {
           .single(),
         supabase
           .from('lessons')
-          .select('lesson_id, lesson_title, video_url, lesson_order')
+          .select('lesson_id, lesson_title, video_url, content_text, lesson_order')
           .eq('level_id', lessonId)
           .order('lesson_order'),
       ]);
@@ -70,7 +71,7 @@ export default function LessonPage() {
         return;
       }
 
-      setLetters((lessonsRes.data ?? []).map((r) => ({ label: r.lesson_title, videoUrl: r.video_url })));
+      setLetters((lessonsRes.data ?? []).map((r) => ({ label: r.lesson_title, videoUrl: r.video_url, contextText: r.content_text })));
       setLevelMeta({
         levelNum: levelRes.data?.level_order ?? 1,
         label:    levelRes.data?.level_name ?? t('common.chapterLabel').replace('{{number}}', ''),
@@ -227,13 +228,16 @@ export default function LessonPage() {
         )}
       </div>
 
-      {/* ── Lesson video — fills remaining height ─────────────────── */}
+      {/* ── Lesson video and context panel — fills remaining height ─────────────────── */}
       <div className="flex-1 min-h-0">
-        <LessonView
+        <LessonPanelView
           letter={currentLetter.label}
           videoUrl={currentLetter.videoUrl}
+          contextText={currentLetter.contextText}
           levelNum={levelMeta.levelNum}
           levelLabel={levelMeta.label}
+          currentIndex={letterIndex}
+          totalLessons={letters.length}
           onNext={handleNext}
           autoplayNext={settings.autoplayLesson}
           playbackSpeed={settings.playbackSpeed}
@@ -245,3 +249,5 @@ export default function LessonPage() {
     </div>
   );
 }
+
+

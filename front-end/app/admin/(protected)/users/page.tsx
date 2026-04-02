@@ -76,7 +76,23 @@ function SortIcon({ active, asc }: { active: boolean; asc: boolean }) {
 
 // ── User Detail View ───────────────────────────────────────────────────────────
 
-function UserDetailView({ user }: { user: AdminUser }) {
+function UserDetailView({ user, onUserDeleted }: { user: AdminUser; onUserDeleted?: () => void }) {
+  const [showDeleteWarning, setShowDeleteWarning] = useState(false)
+  const [countdown, setCountdown] = useState(10)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  // Countdown timer
+  useEffect(() => {
+    if (!showDeleteWarning) return
+    setCountdown(10)
+  }, [showDeleteWarning])
+
+  useEffect(() => {
+    if (!showDeleteWarning || countdown === 0) return
+    const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [showDeleteWarning, countdown])
+
   const rows: [string, string][] = [
     ['User ID', user.displayId],
     ['Email', user.email],
@@ -86,72 +102,197 @@ function UserDetailView({ user }: { user: AdminUser }) {
     ['Average Accuracy', `${user.avgAccuracy}%`],
   ]
 
+  async function handleDeleteUser() {
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/users?authUserId=${encodeURIComponent(user.authUserId)}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        alert(`Failed to delete user: ${err.error}`)
+        return
+      }
+      alert('User deleted successfully!')
+      setShowDeleteWarning(false)
+      onUserDeleted?.()
+    } catch (error) {
+      alert(`Error deleting user: ${error}`)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   return (
-    <div className="rounded-2xl overflow-hidden shadow-sm mt-6" style={{ backgroundColor: CREAM }}>
-      {/* Title */}
-      <div className="px-8 py-4 border-b" style={{ borderColor: DIVIDER }}>
-        <h2 className="text-center text-xl font-bold" style={{ fontFamily: FONT, color: GOLD }}>
-          User Detail View
-        </h2>
-      </div>
-
-      <div className="flex">
-        {/* Detail rows */}
-        <div className="flex-1">
-          {rows.map(([label, value], i) => (
-            <div
-              key={label}
-              className={`grid grid-cols-2 px-8 py-3 ${i > 0 ? 'border-t' : ''}`}
-              style={{ borderColor: DIVIDER }}
-            >
-              <span style={{ fontFamily: FONT, color: BROWN, fontSize: '0.97rem' }}>{label}</span>
-              <span
-                className="font-bold"
-                style={{ fontFamily: FONT, color: BROWN, fontSize: '0.97rem' }}
-              >
-                {value}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Avatar + name */}
-        <div className="flex flex-col items-center justify-center px-10 py-6 border-l" style={{ borderColor: DIVIDER }}>
+    <>
+      {/* Delete Warning Modal Overlay */}
+      {showDeleteWarning && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-4"
+          onClick={() => setShowDeleteWarning(false)}
+        >
           <div
-            className="w-28 h-28 rounded-2xl overflow-hidden mb-3 flex items-center justify-center"
-            style={{ backgroundColor: MEDIUM_BROWN }}
+            className="rounded-2xl p-8 max-w-sm"
+            style={{ backgroundColor: CREAM }}
+            onClick={(e) => e.stopPropagation()}
           >
-            {user.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={user.avatarUrl} alt={user.fullName} className="w-full h-full object-cover" />
+            {countdown > 0 ? (
+              <>
+                <h3 className="text-center text-lg font-bold mb-3" style={{ fontFamily: FONT, color: ERROR_RED }}>
+                  ⚠️ Delete Account Warning
+                </h3>
+                <p className="text-center mb-4" style={{ fontFamily: FONT, color: BROWN, fontSize: '0.95rem' }}>
+                  Are you sure you want to permanently delete this user account?
+                </p>
+                <p className="text-center mb-6" style={{ fontFamily: FONT, color: MEDIUM_BROWN, fontSize: '0.9rem' }}>
+                  <strong>{user.fullName}</strong> ({user.email})
+                </p>
+                <div className="text-center mb-6">
+                  <p style={{ fontFamily: FONT, color: BROWN, fontSize: '0.95rem' }}>
+                    This action <strong>cannot be undone</strong>. All user data will be permanently deleted.
+                  </p>
+                </div>
+                <div
+                  className="text-center py-4 rounded-lg mb-6"
+                  style={{ backgroundColor: MEDIUM_BROWN }}
+                >
+                  <p style={{ fontFamily: FONT, color: 'white', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                    {countdown}s
+                  </p>
+                  <p style={{ fontFamily: FONT, color: 'white', fontSize: '0.85rem' }}>
+                    Delete button will appear shortly...
+                  </p>
+                </div>
+              </>
             ) : (
-              <span className="text-4xl font-bold text-white" style={{ fontFamily: FONT }}>
-                {user.fullName[0]?.toUpperCase()}
-              </span>
+              <>
+                <h3 className="text-center text-lg font-bold mb-4" style={{ fontFamily: FONT, color: ERROR_RED }}>
+                  ⚠️ Confirm Deletion
+                </h3>
+                <p className="text-center mb-6" style={{ fontFamily: FONT, color: BROWN, fontSize: '0.95rem' }}>
+                  Delete user <strong>{user.fullName}</strong>?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowDeleteWarning(false)}
+                    disabled={isDeleting}
+                    className="flex-1 py-2 rounded-lg font-bold transition-colors"
+                    style={{
+                      fontFamily: FONT,
+                      backgroundColor: MEDIUM_BROWN,
+                      color: 'white',
+                      opacity: isDeleting ? 0.5 : 1,
+                      cursor: isDeleting ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteUser}
+                    disabled={isDeleting}
+                    className="flex-1 py-2 rounded-lg font-bold transition-colors"
+                    style={{
+                      fontFamily: FONT,
+                      backgroundColor: ERROR_RED,
+                      color: 'white',
+                      opacity: isDeleting ? 0.5 : 1,
+                      cursor: isDeleting ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {isDeleting ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
+              </>
             )}
           </div>
-          <p className="font-bold text-center" style={{ fontFamily: FONT, color: BROWN, fontSize: '1rem' }}>
-            {user.fullName}
-          </p>
-          <div className="flex items-center gap-1 mt-1">
-            <span
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: user.status === 'Active' ? GREEN_BRIGHT : LIGHT_GRAY }}
-            />
-            <span
-              style={{
-                fontFamily: FONT,
-                color: user.status === 'Active' ? GREEN_DARK : MEDIUM_GRAY,
-                fontSize: '0.9rem',
-                fontWeight: 600,
-              }}
+        </div>
+      )}
+
+      {/* User Detail Card */}
+      <div className="rounded-2xl overflow-hidden shadow-sm mt-6" style={{ backgroundColor: CREAM }}>
+        {/* Title */}
+        <div className="px-8 py-4 border-b" style={{ borderColor: DIVIDER }}>
+          <h2 className="text-center text-xl font-bold" style={{ fontFamily: FONT, color: GOLD }}>
+            User Detail View
+          </h2>
+        </div>
+
+        <div className="flex">
+          {/* Detail rows */}
+          <div className="flex-1">
+            {rows.map(([label, value], i) => (
+              <div
+                key={label}
+                className={`grid grid-cols-2 px-8 py-3 ${i > 0 ? 'border-t' : ''}`}
+                style={{ borderColor: DIVIDER }}
+              >
+                <span style={{ fontFamily: FONT, color: BROWN, fontSize: '0.97rem' }}>{label}</span>
+                <span
+                  className="font-bold"
+                  style={{ fontFamily: FONT, color: BROWN, fontSize: '0.97rem' }}
+                >
+                  {value}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Avatar + name */}
+          <div className="flex flex-col items-center justify-center px-10 py-6 border-l" style={{ borderColor: DIVIDER }}>
+            <div
+              className="w-28 h-28 rounded-2xl overflow-hidden mb-3 flex items-center justify-center"
+              style={{ backgroundColor: MEDIUM_BROWN }}
             >
-              {user.status}
-            </span>
+              {user.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={user.avatarUrl} alt={user.fullName} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-4xl font-bold text-white" style={{ fontFamily: FONT }}>
+                  {user.fullName[0]?.toUpperCase()}
+                </span>
+              )}
+            </div>
+            <p className="font-bold text-center" style={{ fontFamily: FONT, color: BROWN, fontSize: '1rem' }}>
+              {user.fullName}
+            </p>
+            <div className="flex items-center gap-1 mt-1">
+              <span
+                className="w-2.5 h-2.5 rounded-full"
+                style={{ backgroundColor: user.status === 'Active' ? GREEN_BRIGHT : LIGHT_GRAY }}
+              />
+              <span
+                style={{
+                  fontFamily: FONT,
+                  color: user.status === 'Active' ? GREEN_DARK : MEDIUM_GRAY,
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                }}
+              >
+                {user.status}
+              </span>
+            </div>
           </div>
         </div>
+
+        {/* Delete Button */}
+        <div className="px-8 py-4 border-t" style={{ borderColor: DIVIDER }}>
+          <button
+            onClick={() => setShowDeleteWarning(true)}
+            className="w-full py-2 rounded-lg font-bold transition-colors"
+            style={{
+              fontFamily: FONT,
+              backgroundColor: ERROR_RED,
+              color: 'white',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+          >
+            Delete Account
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
@@ -410,7 +551,15 @@ export default function AdminUsersPage() {
       </div>
 
       {/* User Detail View */}
-      {selectedUser && <UserDetailView user={selectedUser} />}
+      {selectedUser && (
+        <UserDetailView
+          user={selectedUser}
+          onUserDeleted={() => {
+            setSelectedUser(null)
+            setAllUsers((prev) => prev.filter((u) => u.authUserId !== selectedUser.authUserId))
+          }}
+        />
+      )}
     </div>
   )
 }
