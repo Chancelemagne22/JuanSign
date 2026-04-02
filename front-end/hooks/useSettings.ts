@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useLanguage } from '@/hooks/useLanguage';
 
 type SettingLanguage = 'en' | 'tl';
 
@@ -39,6 +40,7 @@ function parsePlaybackSpeed(value: unknown): AppSettings['playbackSpeed'] {
 }
 
 export function useSettings() {
+  const { language, setLanguage } = useLanguage();
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
 
   useEffect(() => {
@@ -49,12 +51,13 @@ export function useSettings() {
 
     try {
       const parsed = JSON.parse(raw) as Partial<AppSettings>;
+      const mergedLanguage = parsed.language === 'tl' ? 'tl' : language;
       setSettings({
         soundEffects:
           typeof parsed.soundEffects === 'boolean' ? parsed.soundEffects : defaultSettings.soundEffects,
         backgroundMusic:
           typeof parsed.backgroundMusic === 'boolean' ? parsed.backgroundMusic : defaultSettings.backgroundMusic,
-        language: parsed.language === 'tl' ? 'tl' : 'en',
+        language: mergedLanguage,
         showTimer: typeof parsed.showTimer === 'boolean' ? parsed.showTimer : defaultSettings.showTimer,
         confirmSubmit:
           typeof parsed.confirmSubmit === 'boolean' ? parsed.confirmSubmit : defaultSettings.confirmSubmit,
@@ -78,10 +81,18 @@ export function useSettings() {
             ? parsed.showCorrectAnswer
             : defaultSettings.showCorrectAnswer,
       });
+
+      if (mergedLanguage !== language) {
+        setLanguage(mergedLanguage);
+      }
     } catch {
-      setSettings(defaultSettings);
+      setSettings({ ...defaultSettings, language });
     }
-  }, []);
+  }, [language, setLanguage]);
+
+  useEffect(() => {
+    setSettings((prev) => (prev.language === language ? prev : { ...prev, language }));
+  }, [language]);
 
   const updateSetting = useCallback(
     <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
@@ -90,10 +101,15 @@ export function useSettings() {
         if (typeof window !== 'undefined') {
           window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
         }
+
+        if (key === 'language') {
+          setLanguage(value as SettingLanguage);
+        }
+
         return next;
       });
     },
-    []
+    [setLanguage]
   );
 
   return { settings, updateSetting };

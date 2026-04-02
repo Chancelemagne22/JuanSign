@@ -17,6 +17,7 @@ import IdentifyView  from '@/components/module/IdentifyView';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
 import SettingsModal from '@/components/settings/SettingsModal';
 import { useSettings } from '@/hooks/useSettings';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface QuestionUnit {
   id:            string;
@@ -41,6 +42,7 @@ interface LevelMeta {
 export default function PracticeChapterPage() {
   const router          = useRouter();
   const { chapterId }   = useParams<{ chapterId: string }>();
+  const { t } = useLanguage();
   const { settings, updateSetting } = useSettings();
 
   const [rawQuestions, setRawQuestions] = useState<QuestionUnit[]>([]);
@@ -122,12 +124,12 @@ export default function PracticeChapterPage() {
       setRawQuestions(fetchedQuestions);
       setLevelMeta({
         levelNum: levelRes.data?.level_order ?? 1,
-        label:    levelRes.data?.level_name  ?? 'Chapter',
+        label:    levelRes.data?.level_name  ?? t('common.chapterLabel').replace('{{number}}', ''),
       });
       setLoading(false);
     }
     init();
-  }, [chapterId, router]);
+  }, [chapterId, router, t]);
 
   function handleResult(accuracy: number) {
     accuracyScores.current.push(accuracy);
@@ -163,7 +165,7 @@ export default function PracticeChapterPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <p className="text-[#7B3F00] font-bold text-lg animate-pulse">Loading…</p>
+        <p className="text-[#7B3F00] font-bold text-lg animate-pulse">{t('common.loading')}</p>
       </div>
     );
   }
@@ -174,15 +176,15 @@ export default function PracticeChapterPage() {
         <div className="w-20 h-20 rounded-full bg-amber-100 border-4 border-amber-400 flex items-center justify-center text-4xl">
           🚧
         </div>
-        <p className="text-[#7B3F00] font-black text-xl text-center">Under Development</p>
+        <p className="text-[#7B3F00] font-black text-xl text-center">{t('common.underDevelopment')}</p>
         <p className="text-[#7B3F00] font-medium text-sm text-center">
-          No practice questions have been added for this chapter yet.
+          {t('practicePage.noQuestionsForChapter')}
         </p>
         <button
           onClick={() => router.replace('/dashboard/practice')}
           className="mt-2 bg-[#E8A87C] border-[3px] border-[#BF7B45] text-white font-black px-8 py-2 rounded-full shadow-md hover:scale-105 transition-transform"
         >
-          Go Back
+          {t('common.goBack')}
         </button>
       </div>
     );
@@ -213,7 +215,7 @@ export default function PracticeChapterPage() {
           onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
           onMouseDown={(e) => (e.currentTarget.style.transform = 'translateY(4px) scale(0.96)', e.currentTarget.style.boxShadow = '0 2px 0 #b86a00, 0 4px 8px rgba(0, 0, 0, 0.2)')}
           onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
-          aria-label="Back to practice"
+          aria-label={t('practicePage.backToPractice')}
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
             <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
@@ -238,7 +240,7 @@ export default function PracticeChapterPage() {
           onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
           onMouseDown={(e) => (e.currentTarget.style.transform = 'translateY(4px) scale(0.96)', e.currentTarget.style.boxShadow = '0 2px 0 #b86a00, 0 4px 8px rgba(0, 0, 0, 0.2)')}
           onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
-          aria-label="Settings"
+          aria-label={t('settings.openSettings')}
         >
           <Image src={GearIcon} alt="" style={{ width: '50%', height: '50%' }} />
         </button>
@@ -258,10 +260,10 @@ export default function PracticeChapterPage() {
           className="font-black text-[2rem] leading-tight"
           style={{ fontFamily: 'var(--font-baloo)', color: '#CC2200' }}
         >
-          LET&apos;S PRACTICE!
+          {t('practicePage.letsPractice')}
         </h1>
         <p className="text-[#4A2C0A] font-bold text-sm mt-1">
-          <span className="font-black">Chapter {levelMeta.levelNum}</span>
+          <span className="font-black">{t('common.chapterLabel').replace('{{number}}', String(levelMeta.levelNum))}</span>
           {'  '}
           <span className="font-semibold">{levelMeta.label}</span>
         </p>

@@ -3,72 +3,43 @@
 import { useState } from "react";
 import GearIcon from "../../public/images/svgs/gear-icon.svg";
 import Image from "next/image";
+import { useLanguage } from "@/hooks/useLanguage";
 import "@/styles/WelcomePage.css";
 
-export type Language = "English" | "Filipino";
-
-const LANGUAGES: Language[] = ["English", "Filipino"];
+const LANGUAGES = ['en', 'tl'] as const;
 
 interface WelcomeButtonsProps {
   onGetStarted: () => void;
   onLogin: () => void;
   onSettings: () => void;
-  selectedLang: Language;
-  setSelectedLang: (lang: Language) => void;
 }
-const TRANSLATIONS = {
-  English: {
-    welcomeTo: "Welcome to",
-    tagline: "Learn Filipino Sign Language the fun way.",
-    getStarted: "Get Started",
-    haveAccount: "I already have an Account",
-    language: "Language",
-  },
-  Filipino: {
-    welcomeTo: "Maligayang pagdating sa",
-    tagline: "Matuto ng Filipino Sign Language sa masayang pamamaraan.",
-    getStarted: "Magsimula",
-    haveAccount: "Mayroon na akong Account",
-    language: "Wika",
-  },
-};
 
-export { TRANSLATIONS };
-
-export default function WelcomeButtons({ onGetStarted , onLogin, onSettings, selectedLang, setSelectedLang }: WelcomeButtonsProps) {
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-
-  const handleLangSelect = (lang: Language) => {
-    setSelectedLang(lang);
-    setDropdownOpen(false);
-  };
-
-  const t = TRANSLATIONS[selectedLang] || TRANSLATIONS["English"];
+export default function WelcomeButtons({ onGetStarted , onLogin }: WelcomeButtonsProps) {
+  const { t } = useLanguage();
 
   return (
     <>
       {/* ── Get Started button ── */}
       <button onClick={onGetStarted} className="btn-get-started">
-        {t.getStarted}
+        {t('welcome.getStarted')}
       </button>
 
       {/* ── I already have an Account button ── */}
       <button onClick={onLogin} className="btn-have-account">
-        {t.haveAccount}
+        {t('welcome.haveAccount')}
       </button>
     </>
   );
 }
 
-export function ControlsCluster({ onSettings, selectedLang, setSelectedLang }: Omit<WelcomeButtonsProps, 'onGetStarted' | 'onLogin'>) {
+export function ControlsCluster({ onSettings }: Omit<WelcomeButtonsProps, 'onGetStarted' | 'onLogin'>) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const { language, setLanguage, t, languageLabels } = useLanguage();
 
-  const handleLangSelect = (lang: Language) => {
-    setSelectedLang(lang);
+  const handleLangSelect = (lang: 'en' | 'tl') => {
+    setLanguage(lang);
     setDropdownOpen(false);
   };
-
-  const t = TRANSLATIONS[selectedLang] || TRANSLATIONS["English"];
 
   return (
     <>
@@ -80,22 +51,24 @@ export function ControlsCluster({ onSettings, selectedLang, setSelectedLang }: O
           <button
             onClick={() => setDropdownOpen((prev) => !prev)}
             className="lang-btn"
-            aria-label="Select site language"
+            aria-label={t('settings.selectSiteLanguage')}
           >
-            {t.language}: {selectedLang}
+            {t('common.languageLabel')}: {languageLabels[language]}
             <span className="lang-chevron">▼</span>
           </button>
 
           {/* Dropdown menu */}
           {dropdownOpen && (
-            <ul className="lang-menu">
+            <ul className="lang-menu" role="listbox" aria-label={t('common.languageLabel')}>
               {LANGUAGES.map((lang) => (
                 <li key={lang}>
                   <button
                     onClick={() => handleLangSelect(lang)}
-                    className={`lang-option${lang === selectedLang ? " lang-option--selected" : ""}`}
+                    className={`lang-option${lang === language ? " lang-option--selected" : ""}`}
+                    role="option"
+                    aria-selected={lang === language}
                   >
-                    {lang}
+                    {languageLabels[lang]}
                   </button>
                 </li>
               ))}
@@ -107,9 +80,9 @@ export function ControlsCluster({ onSettings, selectedLang, setSelectedLang }: O
         <button
           onClick={onSettings}
           className="settings-btn"
-          aria-label="Settings"
+          aria-label={t('settings.openSettings')}
         >
-          <Image src={GearIcon} alt="Settings" className="settings-icon" />
+          <Image src={GearIcon} alt={t('common.settings')} className="settings-icon" />
         </button>
       </div>
     </>

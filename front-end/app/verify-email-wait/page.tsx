@@ -5,10 +5,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import VerifyEmailPrompt from '@/components/auth/VerifyEmailPrompt';
+import { useLanguage } from '@/hooks/useLanguage';
 
 function VerifyEmailWaitContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
   const [isResending, setIsResending] = useState(false);
   const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
@@ -34,7 +36,7 @@ function VerifyEmailWaitContent() {
     if (resendSecondsLeft > 0) return;
 
     if (!email) {
-      setError('Missing email address. Please sign up again.');
+      setError(t('verifyEmail.missingEmail'));
       return;
     }
 
@@ -49,11 +51,11 @@ function VerifyEmailWaitContent() {
     setIsResending(false);
 
     if (resendError) {
-      setError(resendError.message || 'Failed to resend email. Please try again or check spam folder.');
+      setError(resendError.message || t('verifyEmail.resendFailed'));
       return;
     }
 
-    setMessage(isAuto ? 'Verification email sent!' : 'Verification email sent!');
+    setMessage(isAuto ? t('verifyEmail.sent') : t('verifyEmail.sent'));
     setResendSecondsLeft(10);
   }
 

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "i18n:check": "node scripts/check-i18n-parity.mjs"
   },
   "dependencies": {
     "@ngrok/ngrok": "^1.7.0",

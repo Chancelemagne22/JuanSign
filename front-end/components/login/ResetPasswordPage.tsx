@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
+import { useLanguage } from '@/hooks/useLanguage';
 
 function EyeIcon({ open }: { open: boolean }) {
   return open ? (
@@ -25,6 +26,7 @@ function EyeIcon({ open }: { open: boolean }) {
 export default function ResetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -60,7 +62,7 @@ export default function ResetPasswordPage() {
         console.error('[reset] ❌ Missing token or invalid type');
         console.error('[reset] ℹ️ This means the recovery link did not include token/type parameters');
         console.error('[reset] ℹ️ The email link might not have been formatted correctly by Supabase');
-        setError('Invalid or expired reset link. Please request a new one.');
+        setError(t('resetPassword.invalidLink'));
         setTokenChecking(false);
         return;
       }
@@ -87,14 +89,14 @@ export default function ResetPasswordPage() {
             setTokenChecking(false);
             return;
           }
-          setError('Invalid or expired reset link. Please request a new one.');
+          setError(t('resetPassword.invalidLink'));
           setTokenChecking(false);
           return;
         }
 
         if (!data?.user) {
           console.error('[reset] ❌ No user returned after verifyOtp');
-          setError('Invalid or expired reset link. Please request a new one.');
+          setError(t('resetPassword.invalidLink'));
           setTokenChecking(false);
           return;
         }
@@ -105,13 +107,13 @@ export default function ResetPasswordPage() {
         setTokenChecking(false);
       } catch (err) {
         console.error('[reset] ❌ Token verification exception:', err instanceof Error ? err.message : String(err));
-        setError('Invalid or expired reset link. Please request a new one.');
+        setError(t('resetPassword.invalidLink'));
         setTokenChecking(false);
       }
     }
 
     verifyToken();
-  }, [searchParams]);
+  }, [searchParams, t]);
 
   async function handleResetPassword() {
     setError(null);
@@ -119,17 +121,17 @@ export default function ResetPasswordPage() {
 
     // Validation
     if (!newPassword.trim()) {
-      setError('Please enter a new password.');
+      setError(t('resetPassword.newPasswordRequired'));
       return;
     }
 
     if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters long.');
+      setError(t('resetPassword.minPasswordLength'));
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError(t('resetPassword.passwordsDoNotMatch'));
       return;
     }
 
@@ -144,7 +146,7 @@ export default function ResetPasswordPage() {
       setLoading(false);
 
       if (updateError) {
-        setError(updateError.message || 'Failed to reset password. Please try again.');
+        setError(updateError.message || t('resetPassword.updateFailed'));
         return;
       }
 
@@ -159,7 +161,7 @@ export default function ResetPasswordPage() {
       }, 3000);
     } catch (err) {
       setLoading(false);
-      setError('An unexpected error occurred. Please try again.');
+      setError(t('resetPassword.unexpectedError'));
       console.error('Password reset error:', err);
     }
   }
@@ -179,10 +181,10 @@ export default function ResetPasswordPage() {
               textShadow: '1px 1px 0 #1a4d10',
             }}
           >
-            Reset Password
+            {t('resetPassword.title')}
           </h1>
           <p className="text-[#F5C47A] font-semibold text-sm md:text-base">
-            Enter your new password below
+            {t('resetPassword.subtitle')}
           </p>
         </div>
 
@@ -191,7 +193,7 @@ export default function ResetPasswordPage() {
           
           {tokenChecking && (
             <div className="text-center py-8">
-              <p className="text-[#7B3F00] font-semibold">Verifying your reset link...</p>
+              <p className="text-[#7B3F00] font-semibold">{t('resetPassword.verifyingLink')}</p>
             </div>
           )}
 
@@ -202,7 +204,7 @@ export default function ResetPasswordPage() {
                 href="/reset-password"
                 className="inline-block px-6 py-2 bg-[#2E8B2E] text-white font-bold rounded-full hover:bg-[#329932] transition-colors text-sm md:text-base"
               >
-                Back to Home
+                {t('resetPassword.backToHome')}
               </Link>
             </div>
           )}
@@ -213,10 +215,10 @@ export default function ResetPasswordPage() {
               {success && (
                 <div className="mb-6 p-4 rounded-lg bg-green-100 border border-green-400">
                   <p className="text-green-800 text-sm font-semibold text-center mb-2">
-                    ✓ Password reset successfully!
+                    {`✓ ${t('resetPassword.successTitle')}`}
                   </p>
                   <p className="text-green-700 text-xs text-center">
-                    Redirecting to login page...
+                    {t('resetPassword.redirectingToLogin')}
                   </p>
                 </div>
               )}
@@ -233,7 +235,7 @@ export default function ResetPasswordPage() {
                   {/* New Password Field */}
                   <div className="mb-4">
                     <label className="block text-sm font-bold text-[#7B3F00] mb-2">
-                      New Password
+                      {t('resetPassword.newPassword')}
                     </label>
                     <div className="relative">
                       <input
@@ -241,7 +243,7 @@ export default function ResetPasswordPage() {
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         disabled={loading}
-                        placeholder="Enter your new password"
+                        placeholder={t('resetPassword.newPasswordPlaceholder')}
                         className="w-full px-4 py-3 rounded-full bg-[#D4956A] text-[#7B3F00] placeholder-[#8B6F47]/60 focus:outline-none focus:ring-2 focus:ring-[#7B3F00] disabled:opacity-60 shadow-inner text-sm md:text-base"
                       />
                       <button
@@ -258,7 +260,7 @@ export default function ResetPasswordPage() {
                   {/* Confirm Password Field */}
                   <div className="mb-6">
                     <label className="block text-sm font-bold text-[#7B3F00] mb-2">
-                      Confirm Password
+                      {t('resetPassword.confirmPassword')}
                     </label>
                     <div className="relative">
                       <input
@@ -266,7 +268,7 @@ export default function ResetPasswordPage() {
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         disabled={loading}
-                        placeholder="Confirm your password"
+                        placeholder={t('resetPassword.confirmPasswordPlaceholder')}
                         className="w-full px-4 py-3 rounded-full bg-[#D4956A] text-[#7B3F00] placeholder-[#8B6F47]/60 focus:outline-none focus:ring-2 focus:ring-[#7B3F00] disabled:opacity-60 shadow-inner text-sm md:text-base"
                       />
                       <button
@@ -282,7 +284,7 @@ export default function ResetPasswordPage() {
 
                   {/* Password requirements */}
                   <p className="text-xs text-[#7B3F00] mb-6 text-center opacity-75">
-                    Password must be at least 6 characters long
+                    {t('resetPassword.passwordRule')}
                   </p>
 
                   {/* Submit Button */}
@@ -296,7 +298,7 @@ export default function ResetPasswordPage() {
                       transform: loading ? 'translateY(2px)' : 'translateY(0)',
                     }}
                   >
-                    {loading ? 'RESETTING...' : 'RESET PASSWORD'}
+                    {loading ? t('resetPassword.resetting') : t('resetPassword.resetButton')}
                   </button>
 
                   {/* Back to Login */}
@@ -304,7 +306,7 @@ export default function ResetPasswordPage() {
                     href="/"
                     className="block text-center text-[#7B3F00] font-semibold text-sm hover:text-[#5D3A1A] underline transition-colors"
                   >
-                    Back to Login
+                    {t('resetPassword.backToLogin')}
                   </Link>
                 </>
               )}
