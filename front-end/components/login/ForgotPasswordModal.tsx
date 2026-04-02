@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import WoodArc from '@/public/images/svgs/arc.svg';
 import { supabase } from '@/lib/supabase';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface Props {
   onClose: () => void;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,14 +23,14 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
     setSuccess(false);
 
     if (!email.trim()) {
-      setError('Please enter your email address.');
+      setError(t('forgotPassword.emailRequired'));
       return;
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
-      setError('Please enter a valid email address.');
+      setError(t('forgotPassword.invalidEmail'));
       return;
     }
 
@@ -53,8 +55,7 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
       setTimeout(onBackToLogin, 4000);
     } catch (err) {
       setLoading(false);
-      // Show generic error message - don't expose internal errors
-      setError('An unexpected error occurred. Please try again.');
+      setError(t('forgotPassword.unexpectedError'));
       console.error('Forgot password error:', err);
     }
   }
@@ -70,14 +71,15 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
         className="modal-responsive-sm rounded-[38px]"
         style={{
           backgroundImage: 'url(/images/svgs/banner.svg)',
-          backgroundSize: 'contain',
+          backgroundSize: '100% 100%',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
+          minHeight: '430px',
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Arc.svg — "RESET PASSWORD" sign ───────────────────────────── */}
-        <div className="absolute left-1/2 w-[85%] max-w-[200px]"
+        <div className="absolute left-1/2 w-[92%] max-w-[250px]"
           style={{ 
             top: '0',
             transform: 'translate(-50%, -50%)',
@@ -98,14 +100,18 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
                 className="text-white font-black uppercase tracking-[0.25em] text-[clamp(0.6rem,2vw,0.9rem)] leading-none"
                 style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
               >
-                RESET PASSWORD
+                {t('forgotPassword.title')}
               </p>
             </div>
           </div>
         </div>
 
         {/* ── Body ─────────────────────────────────────────────── */}
-        <div className="relative z-10 pt-12 pb-8 px-10 flex flex-col gap-1 max-w-[290px] mx-auto w-full">
+        <div
+          className={success
+            ? 'relative z-10 h-full min-h-[430px] px-5 flex flex-col items-center justify-center text-center gap-5 max-w-[320px] mx-auto w-full'
+            : 'relative z-10 h-full min-h-[430px] pt-20 pb-8 px-10 flex flex-col gap-3 max-w-[290px] mx-auto w-full'}
+        >
           
           {/* Success message */}
           {success && (
@@ -129,38 +135,38 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
           {!success && (
             <>
               {/* Explanation text */}
-              <p className="text-[#7B3F00] text-sm text-center mb-6">
-                Enter your email address and we'll send you a link to reset your password.
+              <p className="text-[#7B3F00] text-sm text-center leading-relaxed mb-2">
+                {t('forgotPassword.description')}
               </p>
 
               {/* Email Field */}
-              <div className="mb-4">
+              <div className="mb-2">
                 <label className="block text-[0.95rem] font-semibold text-[#7B3F00] mb-1">
-                  Email Address
+                  {t('forgotPassword.emailLabel')}
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}
-                  placeholder="Enter your email"
+                  placeholder={t('forgotPassword.emailPlaceholder')}
                   className="w-full rounded-full bg-[#D4956A] text-[#5D3A1A] placeholder-[#A86040] font-medium px-5 py-2 outline-none border-2 border-[#B87D54] shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] text-sm md:text-base disabled:opacity-60"
                 />
               </div>
 
               {/* Info text */}
-              <p className="text-xs text-[#7B3F00] mb-6 text-center opacity-75">
-                The reset link will expire in 24 hours.
+              <p className="text-xs text-[#7B3F00] text-center opacity-75 leading-relaxed mt-1">
+                {t('forgotPassword.expiresInfo')}
               </p>
 
               {/* Buttons */}
-              <div className="flex gap-3 justify-center">
+              <div className="mt-auto pt-6 flex gap-3 justify-center">
                 <button
                   onClick={onBackToLogin}
                   disabled={loading}
                   className="py-2 px-4 rounded-full bg-gray-400 text-white font-bold uppercase tracking-wide hover:bg-gray-500 shadow-[0_4px_0_rgba(0,0,0,0.3),0_6px_12px_rgba(0,0,0,0.2)] active:shadow-[0_2px_0_rgba(0,0,0,0.3),0_4px_6px_rgba(0,0,0,0.1)] active:translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-xs md:text-sm"
                 >
-                  Back
+                  {t('forgotPassword.back')}
                 </button>
                 <button
                   onClick={handleForgotPassword}
@@ -180,7 +186,7 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
                     }
                   }}
                 >
-                  {loading ? 'SENDING...' : 'SEND RESET LINK'}
+                  {loading ? t('forgotPassword.sending') : t('forgotPassword.sendResetLink')}
                 </button>
               </div>
             </>

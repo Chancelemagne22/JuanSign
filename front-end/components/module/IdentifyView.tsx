@@ -5,6 +5,7 @@
 // Used by both Practice (no timer) and Assessment (timer passed from parent).
 
 import { useRef, useState } from 'react';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface Props {
   questionText:   string;
@@ -20,6 +21,10 @@ interface Props {
   onNext: (accuracy: number) => void;
   /** Enables side-by-side layout used on Practice chapter pages */
   sideBySide?: boolean;
+  /** Controls whether feedback reveals the correct answer text when wrong */
+  showCorrectAnswerAfterSubmit?: boolean;
+  /** Enables simple success/failure tone feedback */
+  soundEffects?: boolean;
 }
 
 const OPTION_KEYS = ['A', 'B', 'C', 'D'] as const;
@@ -39,7 +44,7 @@ function VideoControlBtn({
       aria-label={ariaLabel}
       className="
         w-11 h-11 rounded-full
-        bg-[#33AA11] border-[3px] border-[#228800]
+        bg-[#33AA11] border-[3px] border-[#33AA11]
         flex items-center justify-center
         shadow-[0_4px_0_#165c00]
         active:translate-y-1 active:shadow-[0_1px_0_#165c00]
@@ -60,7 +65,10 @@ export default function IdentifyView({
   totalQuestions,
   onNext,
   sideBySide = false,
+  showCorrectAnswerAfterSubmit = true,
+  soundEffects = true,
 }: Props) {
+  const { t } = useLanguage();
   const options = { A: optionA, B: optionB, C: optionC, D: optionD };
 
   const [selected,  setSelected]  = useState<string | null>(null);
@@ -100,25 +108,25 @@ export default function IdentifyView({
       style={sideBySide ? { width: 'min(100%, calc((100vh - 320px) * 16 / 9))' } : undefined}
     >
       <div className="flex items-center justify-start gap-2.5">
-        <VideoControlBtn onClick={playVideo} ariaLabel="Play">
+        <VideoControlBtn onClick={playVideo} ariaLabel={t('lessonView.play')}>
           <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
             <path d="M8 5v14l11-7z" />
           </svg>
         </VideoControlBtn>
 
-        <VideoControlBtn onClick={pauseVideo} ariaLabel="Pause">
+        <VideoControlBtn onClick={pauseVideo} ariaLabel={t('lessonView.pause')}>
           <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
             <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
           </svg>
         </VideoControlBtn>
 
-        <VideoControlBtn onClick={replayVideo} ariaLabel="Replay">
+        <VideoControlBtn onClick={replayVideo} ariaLabel={t('identifyView.replay')}>
           <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
             <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
           </svg>
         </VideoControlBtn>
 
-        <VideoControlBtn onClick={stopVideo} ariaLabel="Stop">
+        <VideoControlBtn onClick={stopVideo} ariaLabel={t('lessonView.stop')}>
           <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
             <path d="M6 6h12v12H6z" />
           </svg>
@@ -129,6 +137,12 @@ export default function IdentifyView({
 
   function handleConfirm() {
     if (!selected || confirmed) return;
+
+    if (soundEffects) {
+      const isCorrect = selected === correctAnswer;
+      playFeedbackTone(isCorrect);
+    }
+
     setConfirmed(true);
   }
 
@@ -137,8 +151,31 @@ export default function IdentifyView({
   }
 
   const feedbackText = selected === correctAnswer
-    ? '✓ Correct!'
-    : `✗ Wrong — the answer is ${options[correctAnswer as keyof typeof options] || correctAnswer}`;
+    ? `✓ ${t('identifyView.correct')}`
+    : showCorrectAnswerAfterSubmit
+      ? `✗ ${t('identifyView.wrongWithAnswer').replace('{{answer}}', options[correctAnswer as keyof typeof options] || correctAnswer)}`
+      : `✗ ${t('identifyView.wrong')}`;
+
+  function playFeedbackTone(isCorrect: boolean) {
+    try {
+      const audioCtx = new (window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.value = isCorrect ? 720 : 320;
+      gain.gain.value = 0.05;
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.15);
+      setTimeout(() => void audioCtx.close(), 250);
+    } catch {
+      // Ignore sound errors silently to avoid breaking quiz flow.
+    }
+  }
 
   const actionButton = !confirmed ? (
     <button
@@ -151,7 +188,7 @@ export default function IdentifyView({
       "
       style={{ fontFamily: 'var(--font-fredoka)' }}
     >
-      Confirm
+      {t('identifyView.confirm')}
     </button>
   ) : (
     <button
@@ -164,7 +201,7 @@ export default function IdentifyView({
       "
       style={{ fontFamily: 'var(--font-fredoka)' }}
     >
-      {questionIndex < totalQuestions - 1 ? 'Next →' : 'Finish →'}
+      {questionIndex < totalQuestions - 1 ? t('identifyView.nextArrow') : t('identifyView.finish')}
     </button>
   );
 
@@ -175,10 +212,10 @@ export default function IdentifyView({
         const showWrong   = confirmed && selected === key && key !== correctAnswer;
         const isSelected  = selected === key && !confirmed;
 
-        let bg   = 'bg-[#F5E6C8] border-[#BF7B45] text-[#5D3A1A]';
-        if (showCorrect) bg = 'bg-green-500 border-green-700 text-white';
-        else if (showWrong)  bg = 'bg-red-500   border-red-700   text-white';
-        else if (isSelected) bg = 'bg-[#E8A87C] border-[#BF7B45] text-[#5D3A1A]';
+        let bg   = 'bg-[#F5E6C8] border-[#F5E6C8] text-[#5D3A1A]';
+        if (showCorrect) bg = 'bg-green-500 border-green-500 text-white';
+        else if (showWrong)  bg = 'bg-red-500   border-red-500   text-white';
+        else if (isSelected) bg = 'bg-[#E8A87C] border-[#E8A87C] text-[#5D3A1A]';
 
         return (
           <button
@@ -199,7 +236,9 @@ export default function IdentifyView({
     return (
       <div className="h-full min-h-0 flex flex-col gap-3 overflow-y-auto pb-2">
         <p className="text-center text-[#7B3F00] font-black text-base sm:text-lg">
-          Question {questionIndex + 1} / {totalQuestions}
+          {t('identifyView.questionLabel')
+            .replace('{{current}}', String(questionIndex + 1))
+            .replace('{{total}}', String(totalQuestions))}
         </p>
 
         <div className="mx-auto w-full max-w-[1320px] grid min-h-0 flex-1 gap-3 lg:gap-4 lg:items-center lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
@@ -220,7 +259,7 @@ export default function IdentifyView({
                 />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <p className="text-white/70 font-black text-sm">Video coming soon</p>
+                  <p className="text-white/70 font-black text-sm">{t('identifyView.videoComingSoon')}</p>
                 </div>
               )}
             </div>
@@ -241,10 +280,10 @@ export default function IdentifyView({
                 const showWrong   = confirmed && selected === key && key !== correctAnswer;
                 const isSelected  = selected === key && !confirmed;
 
-                let bg   = 'bg-[#F5E6C8] border-[#BF7B45] text-[#5D3A1A]';
-                if (showCorrect) bg = 'bg-green-500 border-green-700 text-white';
-                else if (showWrong)  bg = 'bg-red-500   border-red-700   text-white';
-                else if (isSelected) bg = 'bg-[#E8A87C] border-[#BF7B45] text-[#5D3A1A]';
+                let bg   = 'bg-[#F5E6C8] border-[#F5E6C8] text-[#5D3A1A]';
+                if (showCorrect) bg = 'bg-green-500 border-green-500 text-white';
+                else if (showWrong)  bg = 'bg-red-500   border-red-500   text-white';
+                else if (isSelected) bg = 'bg-[#E8A87C] border-[#E8A87C] text-[#5D3A1A]';
 
                 return (
                   <button

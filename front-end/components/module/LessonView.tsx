@@ -5,7 +5,8 @@
 // Controls: Play, Pause, Restart (seek to 0 + play), Stop (pause + seek to 0).
 // A "Next →" arrow button advances the user to the Practice step.
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface Props {
   letter:     string;
@@ -13,6 +14,9 @@ interface Props {
   levelNum:   number;
   levelLabel: string;
   onNext:     () => void;
+  autoplayNext?: boolean;
+  playbackSpeed?: 0.75 | 1 | 1.25 | 1.5;
+  showCaptions?: boolean;
   /** Override the next button label (e.g. "Finish ✓" on the last letter) */
   nextLabel?: string;
 }
@@ -36,7 +40,7 @@ function ControlBtn({
       aria-label={ariaLabel}
       className="
         w-11 h-11 rounded-full
-        bg-[#33AA11] border-[3px] border-[#228800]
+        bg-[#33AA11] border-[3px] border-[#33AA11]
         flex items-center justify-center
         shadow-[0_4px_0_#165c00]
         active:translate-y-1 active:shadow-[0_1px_0_#165c00]
@@ -49,9 +53,25 @@ function ControlBtn({
   );
 }
 
-export default function LessonView({ letter, videoUrl, levelNum, levelLabel, onNext, nextLabel }: Props) {
+export default function LessonView({
+  letter,
+  videoUrl,
+  levelNum,
+  levelLabel,
+  onNext,
+  autoplayNext = false,
+  playbackSpeed = 1,
+  showCaptions = true,
+  nextLabel,
+}: Props) {
+  const { t } = useLanguage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoError, setVideoError] = useState(false);
+
+  useEffect(() => {
+    if (!videoRef.current) return;
+    videoRef.current.playbackRate = playbackSpeed;
+  }, [playbackSpeed, videoUrl]);
 
   function play() {
     videoRef.current?.play().catch(() => {});
@@ -93,6 +113,9 @@ export default function LessonView({ letter, videoUrl, levelNum, levelLabel, onN
               className="absolute inset-0 w-full h-full object-contain"
               onError={() => setVideoError(true)}
               onLoadedData={() => console.log('[LessonView] video loaded:', videoUrl)}
+              onEnded={() => {
+                if (autoplayNext) onNext();
+              }}
             />
           ) : (
             /* Placeholder — shown when no videoUrl or when the URL fails to load */
@@ -104,32 +127,32 @@ export default function LessonView({ letter, videoUrl, levelNum, levelLabel, onN
                 {letter}
               </span>
               <p className="text-white/50 font-semibold text-sm">
-                {videoError ? 'Video unavailable' : 'Video coming soon'}
+                {videoError ? t('lessonView.videoUnavailable') : t('lessonView.videoComingSoon')}
               </p>
             </div>
           )}
 
           {/* ── Controls overlay (bottom-left inside the box) ───────────────── */}
           <div className="absolute bottom-4 left-4 flex gap-2.5 z-10">
-            <ControlBtn onClick={play} ariaLabel="Play">
+            <ControlBtn onClick={play} ariaLabel={t('lessonView.play')}>
               <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
                 <path d="M8 5v14l11-7z" />
               </svg>
             </ControlBtn>
 
-            <ControlBtn onClick={pause} ariaLabel="Pause">
+            <ControlBtn onClick={pause} ariaLabel={t('lessonView.pause')}>
               <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
                 <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
               </svg>
             </ControlBtn>
 
-            <ControlBtn onClick={restart} ariaLabel="Restart">
+            <ControlBtn onClick={restart} ariaLabel={t('lessonView.restart')}>
               <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
                 <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
               </svg>
             </ControlBtn>
 
-            <ControlBtn onClick={stop} ariaLabel="Stop">
+            <ControlBtn onClick={stop} ariaLabel={t('lessonView.stop')}>
               <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
                 <path d="M6 6h12v12H6z" />
               </svg>
@@ -140,20 +163,24 @@ export default function LessonView({ letter, videoUrl, levelNum, levelLabel, onN
 
       {/* ── Below box: centered level label + next arrow (right) ────────────── */}
       <div className="grid grid-cols-3 items-center px-1 shrink-0">
-        <p className="text-[#4A2C0A] text-lg sm:text-xl justify-self-center text-center col-start-2">
-          <span className="font-black">Level {levelNum}</span>
-          {'  '}
-          <span className="font-semibold">{levelLabel}</span>
-        </p>
+        {showCaptions ? (
+          <p className="text-[#4A2C0A] text-lg sm:text-xl justify-self-center text-center col-start-2">
+            <span className="font-black">{t('lessonView.levelLabel').replace('{{number}}', String(levelNum))}</span>
+            {'  '}
+            <span className="font-semibold">{levelLabel}</span>
+          </p>
+        ) : (
+          <div className="justify-self-center col-start-2" />
+        )}
 
         {/* Next / Finish button */}
         <button
           onClick={onNext}
-          aria-label={nextLabel ?? 'Next'}
+          aria-label={nextLabel ?? t('lessonView.nextAria')}
           className="
             justify-self-end col-start-3
             rounded-full px-5 h-12
-            bg-[#33AA11] border-[3px] border-[#228800]
+            bg-[#33AA11] border-[3px] border-[#33AA11]
             flex items-center justify-center gap-2
             text-white font-black text-sm
             shadow-[0_4px_0_#165c00]

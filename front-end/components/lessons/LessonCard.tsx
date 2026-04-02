@@ -29,8 +29,8 @@ export default function LessonCard({
         relative flex flex-col w-full rounded-[20px] border-[5px] overflow-hidden
         text-left transition-transform
         ${isUnlocked
-          ? 'bg-[#E8A87C] border-[#BF7B45] hover:scale-105 cursor-pointer shadow-md'
-          : 'bg-[#C49070] border-[#8B6040] cursor-not-allowed opacity-80'
+          ? 'bg-[#E8A87C] border-[#E8A87C] hover:scale-105 cursor-pointer shadow-md'
+          : 'bg-[#C49070] border-[#C49070] cursor-not-allowed opacity-80'
         }
       `}
     >

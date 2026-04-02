@@ -10,6 +10,9 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
+import SettingsModal from '@/components/settings/SettingsModal';
+import { useSettings } from '@/hooks/useSettings';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface ChapterItem {
   id:           string;
@@ -26,7 +29,15 @@ function LockIcon() {
   );
 }
 
-function ChapterCard({ chapter, onPress }: { chapter: ChapterItem; onPress: () => void }) {
+function ChapterCard({
+  chapter,
+  onPress,
+  t,
+}: {
+  chapter: ChapterItem;
+  onPress: () => void;
+  t: (key: string) => string;
+}) {
   return (
     <div className="chapter-card-item flex flex-col gap-1 sm:gap-1.5">
       <button
@@ -36,8 +47,8 @@ function ChapterCard({ chapter, onPress }: { chapter: ChapterItem; onPress: () =
         className={`
           chapter-card-button relative overflow-hidden transition-transform
           ${chapter.isUnlocked
-            ? 'bg-[#E8A87C] border-[#BF7B45] hover:scale-[0.95] cursor-pointer shadow-md'
-            : 'bg-[#C49070] border-[#8B6040] cursor-not-allowed opacity-80'
+            ? 'bg-[#E8A87C] border-[#E8A87C] hover:scale-[0.95] cursor-pointer shadow-md'
+            : 'bg-[#C49070] border-[#C49070] cursor-not-allowed opacity-80'
           }
         `}
       >
@@ -58,7 +69,7 @@ function ChapterCard({ chapter, onPress }: { chapter: ChapterItem; onPress: () =
       </button>
 
       <p className="chapter-card-caption text-[#4A2C0A]">
-        <span className="font-black">Chapter {chapter.chapterNum}</span>
+        <span className="font-black">{t('lessonsPage.lessonLabel').replace('{{number}}', String(chapter.chapterNum))}</span>
         {'  '}
         <span className="font-medium">{chapter.title}</span>
       </p>
@@ -68,10 +79,13 @@ function ChapterCard({ chapter, onPress }: { chapter: ChapterItem; onPress: () =
 
 export default function LessonsPage() {
   const router = useRouter();
+  const { t } = useLanguage();
+  const { settings, updateSetting } = useSettings();
   const [chapters,     setChapters]     = useState<ChapterItem[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [currentPage,  setCurrentPage]  = useState(0);
   const [usePagedLayout, setUsePagedLayout] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const DESKTOP_PAGE_SIZE = 8;
 
@@ -127,7 +141,7 @@ export default function LessonsPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <p className="text-[#7B3F00] font-bold text-lg animate-pulse">Loading…</p>
+        <p className="text-[#7B3F00] font-bold text-lg animate-pulse">{t('common.loading')}</p>
       </div>
     );
   }
@@ -155,7 +169,7 @@ export default function LessonsPage() {
           onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
           onMouseDown={(e) => (e.currentTarget.style.transform = 'translateY(4px) scale(0.96)', e.currentTarget.style.boxShadow = '0 2px 0 #b86a00, 0 4px 8px rgba(0, 0, 0, 0.2)')}
           onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
-          aria-label="Back to menu"
+          aria-label={t('common.backToMenu')}
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
             <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
@@ -163,6 +177,7 @@ export default function LessonsPage() {
         </button>
 
         <button
+          onClick={() => setShowSettings(true)}
           className="flex items-center justify-center flex-shrink-0 transition-transform"
           style={{
             zIndex: 9999,
@@ -179,11 +194,18 @@ export default function LessonsPage() {
           onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
           onMouseDown={(e) => (e.currentTarget.style.transform = 'translateY(4px) scale(0.96)', e.currentTarget.style.boxShadow = '0 2px 0 #b86a00, 0 4px 8px rgba(0, 0, 0, 0.2)')}
           onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.1)', e.currentTarget.style.boxShadow = '0 6px 0 #b86a00, 0 8px 16px rgba(0, 0, 0, 0.3)')}
-          aria-label="Settings"
+          aria-label={t('settings.openSettings')}
         >
           <Image src={GearIcon} alt="" style={{ width: '50%', height: '50%' }} />
         </button>
       </div>
+
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        settings={settings}
+        updateSetting={updateSetting}
+      />
 
       {/* ── Title ────────────────────────────────────────────────── */}
       <div className="text-center mb-2 sm:mb-3">
@@ -196,10 +218,10 @@ export default function LessonsPage() {
             textShadow:       '1px 1px 0 #1a4d10',
           }}
         >
-          Lessons
+          {t('dashboard.lessons')}
         </h1>
         <p className="text-[#4A2C0A] font-bold text-sm mt-1">
-          Watch and learn each FSL sign.
+          {t('lessonsPage.subtitle')}
         </p>
       </div>
 
@@ -216,6 +238,7 @@ export default function LessonsPage() {
                 <ChapterCard
                   key={ch.id}
                   chapter={ch}
+                  t={t}
                   onPress={() => router.push(`/dashboard/lessons/${ch.id}`)}
                 />
               ))}
@@ -230,9 +253,9 @@ export default function LessonsPage() {
             onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
             disabled={!hasPrev}
             className="px-3 py-1.5 rounded-full text-sm font-bold border border-[#BF7B45] text-[#7B3F00] disabled:opacity-40"
-            aria-label="Previous lessons page"
+            aria-label={t('lessonsPage.previousLessonsPage')}
           >
-            Previous
+            {t('common.previous')}
           </button>
           <span className="text-xs sm:text-sm text-[#7B3F00] font-semibold px-2">
             {currentPage + 1} / {totalPages}
@@ -241,9 +264,9 @@ export default function LessonsPage() {
             onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
             disabled={!hasNext}
             className="px-3 py-1.5 rounded-full text-sm font-bold border border-[#BF7B45] text-[#7B3F00] disabled:opacity-40"
-            aria-label="Next lessons page"
+            aria-label={t('lessonsPage.nextLessonsPage')}
           >
-            Next
+            {t('common.next')}
           </button>
         </div>
       )}

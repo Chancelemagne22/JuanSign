@@ -333,6 +333,49 @@ input[type="password"]::-ms-clear {
   }
 }
 
+.confetti-piece {
+  position: absolute;
+  top: -14%;
+  display: block;
+  opacity: 0.98;
+  animation-name: confetti-drop;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+.confetti-piece-inner {
+  display: block;
+  border-radius: 2px;
+  opacity: 0.9;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.15);
+  animation-name: confetti-flip;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+@keyframes confetti-drop {
+  from {
+    transform: translate3d(0, -30px, 0);
+  }
+  to {
+    transform: translate3d(var(--confetti-drift, 0px), 470px, 0);
+  }
+}
+
+@keyframes confetti-flip {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(0.75);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
 /* Respect OS accessibility preference for reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -342,5 +385,15 @@ input[type="password"]::-ms-clear {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  .confetti-piece {
+    animation: none !important;
+    top: 8% !important;
+  }
+
+  .confetti-piece-inner {
+    animation: none !important;
+    transform: rotate(12deg);
   }
 }
