@@ -9,7 +9,7 @@ from resnet_lstm_architecture import ResNetLSTM
 
 # --- CONFIG ---
 MODEL_PATH = "./juansignmodel/juansign_model_v2_2.pth"
-HAND_MODEL_PATH = "./hand_landmarker.task" # Ensure this file is in your folder
+HAND_MODEL_PATH = "./hand_landmarker.task"
 FACE_MODEL_PATH = "./blaze_face_short_range.tflite"
 
 TARGET_SIZE = 224
@@ -38,7 +38,7 @@ def build_detectors():
 
 def get_relative_lms(hand_result, face_center):
     """V2.2 Math: Subtract wrist and handle 2 hands"""
-    lm_tensor = torch.zeros(126)
+    lm_tensor = torch.zeros(126, dtype=torch.float32)
     
     if hand_result.hand_landmarks:
         for i, hand in enumerate(hand_result.hand_landmarks):
@@ -98,7 +98,7 @@ def visualize():
         hand_res = hand_detector.detect(mp_image)
         
         crop_rgb = np.zeros((TARGET_SIZE, TARGET_SIZE, 3), dtype=np.uint8)
-        current_lms = torch.zeros(126)
+        current_lms = torch.zeros(126, dtype=torch.float32)
 
         if hand_res.hand_landmarks:
             current_lms = get_relative_lms(hand_res, face_center)
@@ -123,7 +123,7 @@ def visualize():
         rgb_tensor = (rgb_tensor - [0.485, 0.456, 0.406]) / [0.229, 0.224, 0.225]
         rgb_tensor = torch.from_numpy(rgb_tensor).permute(2, 0, 1)
         
-        input_frame = torch.cat([rgb_tensor, torch.zeros(2, 224, 224)], dim=0) # 5-ch
+        input_frame = torch.cat([rgb_tensor, torch.zeros(2, 224, 224, dtype=torch.float32)], dim=0)
 
         frame_buffer.append(input_frame)
         lm_buffer.append(current_lms)
@@ -131,8 +131,8 @@ def visualize():
         # 7. Prediction
         pred_text = "Buffering..."
         if len(frame_buffer) == TARGET_FRAMES:
-            f_batch = torch.stack(list(frame_buffer)).unsqueeze(0).to(DEVICE)
-            l_batch = torch.stack(list(lm_buffer)).unsqueeze(0).to(DEVICE)
+            f_batch = torch.stack(list(frame_buffer)).unsqueeze(0).float().to(DEVICE)
+            l_batch = torch.stack(list(lm_buffer)).unsqueeze(0).float().to(DEVICE)
             
             with torch.no_grad():
                 logits = model(f_batch, l_batch)
