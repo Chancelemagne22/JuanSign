@@ -25,7 +25,7 @@ PROGRESS_FILE    = "./extraction_progress.txt"
 # ── CONSTANTS ─────────────────────────────────────────────────────────────────
 TARGET_FRAMES     = 32
 TARGET_SIZE       = 224
-HAND_PADDING      = 60
+HAND_PADDING      = 40
 LANDMARK_FEATURES = 126  # 2 hands × 63 dims
 SPLITS = ["training_data", "testing_data", "validation_data"]
 VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
@@ -169,52 +169,84 @@ def _extract_and_save_landmarks(clip_folder, hand_detector, face_detector):
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN EXTRACTION ENGINE
 # ══════════════════════════════════════════════════════════════════════════════
-
 def extract_and_resize_frames(video_path, output_folder, face_detector, hand_detector):
-    """Handles folder creation, frame extraction, flow, and landmarks."""
     os.makedirs(output_folder, exist_ok=True)
-    
-    if not os.path.exists(output_folder):
-        print(f"  [ERROR] Directory failed: {output_folder}")
-        return False
-
     cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened():
-        print(f"  [ERROR] OpenCV failed to open: {video_path}")
-        return False
-
+    
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     indices = _sample_indices(total_frames)
 
     extracted_bgr = []
+    landmarks_list = []
+    
+    # Track the last successful detection to fill "blanks"
+    last_valid_frame = None
+    last_valid_lms = None
     
     for out_idx, frame_idx in enumerate(indices):
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
         ret, frame = cap.read()
 
+        # 1. Handle Video Read Failure
         if not ret:
-            frame_bgr = extracted_bgr[-1].copy() if extracted_bgr else np.zeros((TARGET_SIZE, TARGET_SIZE, 3), dtype=np.uint8)
-        else:
-            frame, _ = _anonymize_face(frame, face_detector)
-            cropped = _hand_crop(frame, hand_detector)
-            
-            if cropped is not None:
-                frame_bgr = cv2.resize(cropped, (TARGET_SIZE, TARGET_SIZE))
+            if last_valid_frame is not None:
+                frame = last_valid_frame.copy()
             else:
-                frame_bgr = cv2.resize(_center_crop(frame), (TARGET_SIZE, TARGET_SIZE))
+                frame = np.zeros((TARGET_SIZE, TARGET_SIZE, 3), dtype=np.uint8)
 
-        extracted_bgr.append(frame_bgr)
-        frame_path = os.path.join(output_folder, f"frame{out_idx:04d}.jpg")
-        cv2.imwrite(frame_path, frame_bgr)
+        # 2. Process Face & Hand
+        frame_anonymized, face_center = _anonymize_face(frame, face_detector)
+        cropped = _hand_crop(frame_anonymized, hand_detector)
+
+        # 3. THE "BLANK" FIX LOGIC
+        if cropped is not None:
+            # SUCCESS: We found a hand
+            frame_resized = cv2.resize(cropped, (TARGET_SIZE, TARGET_SIZE))
+            
+            # Detect landmarks for this specific valid crop
+            rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
+            res = hand_detector.detect(mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb))
+            
+            # Build 126-dim landmarks (as we did before)
+            current_lms = []
+            for i in range(2):
+                if res.hand_landmarks and len(res.hand_landmarks) > i:
+                    pts = np.array([[p.x, p.y, p.z] for p in res.hand_landmarks[i]]).flatten()
+                    current_lms.extend(pts)
+                else:
+                    current_lms.extend(np.tile(face_center, 21))
+            
+            # Update "Last Valid" trackers
+            last_valid_frame = frame_resized.copy()
+            last_valid_lms = np.array(current_lms, dtype=np.float32)
+            
+        else:
+            # FAILURE: Hand not found, this would have been a "Blank"
+            if last_valid_frame is not None:
+                # REPLACE with previous valid frame and landmarks
+                frame_resized = last_valid_frame.copy()
+                current_lms_array = last_valid_lms.copy()
+                print(f"  [Info] Frame {out_idx} was blank. Replaced with previous valid frame.")
+            else:
+                # Extreme fallback: If the VERY FIRST frame is blank
+                # Use center-crop and face-center anchor
+                frame_resized = cv2.resize(_center_crop(frame_anonymized), (TARGET_SIZE, TARGET_SIZE))
+                current_lms_array = np.tile(face_center, 42).astype(np.float32) # 126 dims
+
+        # 4. Save to lists and disk
+        extracted_bgr.append(frame_resized)
+        landmarks_list.append(last_valid_lms if last_valid_lms is not None else current_lms_array)
+        
+        cv2.imwrite(os.path.join(output_folder, f"frame{out_idx:04d}.jpg"), frame_resized)
 
     cap.release()
 
-    # Save Optical Flow
+    # 5. Compute Optical Flow (Flow will be 0 between identical frames, which is perfect)
     flow_array = _compute_optical_flow(extracted_bgr)
     np.save(os.path.join(output_folder, "optical_flow.npy"), flow_array)
 
-    # Save Landmarks
-    _extract_and_save_landmarks(output_folder, hand_detector, face_detector)
+    # 6. Save Landmarks
+    np.save(os.path.join(output_folder, "landmarks.npy"), np.array(landmarks_list))
 
     return True
 
