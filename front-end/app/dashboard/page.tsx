@@ -101,7 +101,7 @@ export default function Dashboard() {
         >
           {t('dashboard.welcomeBack').replace('{{name}}', displayName)}
         </h1>
-        <p className="text-[#4A2C0A] font-bold text-base mt-2">
+        <p className="text-[#4A2C0A] font-bold text-base sm:text-lg mt-0.5">
           {t('dashboard.prompt')}
         </p>
       </div>

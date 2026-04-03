@@ -269,14 +269,14 @@ export default function PracticeChapterPage() {
       />
 
       {/* ── Page heading ─────────────────────────────────────────── */}
-      <div className="relative z-20 text-center mb-3 sm:mb-4 shrink-0">
+      <div className="relative z-20 text-center mb-2 shrink-0">
         <h1
-          className="font-black text-[2rem] leading-tight"
-          style={{ fontFamily: 'var(--font-baloo)', color: '#CC2200' }}
+          className="font-black leading-tight text-[2rem] sm:text-[2.35rem]"
+          style={{ fontFamily: 'var(--font-spicy-rice)', color: '#CC2200' }}
         >
           {t('practicePage.letsPractice')}
         </h1>
-        <p className="text-[#4A2C0A] font-bold text-sm mt-1">
+        <p className="text-[#4A2C0A] font-bold text-base sm:text-lg mt-0.5">
           <span className="font-black">{t('common.levelLabel').replace('{{number}}', String(levelMeta.levelNum))}</span>
           {'  '}
           <span className="font-semibold">{levelMeta.label}</span>

@@ -220,7 +220,7 @@ export default function LessonsPage() {
         >
           {t('dashboard.lessons')}
         </h1>
-        <p className="text-[#4A2C0A] font-bold text-sm mt-1">
+        <p className="text-[#4A2C0A] font-bold text-base sm:text-lg mt-0.5">
           {t('lessonsPage.subtitle')}
         </p>
       </div>

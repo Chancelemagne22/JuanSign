@@ -252,7 +252,7 @@ export default function PracticePage() {
         >
           {t('practicePage.title')}
         </h1>
-        <p className="text-[#4A2C0A] font-bold text-sm mt-1">
+        <p className="text-[#4A2C0A] font-bold text-base sm:text-lg mt-0.5">
           {t('practicePage.subtitle')}
         </p>
       </div>
