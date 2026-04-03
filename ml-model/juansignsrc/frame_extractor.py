@@ -25,7 +25,7 @@ PROGRESS_FILE    = "./extraction_progress.txt"
 # ── CONSTANTS ─────────────────────────────────────────────────────────────────
 TARGET_FRAMES     = 32
 TARGET_SIZE       = 224
-HAND_PADDING      = 40
+HAND_PADDING      = 50
 LANDMARK_FEATURES = 126  # 2 hands × 63 dims
 SPLITS = ["training_data", "testing_data", "validation_data"]
 VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
@@ -169,6 +169,29 @@ def _extract_and_save_landmarks(clip_folder, hand_detector, face_detector):
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN EXTRACTION ENGINE
 # ══════════════════════════════════════════════════════════════════════════════
+def _get_first_valid_frame(cap, indices, face_detector, hand_detector):
+    """Scans forward to find the first frame where a hand is detected."""
+    for frame_idx in indices:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+        ret, frame = cap.read()
+        if not ret:
+            continue
+        frame_anonymized, face_center = _anonymize_face(frame, face_detector)
+        cropped = _hand_crop(frame_anonymized, hand_detector)
+        if cropped is not None:
+            frame_resized = cv2.resize(cropped, (TARGET_SIZE, TARGET_SIZE))
+            rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
+            res = hand_detector.detect(mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb))
+            lms = []
+            for i in range(2):
+                if res.hand_landmarks and len(res.hand_landmarks) > i:
+                    pts = np.array([[p.x, p.y, p.z] for p in res.hand_landmarks[i]]).flatten()
+                    lms.extend(pts)
+                else:
+                    lms.extend(np.tile(face_center, 21))
+            return frame_resized, np.array(lms, dtype=np.float32)
+    return None, None
+
 def extract_and_resize_frames(video_path, output_folder, face_detector, hand_detector):
     os.makedirs(output_folder, exist_ok=True)
     cap = cv2.VideoCapture(video_path)
@@ -179,9 +202,14 @@ def extract_and_resize_frames(video_path, output_folder, face_detector, hand_det
     extracted_bgr = []
     landmarks_list = []
     
-    # Track the last successful detection to fill "blanks"
-    last_valid_frame = None
-    last_valid_lms = None
+    # PRE-SCAN: Find first valid frame to use as initial fallback
+    last_valid_frame, last_valid_lms = _get_first_valid_frame(
+        cap, indices, face_detector, hand_detector
+    )
+    
+    if last_valid_frame is None:
+        print(f"  [WARNING] No hand detected in entire clip: {video_path}")
+    
     
     for out_idx, frame_idx in enumerate(indices):
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)

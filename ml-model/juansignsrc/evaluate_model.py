@@ -29,7 +29,7 @@ CLASS_NAMES     = ["A", "B", "C", "D", "E"]
 NUM_CLASSES     = len(CLASS_NAMES)
 
 # PATHS
-MODEL_PATH      = "./juansignmodel/juansign_model.pth"
+MODEL_PATH      = "./juansignmodel/juansign_model_v2_2.pth"
 TEST_DATA_ROOT  = "./processed_output/frame_extracted/testing_data"
 SAVE_PLOT_PATH  = "./evaluation_results.png"
 
