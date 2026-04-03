@@ -217,19 +217,17 @@ export default function AssessmentPage() {
       />
 
       {/* ── Title ────────────────────────────────────────────────── */}
-      <div className="text-center mb-2 sm:mb-3">
+      <div className="text-center mb-2">
         <h1
           className="heading-xl"
           style={{
             fontFamily:       'var(--font-spicy-rice)',
             color:            '#E20A07',
-            WebkitTextStroke: '1px #6A1414',
-            textShadow:       '1px 1px 0 #6A1414',
           }}
         >
           {t('assessmentPage.title')}
         </h1>
-        <p className="text-[#4A2C0A] font-bold text-sm mt-1">
+        <p className="text-[#4A2C0A] font-bold text-base sm:text-lg mt-0.5">
           {t('assessmentPage.subtitle')}
         </p>
       </div>

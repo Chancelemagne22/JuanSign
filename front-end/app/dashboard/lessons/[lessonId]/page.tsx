@@ -92,6 +92,13 @@ export default function LessonPage() {
     }
   }
 
+  async function handlePrevious() {
+    if (letterIndex > 0) {
+      // Go back to previous letter
+      setLetterIndex((i) => i - 1);
+    }
+  }
+
   async function completeLesson() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -210,19 +217,18 @@ export default function LessonPage() {
       />
 
       {/* ── Page heading ─────────────────────────────────────────── */}
-      <div className="text-center mb-4 shrink-0">
+      <div className="text-center mb-2 shrink-0">
         <h1
-          className="font-black leading-tight text-[1.75rem] sm:text-[1.9rem]"
+          className="font-black leading-tight text-[2rem] sm:text-[2.35rem]"
           style={{
             fontFamily:       'var(--font-spicy-rice)',
             color:            '#2E7D1C',
-            WebkitTextStroke: '1px #1a4d10',
           }}
         >
           {t('lessonsPage.letsLearn')}
         </h1>
         {settings.showCaptions && (
-          <p className="text-[#4A2C0A] font-bold text-sm mt-1">
+          <p className="text-[#4A2C0A] font-bold text-base sm:text-lg mt-0.5">
             {t('lessonsPage.buildSkills')}
           </p>
         )}
@@ -239,6 +245,7 @@ export default function LessonPage() {
           currentIndex={letterIndex}
           totalLessons={letters.length}
           onNext={handleNext}
+          onPrevious={handlePrevious}
           autoplayNext={settings.autoplayLesson}
           playbackSpeed={settings.playbackSpeed}
           showCaptions={settings.showCaptions}

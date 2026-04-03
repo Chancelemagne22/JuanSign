@@ -151,7 +151,7 @@ export const translations = {
     practicePage: {
       title: 'Practice',
       subtitle: 'Show the signs - practice makes perfect!',
-      letsPractice: "LET'S PRACTICE!",
+      letsPractice: "Let's practice!",
       previousPracticePage: 'Previous practice page',
       nextPracticePage: 'Next practice page',
       backToPractice: 'Back to practice',
@@ -174,7 +174,9 @@ export const translations = {
       pause: 'Pause',
       restart: 'Restart',
       stop: 'Stop',
+      instructions: 'Step-by-Step Instructions',
       levelLabel: 'Level {{number}}',
+      previousAria: 'Previous',
       nextAria: 'Next',
     },
     identifyView: {
@@ -402,7 +404,7 @@ export const translations = {
     practicePage: {
       title: 'Pagsasanay',
       subtitle: 'Ipakita ang mga sign - practice makes perfect!',
-      letsPractice: 'MAG-PRACTICE TAYO!',
+      letsPractice: 'Mag-practice tayo!',
       previousPracticePage: 'Nakaraang practice page',
       nextPracticePage: 'Susunod na practice page',
       backToPractice: 'Bumalik sa practice',
@@ -425,7 +427,9 @@ export const translations = {
       pause: 'I-pause',
       restart: 'Ulitin',
       stop: 'Ihinto',
+      instructions: 'Hakbang-Hakbang na Mga Instruksyon',
       levelLabel: 'Antas {{number}}',
+      previousAria: 'Nakaraang',
       nextAria: 'Susunod',
     },
     identifyView: {

@@ -51,13 +51,13 @@ export function useSettings() {
 
     try {
       const parsed = JSON.parse(raw) as Partial<AppSettings>;
-      const mergedLanguage = parsed.language === 'tl' ? 'tl' : language;
       setSettings({
         soundEffects:
           typeof parsed.soundEffects === 'boolean' ? parsed.soundEffects : defaultSettings.soundEffects,
         backgroundMusic:
           typeof parsed.backgroundMusic === 'boolean' ? parsed.backgroundMusic : defaultSettings.backgroundMusic,
-        language: mergedLanguage,
+        // Keep Context language as the source of truth to avoid stale language overrides.
+        language,
         showTimer: typeof parsed.showTimer === 'boolean' ? parsed.showTimer : defaultSettings.showTimer,
         confirmSubmit:
           typeof parsed.confirmSubmit === 'boolean' ? parsed.confirmSubmit : defaultSettings.confirmSubmit,
@@ -81,17 +81,21 @@ export function useSettings() {
             ? parsed.showCorrectAnswer
             : defaultSettings.showCorrectAnswer,
       });
-
-      if (mergedLanguage !== language) {
-        setLanguage(mergedLanguage);
-      }
     } catch {
       setSettings({ ...defaultSettings, language });
     }
-  }, [language, setLanguage]);
+  }, [language]);
 
   useEffect(() => {
-    setSettings((prev) => (prev.language === language ? prev : { ...prev, language }));
+    setSettings((prev) => {
+      if (prev.language === language) return prev;
+
+      const next = { ...prev, language };
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      }
+      return next;
+    });
   }, [language]);
 
   const updateSetting = useCallback(

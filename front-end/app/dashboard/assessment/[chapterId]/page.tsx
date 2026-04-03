@@ -181,7 +181,6 @@ export default function AssessmentChapterPage() {
       <AssessmentView
         levelNum={levelMeta.levelNum}
         levelLabel={levelMeta.label}
-        chapterId={chapterId}
         confirmSubmit={settings.confirmSubmit}
         reviewBeforeSubmit={settings.reviewBeforeSubmit}
         onFinish={() => router.replace('/dashboard/assessment')}
