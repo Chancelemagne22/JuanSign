@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import GearIcon from "../../public/images/svgs/gear-icon.svg";
-import Image from "next/image";
 import { useLanguage } from "@/hooks/useLanguage";
 import "@/styles/WelcomePage.css";
 
@@ -11,7 +9,6 @@ const LANGUAGES = ['en', 'tl'] as const;
 interface WelcomeButtonsProps {
   onGetStarted: () => void;
   onLogin: () => void;
-  onSettings: () => void;
 }
 
 export default function WelcomeButtons({ onGetStarted , onLogin }: WelcomeButtonsProps) {
@@ -32,7 +29,7 @@ export default function WelcomeButtons({ onGetStarted , onLogin }: WelcomeButton
   );
 }
 
-export function ControlsCluster({ onSettings }: Omit<WelcomeButtonsProps, 'onGetStarted' | 'onLogin'>) {
+export function ControlsCluster() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { language, setLanguage, t, languageLabels } = useLanguage();
 
@@ -43,7 +40,7 @@ export function ControlsCluster({ onSettings }: Omit<WelcomeButtonsProps, 'onGet
 
   return (
     <>
-      {/* ── Top-right cluster: Language Dropdown + Settings button ── */}
+      {/* ── Top-right cluster: Language Dropdown ── */}
       <div className="controls-cluster">
 
         {/* Language Dropdown */}
@@ -76,14 +73,6 @@ export function ControlsCluster({ onSettings }: Omit<WelcomeButtonsProps, 'onGet
           )}
         </div>
 
-        {/* Settings button */}
-        <button
-          onClick={onSettings}
-          className="settings-btn"
-          aria-label={t('settings.openSettings')}
-        >
-          <Image src={GearIcon} alt={t('common.settings')} className="settings-icon" />
-        </button>
       </div>
     </>
   );

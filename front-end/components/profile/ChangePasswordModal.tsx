@@ -129,7 +129,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
   return (
     /* ── Backdrop ──────────────────────────────────────────────── */
     <div
-      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4"
+      className="fixed inset-0 bg-black/60 z-[10020] flex items-center justify-center px-4"
       onClick={onClose}
     >
       {/* ── Card ───────────────────────── ────────────────────────── */}

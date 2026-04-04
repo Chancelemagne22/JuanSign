@@ -290,6 +290,31 @@ input[type="password"]::-ms-clear {
   padding: 0.15rem 0.2rem 1rem;
 }
 
+/* Settings modal scrollbar colors to match the banner palette */
+.settings-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #8b4a12 #f2c89f;
+}
+
+.settings-scrollbar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.settings-scrollbar::-webkit-scrollbar-track {
+  background: #f2c89f;
+  border-radius: 999px;
+}
+
+.settings-scrollbar::-webkit-scrollbar-thumb {
+  background: #8b4a12;
+  border-radius: 999px;
+  border: 2px solid #f2c89f;
+}
+
+.settings-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6f3609;
+}
+
 @media (min-width: 640px) {
   .chapter-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
