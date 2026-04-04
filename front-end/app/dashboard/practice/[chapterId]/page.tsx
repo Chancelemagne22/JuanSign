@@ -14,6 +14,7 @@ import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import PracticeView  from '@/components/module/PracticeView';
 import IdentifyView  from '@/components/module/IdentifyView';
+import LessonCompleteModal from '@/components/module/LessonCompleteModal';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
 import { useSettings, useSettingsModal } from '@/hooks/useSettings';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -50,6 +51,7 @@ export default function PracticeChapterPage() {
   const [levelMeta,    setLevelMeta]    = useState<LevelMeta | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading,      setLoading]      = useState(true);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
 
   const accuracyScores = useRef<number[]>([]);
   const activeQuestionIdRef = useRef<string | null>(null);
@@ -148,7 +150,7 @@ export default function PracticeChapterPage() {
       setCurrentIndex((i) => i + 1);
     } else {
       await completePractice();
-      router.replace('/dashboard/practice');
+      setShowCompleteModal(true);
     }
   }
 
@@ -206,6 +208,7 @@ export default function PracticeChapterPage() {
   const current = questions[currentIndex];
 
   return (
+    <>
     <div className="h-screen overflow-hidden bg-white px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 flex flex-col">
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
@@ -307,5 +310,19 @@ export default function PracticeChapterPage() {
       </div>
 
     </div>
+    {showCompleteModal && levelMeta && (
+      <LessonCompleteModal
+        mode="practice"
+        levelNumber={levelMeta.levelNum}
+        onReplay={() => {
+          accuracyScores.current = [];
+          setCurrentIndex(0);
+          setShowCompleteModal(false);
+        }}
+        onClose={() => router.replace('/dashboard/practice')}
+        onNext={() => router.replace(`/dashboard/assessment/${chapterId}`)}
+      />
+    )}
+    </>
   );
 }
