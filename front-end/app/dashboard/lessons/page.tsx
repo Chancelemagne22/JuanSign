@@ -10,8 +10,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
-import SettingsModal from '@/components/settings/SettingsModal';
-import { useSettings } from '@/hooks/useSettings';
+import { useSettingsModal } from '@/hooks/useSettings';
 import { useLanguage } from '@/hooks/useLanguage';
 
 interface ChapterItem {
@@ -80,12 +79,11 @@ function ChapterCard({
 export default function LessonsPage() {
   const router = useRouter();
   const { t } = useLanguage();
-  const { settings, updateSetting } = useSettings();
+  const { openSettings } = useSettingsModal();
   const [chapters,     setChapters]     = useState<ChapterItem[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [currentPage,  setCurrentPage]  = useState(0);
   const [usePagedLayout, setUsePagedLayout] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
 
   const DESKTOP_PAGE_SIZE = 8;
 
@@ -177,7 +175,7 @@ export default function LessonsPage() {
         </button>
 
         <button
-          onClick={() => setShowSettings(true)}
+          onClick={openSettings}
           className="flex items-center justify-center flex-shrink-0 transition-transform"
           style={{
             zIndex: 9999,
@@ -199,13 +197,6 @@ export default function LessonsPage() {
           <Image src={GearIcon} alt="" style={{ width: '50%', height: '50%' }} />
         </button>
       </div>
-
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-        settings={settings}
-        updateSetting={updateSetting}
-      />
 
       {/* ── Title ────────────────────────────────────────────────── */}
       <div className="text-center mb-2 sm:mb-3">

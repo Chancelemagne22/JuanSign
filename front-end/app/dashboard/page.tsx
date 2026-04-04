@@ -9,14 +9,14 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
-import ChangePasswordModal from '@/components/profile/ChangePasswordModal';
+import { useSettingsModal } from '@/hooks/useSettings';
 import { useLanguage } from '@/hooks/useLanguage';
 
 export default function Dashboard() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { openSettings } = useSettingsModal();
   const [displayName, setDisplayName] = useState('');
-  const [showChangePassword, setShowChangePassword] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -65,7 +65,7 @@ export default function Dashboard() {
         </button>
 
         <button
-          onClick={() => setShowChangePassword(true)}
+          onClick={openSettings}
           className="flex items-center justify-center flex-shrink-0 transition-transform"
           style={{
             zIndex: 9999,
@@ -141,14 +141,6 @@ export default function Dashboard() {
           </button>
         ))}
       </div>
-
-      {/* ── Change Password Modal ──────────────────────────────────── */}
-      {showChangePassword && (
-        <ChangePasswordModal
-          onClose={() => setShowChangePassword(false)}
-          onSuccess={() => setShowChangePassword(false)}
-        />
-      )}
 
     </div>
   );

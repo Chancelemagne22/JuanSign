@@ -16,8 +16,7 @@ import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import AssessmentView from '@/components/module/AssessmentView';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
-import SettingsModal from '@/components/settings/SettingsModal';
-import { useSettings } from '@/hooks/useSettings';
+import { useSettings, useSettingsModal } from '@/hooks/useSettings';
 import { useLanguage } from '@/hooks/useLanguage';
 
 interface LevelMeta {
@@ -29,12 +28,12 @@ export default function AssessmentChapterPage() {
   const router            = useRouter();
   const { chapterId }     = useParams<{ chapterId: string }>();
   const { t } = useLanguage();
-  const { settings, updateSetting } = useSettings();
+  const { settings } = useSettings();
+  const { openSettings } = useSettingsModal();
 
   const [levelMeta,     setLevelMeta]     = useState<LevelMeta | null>(null);
   const [hasQuestions,  setHasQuestions]  = useState(false);
   const [loading,       setLoading]       = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   useEffect(() => {
@@ -147,7 +146,7 @@ export default function AssessmentChapterPage() {
         )}
 
         <button
-          onClick={() => setShowSettings(true)}
+          onClick={openSettings}
           className="flex items-center justify-center flex-shrink-0 transition-transform"
           style={{
             zIndex: 9999,
@@ -169,13 +168,6 @@ export default function AssessmentChapterPage() {
           <Image src={GearIcon} alt="" style={{ width: '50%', height: '50%' }} />
         </button>
       </div>
-
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-        settings={settings}
-        updateSetting={updateSetting}
-      />
 
       {/* ── Assessment view ───────────────────────────────────────── */}
       <AssessmentView

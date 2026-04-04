@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
 
 type SettingLanguage = 'en' | 'tl';
@@ -39,7 +39,17 @@ function parsePlaybackSpeed(value: unknown): AppSettings['playbackSpeed'] {
   return value === 0.75 || value === 1 || value === 1.25 || value === 1.5 ? value : 1;
 }
 
-export function useSettings() {
+type SettingsContextValue = {
+  settings: AppSettings;
+  updateSetting: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void;
+  isSettingsOpen: boolean;
+  openSettings: () => void;
+  closeSettings: () => void;
+};
+
+const SettingsContext = createContext<SettingsContextValue | null>(null);
+
+function useSettingsStore() {
   const { language, setLanguage } = useLanguage();
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
 
@@ -100,21 +110,66 @@ export function useSettings() {
 
   const updateSetting = useCallback(
     <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
+      const nextLanguage = key === 'language' ? (value as SettingLanguage) : null;
+
       setSettings((prev) => {
         const next = { ...prev, [key]: value };
         if (typeof window !== 'undefined') {
           window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
         }
 
-        if (key === 'language') {
-          setLanguage(value as SettingLanguage);
-        }
-
         return next;
       });
+
+      if (nextLanguage) {
+        setLanguage(nextLanguage);
+      }
     },
     [setLanguage]
   );
 
   return { settings, updateSetting };
+}
+
+export function SettingsProvider({ children }: { children: React.ReactNode }) {
+  const { settings, updateSetting } = useSettingsStore();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const openSettings = useCallback(() => setIsSettingsOpen(true), []);
+  const closeSettings = useCallback(() => setIsSettingsOpen(false), []);
+
+  const value = useMemo<SettingsContextValue>(
+    () => ({
+      settings,
+      updateSetting,
+      isSettingsOpen,
+      openSettings,
+      closeSettings,
+    }),
+    [settings, updateSetting, isSettingsOpen, openSettings, closeSettings]
+  );
+
+  return createElement(SettingsContext.Provider, { value }, children);
+}
+
+function useSettingsContext() {
+  const context = useContext(SettingsContext);
+  if (!context) {
+    throw new Error('useSettings must be used within SettingsProvider');
+  }
+  return context;
+}
+
+export function useSettings() {
+  const { settings, updateSetting } = useSettingsContext();
+  return { settings, updateSetting };
+}
+
+export function useSettingsModal() {
+  const { isSettingsOpen, openSettings, closeSettings } = useSettingsContext();
+  return {
+    isOpen: isSettingsOpen,
+    openSettings,
+    closeSettings,
+  };
 }
