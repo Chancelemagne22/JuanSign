@@ -14,6 +14,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import LessonPanelView from '@/components/module/LessonPanelView';
+import LessonCompleteModal from '@/components/module/LessonCompleteModal';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
 import { useSettings, useSettingsModal } from '@/hooks/useSettings';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -40,6 +41,7 @@ export default function LessonPage() {
   const [levelMeta,   setLevelMeta]   = useState<LevelMeta | null>(null);
   const [letterIndex, setLetterIndex] = useState(0);
   const [loading,     setLoading]     = useState(true);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -87,7 +89,7 @@ export default function LessonPage() {
     } else {
       // Last letter finished — mark lesson complete and unlock next level
       await completeLesson();
-      router.replace('/dashboard/lessons');
+      setShowCompleteModal(true);
     }
   }
 
@@ -150,6 +152,7 @@ export default function LessonPage() {
   const isLast        = letterIndex === letters.length - 1;
 
   return (
+    <>
     <div className="h-screen overflow-hidden bg-white px-6 pt-5 pb-6 flex flex-col">
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
@@ -241,11 +244,24 @@ export default function LessonPage() {
           autoplayNext={settings.autoplayLesson}
           playbackSpeed={settings.playbackSpeed}
           showCaptions={settings.showCaptions}
-          nextLabel={isLast ? `${t('module.finish')} ✓` : undefined}
+          nextLabel={isLast ? t('module.finish') : undefined}
         />
       </div>
 
     </div>
+    {showCompleteModal && levelMeta && (
+      <LessonCompleteModal
+        mode="lesson"
+        levelNumber={levelMeta.levelNum}
+        onReplay={() => {
+          setLetterIndex(0);
+          setShowCompleteModal(false);
+        }}
+        onNext={() => router.replace(`/dashboard/practice/${lessonId}`)}
+        onClose={() => router.replace('/dashboard/lessons')}
+      />
+    )}
+    </>
   );
 }
 

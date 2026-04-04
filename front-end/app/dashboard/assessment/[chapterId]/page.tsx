@@ -15,6 +15,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import AssessmentView from '@/components/module/AssessmentView';
+import LessonCompleteModal from '@/components/module/LessonCompleteModal';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
 import { useSettings, useSettingsModal } from '@/hooks/useSettings';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -35,6 +36,7 @@ export default function AssessmentChapterPage() {
   const [hasQuestions,  setHasQuestions]  = useState(false);
   const [loading,       setLoading]       = useState(true);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
 
   useEffect(() => {
     if (!settings.showTimer) return;
@@ -112,7 +114,7 @@ export default function AssessmentChapterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white px-6 pt-5 pb-12">
+    <div className="min-h-screen bg-white px-4 sm:px-6 pt-4 sm:pt-5 pb-4 sm:pb-8">
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-4">
@@ -175,8 +177,21 @@ export default function AssessmentChapterPage() {
         levelLabel={levelMeta.label}
         confirmSubmit={settings.confirmSubmit}
         reviewBeforeSubmit={settings.reviewBeforeSubmit}
-        onFinish={() => router.replace('/dashboard/assessment')}
+        onFinish={() => setShowCompleteModal(true)}
       />
+
+      {showCompleteModal && (
+        <LessonCompleteModal
+          mode="assessment"
+          levelNumber={levelMeta.levelNum}
+          onReplay={() => {
+            setShowCompleteModal(false);
+            router.refresh();
+          }}
+          onClose={() => router.replace('/dashboard/assessment')}
+          onNext={() => router.replace('/dashboard')}
+        />
+      )}
 
     </div>
   );
