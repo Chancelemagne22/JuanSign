@@ -25,6 +25,7 @@ const DISABLED_BORDER = 'var(--admin-disabled-border)'
 const TAN_STRIPED = 'var(--admin-tan-striped)'
 const CREAM_VARIANT = 'var(--admin-cream-variant)'
 const RED_BRIGHT = 'var(--admin-red-bright)'
+const TABLE_TEXT_SIZE = '0.76rem'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -47,7 +48,7 @@ const inputStyle = (focused?: boolean): React.CSSProperties => ({
   fontFamily: FONT,
   color: BROWN,
   border: `1.5px solid ${focused ? MEDIUM_BROWN : INPUT_BORDER}`,
-  fontSize: '0.93rem',
+  fontSize: TABLE_TEXT_SIZE,
 })
 
 // ── Pill Button ────────────────────────────────────────────────────────────────
@@ -84,7 +85,7 @@ function PillButton({
       disabled={disabled}
       style={{
         fontFamily: FONT,
-        fontSize: '0.9rem',
+        fontSize: TABLE_TEXT_SIZE,
         fontWeight: 600,
         color: disabled ? DISABLED_GRAY : color,
         backgroundColor: disabled ? DISABLED_BG : bg,
@@ -121,10 +122,10 @@ function AccountRow({
       <div className="flex items-center justify-between px-6 py-4">
         {/* Left */}
         <div>
-          <p style={{ fontFamily: FONT, color: BROWN, fontWeight: 700, fontSize: '0.97rem' }}>
+          <p style={{ fontFamily: FONT, color: BROWN, fontWeight: 700, fontSize: TABLE_TEXT_SIZE }}>
             {label}
           </p>
-          <p style={{ fontFamily: FONT, color: BROWN_MUTED, fontSize: '0.83rem', marginTop: '2px' }}>
+          <p style={{ fontFamily: FONT, color: BROWN_MUTED, fontSize: TABLE_TEXT_SIZE, marginTop: '2px' }}>
             {subtitle}
           </p>
         </div>
@@ -279,13 +280,13 @@ export default function AdminSettingsPage() {
     : []
 
   return (
-    <div className="flex flex-col gap-7 max-w-3xl">
+    <div className="h-full min-h-0 grid grid-cols-1 xl:grid-cols-2 items-start gap-4 sm:gap-5 w-full max-w-7xl pt-3 sm:pt-4 overflow-y-auto xl:overflow-hidden">
       {toast && <Toast msg={toast.msg} ok={toast.ok} />}
 
       {/* ── Admin Account ─────────────────────────────────────────────── */}
-      <div>
+      <div className="min-h-0 flex flex-col xl:overflow-auto xl:pr-1">
         <h2
-          className="font-bold mb-3"
+          className="font-bold mb-4"
           style={{ fontFamily: FONT, color: BROWN, fontSize: '1.2rem' }}
         >
           Admin Account
@@ -303,7 +304,7 @@ export default function AdminSettingsPage() {
             rightContent={
               <>
                 {sysInfo && (
-                  <span style={{ fontFamily: FONT, color: BROWN, fontSize: '0.95rem' }}>
+                  <span style={{ fontFamily: FONT, color: BROWN, fontSize: TABLE_TEXT_SIZE }}>
                     {sysInfo.adminEmail}
                   </span>
                 )}
@@ -317,7 +318,7 @@ export default function AdminSettingsPage() {
           >
             <div className="flex flex-col gap-3 max-w-sm">
               <div>
-                <label style={{ fontFamily: FONT, color: BROWN, fontSize: '0.87rem', fontWeight: 600 }}>
+                <label style={{ fontFamily: FONT, color: BROWN, fontSize: TABLE_TEXT_SIZE, fontWeight: 600 }}>
                   New Email Address
                 </label>
                 <input
@@ -332,7 +333,7 @@ export default function AdminSettingsPage() {
                 />
               </div>
               <div>
-                <label style={{ fontFamily: FONT, color: BROWN, fontSize: '0.87rem', fontWeight: 600 }}>
+                <label style={{ fontFamily: FONT, color: BROWN, fontSize: TABLE_TEXT_SIZE, fontWeight: 600 }}>
                   Current Password (to confirm)
                 </label>
                 <input
@@ -365,31 +366,66 @@ export default function AdminSettingsPage() {
               <PillButton label="Change Password" onClick={() => toggle('password')} />
             }
           >
-            <div className="flex flex-col gap-3 max-w-sm">
+            <div className="flex flex-col gap-2.5 w-full max-w-[22rem] min-w-0">
               {[
                 { key: 'current', label: 'Current Password', val: currentPw, set: setCurrentPw },
                 { key: 'new', label: 'New Password', val: newPw, set: setNewPw },
                 { key: 'confirm', label: 'Confirm New Password', val: confirmPw, set: setConfirmPw },
               ].map(({ key, label, val, set }) => (
                 <div key={key}>
-                  <label style={{ fontFamily: FONT, color: BROWN, fontSize: '0.87rem', fontWeight: 600 }}>
+                  <label style={{ fontFamily: FONT, color: BROWN, fontSize: '0.72rem', fontWeight: 600 }}>
                     {label}
                   </label>
                   <input
                     type="password"
                     value={val}
                     onChange={(e) => set(e.target.value)}
-                    className={inputCls}
-                    style={inputStyle(pwFocus[key])}
+                    className="w-full min-w-0 px-2.5 py-1.5 rounded-lg bg-white focus:outline-none"
+                    style={{ ...inputStyle(pwFocus[key]), fontSize: '0.7rem', lineHeight: 1.25 }}
                     onFocus={() => setPwFocus((p) => ({ ...p, [key]: true }))}
                     onBlur={() => setPwFocus((p) => ({ ...p, [key]: false }))}
                     placeholder="••••••••"
                   />
                 </div>
               ))}
-              <div className="flex gap-2 mt-1">
-                <PillButton label={saving ? 'Saving…' : 'Save Changes'} onClick={handlePasswordSave} variant="green" disabled={saving} />
-                <PillButton label="Cancel" onClick={() => { setExpanded(null); setCurrentPw(''); setNewPw(''); setConfirmPw('') }} />
+              <div className="flex gap-2 mt-1 flex-wrap">
+                <button
+                  onClick={handlePasswordSave}
+                  disabled={saving}
+                  style={{
+                    fontFamily: FONT,
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    color: WHITE,
+                    backgroundColor: saving ? DISABLED_BG : SUCCESS_GREEN,
+                    border: saving ? `1.5px solid ${DISABLED_BORDER}` : 'none',
+                    borderRadius: '999px',
+                    padding: '5px 14px',
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}
+                >
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+                <button
+                  onClick={() => { setExpanded(null); setCurrentPw(''); setNewPw(''); setConfirmPw('') }}
+                  style={{
+                    fontFamily: FONT,
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    color: BROWN,
+                    backgroundColor: WHITE,
+                    border: `1.5px solid ${INPUT_BORDER}`,
+                    borderRadius: '999px',
+                    padding: '5px 14px',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           </AccountRow>
@@ -407,7 +443,7 @@ export default function AdminSettingsPage() {
             }
           >
             <div className="flex flex-col gap-3 max-w-sm">
-              <p style={{ fontFamily: FONT, color: ERROR_RED, fontSize: '0.9rem' }}>
+              <p style={{ fontFamily: FONT, color: ERROR_RED, fontSize: TABLE_TEXT_SIZE }}>
                 This action cannot be undone. Type{' '}
                 <strong>DELETE</strong> below to confirm.
               </p>
@@ -436,15 +472,15 @@ export default function AdminSettingsPage() {
       </div>
 
       {/* ── System Information ────────────────────────────────────────── */}
-      <div>
+      <div className="min-h-0 flex flex-col xl:overflow-auto xl:pl-1">
         <h2
-          className="font-bold mb-3"
+          className="font-bold mb-4"
           style={{ fontFamily: FONT, color: BROWN, fontSize: '1.2rem' }}
         >
           System Information
         </h2>
 
-        <div className="rounded-2xl overflow-hidden shadow-sm" style={{ backgroundColor: CREAM }}>
+        <div className="rounded-2xl overflow-hidden shadow-sm w-full" style={{ backgroundColor: CREAM }}>
           {loadingSys ? (
             <div className="flex flex-col">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -476,7 +512,7 @@ export default function AdminSettingsPage() {
                   className="px-6 py-3"
                   style={{ backgroundColor: i % 2 === 0 ? TAN_STRIPED : CREAM_VARIANT }}
                 >
-                  <span style={{ fontFamily: FONT, color: BROWN, fontSize: '0.95rem' }}>
+                  <span style={{ fontFamily: FONT, color: BROWN, fontSize: TABLE_TEXT_SIZE }}>
                     {row.label}
                   </span>
                 </div>
@@ -487,7 +523,7 @@ export default function AdminSettingsPage() {
                 >
                   {'isStatus' in row && row.isStatus && (
                     <span
-                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      className="w-2 h-2 rounded-full flex-shrink-0"
                       style={{ backgroundColor: row.online ? GREEN_BRIGHT : RED_BRIGHT }}
                     />
                   )}
@@ -500,7 +536,7 @@ export default function AdminSettingsPage() {
                             ? GREEN_DARK
                             : ERROR_DARK_RED
                           : BROWN,
-                      fontSize: '0.95rem',
+                      fontSize: TABLE_TEXT_SIZE,
                       fontWeight: 600,
                     }}
                   >

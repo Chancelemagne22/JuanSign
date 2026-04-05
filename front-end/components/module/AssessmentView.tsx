@@ -1,59 +1,95 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useRef, useState } from 'react'
+import { useLanguage } from '@/hooks/useLanguage'
+import PracticeView from '@/components/module/PracticeView'
+import IdentifyView from '@/components/module/IdentifyView'
 
-// COMPONENT: AssessmentView — TEMPLATE PLACEHOLDER
-//
-// Full implementation TODO:
-//   - Fetch assessment_questions for this level from Supabase.
-//   - Present each question to the user (webcam recording per question).
-//   - Send each clip to Modal endpoint and receive { sign, confidence }.
-//   - Score the attempt, calculate stars_earned (0–3) based on accuracy.
-//   - INSERT result into `assessment_results` (score, stars_earned, time_taken_seconds, is_passed).
-//   - INSERT feedback into `cnn_feedback` (accuracy_score, feedback_message).
-//   - Show final score screen with stars and a "Back to Dashboard" button.
-//   - On pass: update `user_progress` to unlock the next level.
+export interface AssessmentQuestion {
+  id: string
+  levelId: string
+  type: 'identify' | 'perform'
+  questionText: string
+  videoUrl: string | null
+  optionA: string
+  optionB: string
+  optionC: string
+  optionD: string
+  correctAnswer: string
+  correctSign: string
+  points: number
+}
 
 interface Props {
-  levelNum:   number;
-  levelLabel: string;
-  onFinish:   () => void;
-  confirmSubmit?: boolean;
-  reviewBeforeSubmit?: boolean;
+  levelNum: number
+  levelLabel: string
+  chapterId: string
+  questions: AssessmentQuestion[]
+  timerLabel?: string
+  showTimer?: boolean
+  onFinish: () => void
+  confirmSubmit?: boolean
+  reviewBeforeSubmit?: boolean
 }
 
 export default function AssessmentView({
   levelNum,
   levelLabel,
+  chapterId,
+  questions,
+  timerLabel,
+  showTimer = false,
   onFinish,
   confirmSubmit = true,
   reviewBeforeSubmit = true,
 }: Props) {
-  const { t } = useLanguage();
-  const [showReviewPrompt, setShowReviewPrompt] = useState(false);
+  const { t } = useLanguage()
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [showReviewPrompt, setShowReviewPrompt] = useState(false)
+  const performAccuracyRef = useRef<number | null>(null)
+
+  const current = questions[currentIndex]
 
   function finalizeSubmit() {
-    if (confirmSubmit && !window.confirm(t('assessmentView.submitConfirm'))) return;
-    onFinish();
+    if (confirmSubmit && !window.confirm(t('assessmentView.submitConfirm'))) return
+    onFinish()
   }
 
-  function handleFinishClick() {
+  function handleCompleteAssessment() {
     if (reviewBeforeSubmit) {
-      setShowReviewPrompt(true);
-      return;
+      setShowReviewPrompt(true)
+      return
     }
-    finalizeSubmit();
+    finalizeSubmit()
+  }
+
+  function handleNext(accuracy: number) {
+    performAccuracyRef.current = null
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex((prev) => prev + 1)
+      return
+    }
+    handleCompleteAssessment()
+  }
+
+  if (!current) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-8 px-4 text-center">
+        <h2 className="text-[#7B3F00] font-black text-2xl" style={{ fontFamily: 'var(--font-baloo)' }}>
+          {t('assessmentPage.title')}
+        </h2>
+        <p className="text-[#7B3F00] font-semibold">{t('assessmentPage.noQuestionsForChapter')}</p>
+      </div>
+    )
   }
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-4 sm:py-8 px-4 text-center">
-
+    <div className="flex flex-col h-full min-h-0 overflow-hidden gap-1.5 sm:gap-2.5">
       {showReviewPrompt && (
         <div
           className="fixed inset-0 z-40 bg-black/45 flex items-center justify-center px-4"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setShowReviewPrompt(false);
+            if (e.target === e.currentTarget) setShowReviewPrompt(false)
           }}
         >
           <div className="w-full max-w-md rounded-2xl border-4 border-[#BF7B45] bg-white p-5 text-left">
@@ -79,60 +115,61 @@ export default function AssessmentView({
         </div>
       )}
 
-      {/* Trophy icon placeholder */}
-      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-[#F5C47A] border-[5px] border-[#F5C47A] flex items-center justify-center shadow-lg">
-        <svg viewBox="0 0 24 24" className="w-10 h-10 sm:w-12 sm:h-12 text-[#7B3F00]" fill="currentColor" aria-hidden>
-          <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0 0 11 15.9V18H9v2h6v-2h-2v-2.1a5.01 5.01 0 0 0 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zm-2 3c0 1.65-1.35 3-3 3s-3-1.35-3-3V5h6v3zm-8 0c0 1.65-1.35 3-3 3S3 9.65 3 8V7h2v1zm8 0H7V7h10v1z" />
-        </svg>
-      </div>
-
-      {/* Heading */}
-      <div>
+      <div className="text-center mb-0 shrink-0 -mt-2">
         <h2
-          className="font-black text-[1.8rem] sm:text-[2rem] leading-tight"
-          style={{
-            fontFamily:       'var(--font-baloo)',
-            color:            '#7B3F00',
-          }}
+          className="font-black leading-tight text-[2rem] sm:text-[2.35rem]"
+          style={{ fontFamily: 'var(--font-spicy-rice)', color: '#E20A07' }}
         >
           {t('assessmentPage.title')}
         </h2>
-        <p className="text-[#4A2C0A] font-bold text-base mt-1">
-          <span className="font-black">{t('lessonView.levelLabel').replace('{{number}}', String(levelNum))}</span>{'  '}
+        <p className="text-[#4A2C0A] font-bold text-base sm:text-lg mt-0">
+          <span className="font-black">{t('lessonView.levelLabel').replace('{{number}}', String(levelNum))}</span>
+          {'  '}
           <span className="font-semibold">{levelLabel}</span>
         </p>
       </div>
 
-      {/* Coming soon card */}
-      <div className="w-full max-w-sm bg-[#FFF8EE] border-4 border-[#FFF8EE] rounded-[24px] px-6 sm:px-8 py-6 sm:py-8 shadow-md">
-        <p className="text-[#7B3F00] font-black text-lg mb-2">{t('common.comingSoon')}</p>
-        <p className="text-[#A86040] font-semibold text-sm leading-relaxed">
-          {t('assessmentView.completedLetters')}
+      <div className="shrink-0 flex items-center justify-center gap-3 sm:gap-4 -mt-0.5">
+        <p className="text-center text-[#7B3F00] font-black text-sm sm:text-base">
+          {t('identifyView.questionLabel')
+            .replace('{{current}}', String(currentIndex + 1))
+            .replace('{{total}}', String(questions.length))}
         </p>
-
-        {/* Star row placeholder */}
-        <div className="flex justify-center gap-3 mt-5 text-3xl sm:text-4xl">
-          <span className="text-gray-300">★</span>
-          <span className="text-gray-300">★</span>
-          <span className="text-gray-300">★</span>
-        </div>
+        {showTimer && timerLabel && (
+          <p className="text-[#7B3F00] font-black text-sm sm:text-base">{timerLabel}</p>
+        )}
       </div>
 
-      {/* Back to Dashboard */}
-      <button
-        onClick={handleFinishClick}
-        className="
-          bg-[#2E8B2E] hover:bg-[#329932] text-white
-          font-black uppercase tracking-widest text-sm sm:text-base
-          px-10 sm:px-12 py-2.5 sm:py-3 rounded-full
-          shadow-[0_6px_0_#1a5c1a]
-          active:translate-y-1 active:shadow-[0_2px_0_#1a5c1a]
-          transition-all
-        "
-      >
-        {t('assessmentView.backToDashboard')}
-      </button>
-
+      <div className="flex-1 min-h-0 overflow-hidden pt-6 sm:pt-7">
+        {current.type === 'perform' ? (
+          <PracticeView
+            key={current.id}
+            letter={current.correctSign || current.questionText}
+            letterIndex={currentIndex}
+            totalLetters={questions.length}
+            levelId={chapterId}
+            onResult={(accuracy) => {
+              performAccuracyRef.current = accuracy
+            }}
+            onNext={() => handleNext(performAccuracyRef.current ?? 0)}
+          />
+        ) : (
+          <IdentifyView
+            key={current.id}
+            questionText={current.questionText}
+            videoUrl={current.videoUrl}
+            optionA={current.optionA}
+            optionB={current.optionB}
+            optionC={current.optionC}
+            optionD={current.optionD}
+            correctAnswer={current.correctAnswer}
+            questionIndex={currentIndex}
+            totalQuestions={questions.length}
+            sideBySide
+            onNext={handleNext}
+          />
+        )}
+      </div>
     </div>
-  );
+  )
 }

@@ -52,19 +52,19 @@ function formatDate(timestamp: string): string {
 
 function StatCard({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-1.5">
       <p
         className="text-center"
-        style={{ fontFamily: 'var(--font-fredoka)', color: '#5D3A1A', fontSize: '1rem' }}
+        style={{ fontFamily: 'var(--font-fredoka)', color: '#5D3A1A', fontSize: '0.95rem' }}
       >
         {label}
       </p>
       <div
-        className="w-full rounded-2xl flex items-center justify-center py-6 shadow-sm"
+        className="w-full rounded-2xl flex items-center justify-center py-4 sm:py-5 shadow-sm"
         style={{ backgroundColor: '#FFFDE7' }}
       >
         <span
-          className="text-5xl font-bold"
+          className="text-4xl font-bold leading-none"
           style={{ fontFamily: 'var(--font-fredoka)', color: '#C17A3A' }}
         >
           {value}
@@ -112,14 +112,14 @@ function RecentTable({
   return (
     <div>
       <h2
-        className="text-xl font-semibold mb-3"
+        className="text-xl font-semibold mb-2"
         style={{ fontFamily: 'var(--font-fredoka)', color: '#5D3A1A' }}
       >
         {title}
       </h2>
-      <div className="rounded-2xl overflow-hidden shadow-sm" style={{ backgroundColor: '#FFFDE7' }}>
+      <div className="rounded-2xl overflow-hidden shadow-sm min-h-0" style={{ backgroundColor: '#FFFDE7' }}>
         {/* Header row */}
-        <div className="grid grid-cols-3 px-6 py-3">
+        <div className="grid grid-cols-3 px-4 sm:px-6 py-3 border-b" style={{ borderColor: '#E8D8A0' }}>
           {headers.map((h, i) => (
             <span
               key={i}
@@ -131,43 +131,46 @@ function RecentTable({
           ))}
         </div>
 
-        {/* Data rows */}
-        {rows.map((row, i) => (
-          <div
-            key={i}
-            className="grid grid-cols-3 px-6 py-3 border-t"
-            style={{ borderColor: '#E8D8A0' }}
-          >
-            {row.map((cell, j) => (
-              <span
-                key={j}
-                className={j === 1 ? 'text-center' : j === 2 ? 'text-right' : ''}
-                style={{ fontFamily: 'var(--font-fredoka)', color: '#5D3A1A', fontSize: '0.97rem' }}
-              >
-                {cell}
-              </span>
-            ))}
-          </div>
-        ))}
+        {/* Scrollable rows */}
+        <div className="max-h-[40dvh] xl:max-h-[52dvh] overflow-y-auto">
+          {/* Data rows */}
+          {rows.map((row, i) => (
+            <div
+              key={i}
+              className="grid grid-cols-3 px-4 sm:px-6 py-3 border-t"
+              style={{ borderColor: '#E8D8A0' }}
+            >
+              {row.map((cell, j) => (
+                <span
+                  key={j}
+                  className={j === 1 ? 'text-center' : j === 2 ? 'text-right' : ''}
+                  style={{ fontFamily: 'var(--font-fredoka)', color: '#5D3A1A', fontSize: '0.97rem' }}
+                >
+                  {cell}
+                </span>
+              ))}
+            </div>
+          ))}
 
-        {/* Empty placeholder rows */}
-        {Array.from({ length: placeholders }).map((_, i) => (
-          <div
-            key={`ph-${i}`}
-            className="grid grid-cols-3 px-6 py-3 border-t"
-            style={{ borderColor: '#E8D8A0' }}
-          >
-            {['—', '—', '—'].map((dash, j) => (
-              <span
-                key={j}
-                className={j === 1 ? 'text-center' : j === 2 ? 'text-right' : ''}
-                style={{ fontFamily: 'var(--font-fredoka)', color: '#C17A3A' }}
-              >
-                {dash}
-              </span>
-            ))}
-          </div>
-        ))}
+          {/* Empty placeholder rows */}
+          {Array.from({ length: placeholders }).map((_, i) => (
+            <div
+              key={`ph-${i}`}
+              className="grid grid-cols-3 px-4 sm:px-6 py-3 border-t"
+              style={{ borderColor: '#E8D8A0' }}
+            >
+              {['—', '—', '—'].map((dash, j) => (
+                <span
+                  key={j}
+                  className={j === 1 ? 'text-center' : j === 2 ? 'text-right' : ''}
+                  style={{ fontFamily: 'var(--font-fredoka)', color: '#C17A3A' }}
+                >
+                  {dash}
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -218,9 +221,9 @@ export default function AdminDashboardPage() {
     ]) ?? []
 
   return (
-    <div className="space-y-7">
+    <div className="h-full min-h-0 flex flex-col gap-4 sm:gap-5 lg:gap-6 overflow-y-auto lg:overflow-hidden">
       {/* Stat cards */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="mt-2 sm:mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 shrink-0">
         {stats ? (
           <>
             <StatCard label="Total Registered Users" value={stats.totalUsers} />
@@ -245,39 +248,41 @@ export default function AdminDashboardPage() {
         )}
       </div>
 
-      {/* Recently Active Users */}
-      {dashboardData ? (
-        <RecentTable
-          title="Recently Active Users"
-          headers={['User Name', 'Current Level', 'Last Activity']}
-          rows={activeUserRows}
-        />
-      ) : (
-        <div>
-          <div
-            className="h-6 w-52 rounded mb-3 animate-pulse"
-            style={{ backgroundColor: '#E8D8A0' }}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5 min-h-0 lg:overflow-hidden">
+        {/* Recently Active Users */}
+        {dashboardData ? (
+          <RecentTable
+            title="Recently Active Users"
+            headers={['User Name', 'Current Level', 'Last Activity']}
+            rows={activeUserRows}
           />
-          <TableSkeleton />
-        </div>
-      )}
+        ) : (
+          <div>
+            <div
+              className="h-6 w-52 rounded mb-3 animate-pulse"
+              style={{ backgroundColor: '#E8D8A0' }}
+            />
+            <TableSkeleton />
+          </div>
+        )}
 
-      {/* Recently Completed Levels */}
-      {dashboardData ? (
-        <RecentTable
-          title="Recently Completed Levels"
-          headers={['User Name', 'Level Completed', 'Date Completed']}
-          rows={completedLevelRows}
-        />
-      ) : (
-        <div>
-          <div
-            className="h-6 w-52 rounded mb-3 animate-pulse"
-            style={{ backgroundColor: '#E8D8A0' }}
+        {/* Recently Completed Levels */}
+        {dashboardData ? (
+          <RecentTable
+            title="Recently Completed Levels"
+            headers={['User Name', 'Level Completed', 'Date Completed']}
+            rows={completedLevelRows}
           />
-          <TableSkeleton />
-        </div>
-      )}
+        ) : (
+          <div>
+            <div
+              className="h-6 w-52 rounded mb-3 animate-pulse"
+              style={{ backgroundColor: '#E8D8A0' }}
+            />
+            <TableSkeleton />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

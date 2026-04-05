@@ -151,19 +151,21 @@ export default function LessonPanelView({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-6 lg:gap-6">
+    <div className="flex h-full min-h-0 flex-col gap-4 sm:gap-5 min-w-0">
       {/* ═══════════════════════════════════════════════════════════════════════
         MAIN LEARNING CARD: Video + Instructions as unified unit
         ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-4 lg:gap-6">
+      <div className="flex-1 min-h-0 flex flex-col xl:grid xl:grid-cols-2 xl:items-stretch gap-3 sm:gap-5 min-w-0">
         
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           LEFT SECTION: VIDEO DISPLAY (unobstructed, controls below)
           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <div className="flex-1 lg:flex-[1.15] min-h-0 flex flex-col gap-3">
+        <div className="flex-1 min-h-0 flex flex-col gap-3 min-w-0">
           
           {/* VIDEO CONTAINER - Clean, unobstructed */}
-          <div className="flex-1 min-h-[320px] w-full max-w-[54rem] mx-auto flex items-center justify-center bg-gradient-to-b from-[#D4956A] to-[#C8845E] rounded-[12px] border-[3px] border-[#8B5E3C] overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+          <div
+            className="flex-1 min-h-[180px] sm:min-h-[260px] lg:min-h-[320px] w-full max-w-full xl:max-w-[54rem] mx-auto flex items-center justify-center bg-gradient-to-b from-[#D4956A] to-[#C8845E] rounded-[12px] border-[3px] border-[#8B5E3C] overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+          >
             {videoUrl && !videoError ? (
               <video
                 ref={videoRef}
@@ -195,7 +197,7 @@ export default function LessonPanelView({
           </div>
 
           {/* CONTROLS BAR - Below video (external, not overlay) */}
-          <div className="flex gap-3 justify-center shrink-0">
+          <div className="flex flex-wrap gap-2 sm:gap-3 justify-center shrink-0">
             <ControlBtn onClick={play} ariaLabel={t('lessonView.play')}>
               <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="currentColor" aria-hidden>
                 <path d="M8 5v14l11-7z" />
@@ -222,7 +224,7 @@ export default function LessonPanelView({
           </div>
 
           {/* PROGRESS INDICATORS - Below controls */}
-          <div className="flex gap-2 justify-center py-1 shrink-0">
+          <div className="flex gap-2 justify-center py-1 shrink-0 xl:-translate-y-1">
             {Array.from({ length: totalLessons }).map((_, idx) => (
               <ProgressDot key={idx} isActive={idx === currentIndex} />
             ))}
@@ -241,22 +243,22 @@ export default function LessonPanelView({
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           RIGHT SECTION: INSTRUCTIONS (structured, readable)
           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <div className="flex-1 lg:flex-[1] min-h-0 flex flex-col rounded-[12px] border-[3px] border-[#8B5E3C] bg-[#F5E6D3] p-4 lg:p-5 overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+        <div className="flex-1 min-h-0 flex flex-col rounded-[12px] border-[3px] border-[#8B5E3C] bg-[#F5E6D3] p-3.5 sm:p-5 overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.08)] min-w-0 max-h-[34dvh] sm:max-h-[40dvh] xl:max-h-none xl:h-full">
           
           {contextText ? (
             <>
               {/* SECTION TITLE */}
-              <h3 className="text-[#4A2C0A] font-black text-base lg:text-lg mb-4 flex-shrink-0">
+              <h3 className="text-[#4A2C0A] font-black text-base lg:text-lg mb-3 sm:mb-4 flex-shrink-0">
                 {t('lessonView.instructions')}
               </h3>
 
               {/* INSTRUCTIONS CONTENT - Parsed steps with structure */}
-              <div className="flex-1 min-h-0 overflow-y-auto mb-4">
+              <div className="flex-1 min-h-0 overflow-y-auto mb-3 sm:mb-4 min-w-0">
                 <InstructionSteps text={contextText} />
               </div>
 
               {/* TIPS/FOCUS CALLOUT */}
-              <div className="mt-4 pt-4 border-t-2 border-[#D4C4B0] flex-shrink-0">
+              <div className="mt-2 sm:mt-4 pt-3 sm:pt-4 border-t-2 border-[#D4C4B0] flex-shrink-0">
                 <p className="text-[#4A2C0A] font-medium text-sm leading-relaxed">
                   <span className="font-black text-base">💡 </span>
                   <span className="font-black">Tip:</span> Watch carefully for hand positioning and movement
@@ -281,16 +283,16 @@ export default function LessonPanelView({
       {/* ═══════════════════════════════════════════════════════════════════════
         FOOTER ACTION BAR: Back/Next buttons
         ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="flex items-center justify-end px-2 shrink-0 gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end px-2 shrink-0 gap-3">
         {/* Back / Next buttons container */}
-        <div className="flex items-center justify-end gap-3 flex-shrink-0">
+        <div className="flex items-stretch sm:items-center justify-end gap-3 flex-shrink-0 w-full sm:w-auto">
           {/* Back button */}
           <button
             onClick={() => onPrevious?.()}
             disabled={currentIndex === 0}
             aria-label={t('lessonView.previousAria') ?? 'Previous'}
             className="
-              rounded-full px-5 h-10 flex-shrink-0
+              rounded-full px-5 h-10 flex-shrink-0 w-full sm:w-auto min-w-[7.5rem]
               bg-[#FF9900] border-[3px] border-[#FF9900]
               flex items-center justify-center gap-2
               text-white font-black text-xs sm:text-sm
@@ -308,7 +310,7 @@ export default function LessonPanelView({
             onClick={onNext}
             aria-label={nextLabel ?? t('lessonView.nextAria')}
             className="
-              rounded-full px-5 h-10 flex-shrink-0
+              rounded-full px-5 h-10 flex-shrink-0 w-full sm:w-auto min-w-[7.5rem]
               bg-[#33AA11] border-[3px] border-[#33AA11]
               flex items-center justify-center gap-2
               text-white font-black text-xs sm:text-sm

@@ -209,7 +209,7 @@ export default function PracticeChapterPage() {
 
   return (
     <>
-    <div className="h-screen overflow-hidden bg-white px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 flex flex-col">
+    <div className="min-h-dvh overflow-x-hidden overflow-y-auto bg-white px-4 sm:px-6 pt-4 sm:pt-5 pb-4 sm:pb-5 flex flex-col">
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <div className="relative z-20 flex items-center justify-start mb-3 sm:mb-4 shrink-0">
@@ -266,7 +266,7 @@ export default function PracticeChapterPage() {
       <div className="relative z-20 text-center mb-2 shrink-0">
         <h1
           className="font-black leading-tight text-[2rem] sm:text-[2.35rem]"
-          style={{ fontFamily: 'var(--font-spicy-rice)', color: '#CC2200' }}
+          style={{ fontFamily: 'var(--font-spicy-rice)', color: '#FF6600' }}
         >
           {t('practicePage.letsPractice')}
         </h1>
@@ -278,7 +278,7 @@ export default function PracticeChapterPage() {
       </div>
 
       {/* ── Question view — fills remaining height ────────────────── */}
-      <div className="relative z-10 flex-1 min-h-0 overflow-hidden pt-1 sm:pt-2">
+      <div className="relative z-10 flex-1 min-h-0 overflow-visible pt-1 sm:pt-2">
         {current.type === 'perform' ? (
           <PracticeView
             key={current.id}
