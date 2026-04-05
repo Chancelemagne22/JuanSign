@@ -181,6 +181,7 @@ export const translations = {
     },
     identifyView: {
       questionLabel: 'Question {{current}} / {{total}}',
+      defaultQuestionPrompt: 'What sign is shown in the video?',
       correct: 'Correct!',
       wrong: 'Wrong.',
       wrongWithAnswer: 'Wrong - the answer is {{answer}}',
@@ -460,6 +461,7 @@ export const translations = {
     },
     identifyView: {
       questionLabel: 'Tanong {{current}} / {{total}}',
+      defaultQuestionPrompt: 'Anong senyas ang ipinapakita sa video?',
       correct: 'Tama!',
       wrong: 'Mali.',
       wrongWithAnswer: 'Mali - ang tamang sagot ay {{answer}}',

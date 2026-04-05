@@ -153,7 +153,7 @@ export default function LessonPage() {
 
   return (
     <>
-    <div className="h-screen overflow-hidden bg-white px-6 pt-5 pb-6 flex flex-col">
+    <div className="min-h-dvh overflow-x-hidden overflow-y-auto xl:h-dvh xl:overflow-hidden bg-white px-4 sm:px-6 pt-4 sm:pt-5 pb-4 sm:pb-5 flex flex-col">
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-4 shrink-0">
@@ -230,7 +230,7 @@ export default function LessonPage() {
       </div>
 
       {/* ── Lesson video and context panel — fills remaining height ─────────────────── */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-visible">
         <LessonPanelView
           letter={currentLetter.label}
           videoUrl={currentLetter.videoUrl}

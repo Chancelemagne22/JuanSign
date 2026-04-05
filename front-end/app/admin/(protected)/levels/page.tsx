@@ -216,7 +216,7 @@ function LessonForm({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0 overflow-y-auto pr-1">
       <h2 style={{ fontFamily: FONT, color: BROWN, fontSize: '1.1rem', fontWeight: 700, marginBottom: '16px' }}>
         {isNew ? 'Add New Lesson' : 'Edit Lesson'}
       </h2>
@@ -352,7 +352,7 @@ function QuestionForm({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0 overflow-y-auto pr-1">
       <h2 style={{ fontFamily: FONT, color: BROWN, fontSize: '1.1rem', fontWeight: 700, marginBottom: '16px' }}>
         {isNew ? 'Add New Question' : 'Edit Question'}
       </h2>
@@ -521,9 +521,10 @@ function NewLevelModal({ onCreated, onClose }: { onCreated: (level: Level) => vo
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.45)', backdropFilter: 'blur(1px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="rounded-2xl p-6 w-full max-w-sm" style={{ backgroundColor: CREAM }}>
+      <div className="rounded-2xl p-6 w-full max-w-sm" style={{ backgroundColor: WHITE }}>
         <h2 style={{ fontFamily: FONT, color: BROWN, fontSize: '1.2rem', fontWeight: 700, marginBottom: '20px' }}>
           Create New Level
         </h2>
@@ -728,7 +729,7 @@ export default function AdminLevelsPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-5 h-full">
+    <div className="flex flex-col gap-4 sm:gap-5 h-full min-h-0 overflow-y-auto lg:overflow-hidden">
 
       {/* Toast */}
       {toast && (
@@ -754,7 +755,7 @@ export default function AdminLevelsPage() {
       )}
 
       {/* ── Top bar: level selector + create button ──────────────────────── */}
-      <div className="rounded-2xl p-5 flex items-end gap-4" style={{ backgroundColor: CREAM }}>
+      <div className="rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-end gap-4 shrink-0" style={{ backgroundColor: CREAM }}>
         <div style={{ flex: 1 }}>
           <label style={{ ...labelSt, marginBottom: '8px' }}>Select Level</label>
           {levels.length === 0 ? (
@@ -781,7 +782,7 @@ export default function AdminLevelsPage() {
       </div>
 
       {/* ── Tabs ─────────────────────────────────────────────────────────── */}
-      <div className="flex gap-1 rounded-xl p-1" style={{ backgroundColor: DIVIDER, width: 'fit-content' }}>
+      <div className="flex flex-wrap gap-1 rounded-xl p-1 shrink-0" style={{ backgroundColor: DIVIDER, width: 'fit-content' }}>
         {tabs.map(t => (
           <button
             key={t.key}
@@ -811,13 +812,15 @@ export default function AdminLevelsPage() {
           <p style={{ fontFamily: FONT, color: GOLD }}>Create or select a level above to get started.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-5 flex-1">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5 flex-1 min-h-0">
 
           {/* Left panel — list */}
-          <div className="rounded-2xl p-5 flex flex-col" style={{ backgroundColor: CREAM, minHeight: '400px' }}>
-            <h2 style={{ fontFamily: FONT, color: GOLD, fontSize: '1.1rem', fontWeight: 700, textAlign: 'center', marginBottom: '14px' }}>
-              {activeTab === 'lessons' ? 'Lesson List' : activeTab === 'practice' ? 'Practice Questions' : 'Assessment Questions'}
-            </h2>
+          <div className="rounded-2xl p-4 sm:p-5 flex flex-col min-h-[22rem] xl:min-h-0 xl:h-full overflow-y-auto" style={{ backgroundColor: CREAM }}>
+            {activeTab === 'lessons' && (
+              <h2 style={{ fontFamily: FONT, color: GOLD, fontSize: '1.1rem', fontWeight: 700, textAlign: 'center', marginBottom: '14px' }}>
+                Lesson List
+              </h2>
+            )}
 
             {/* List items */}
             {(activeTab === 'lessons' ? loadingLessons : loadingQuestions) ? (
@@ -885,7 +888,7 @@ export default function AdminLevelsPage() {
           </div>
 
           {/* Right panel — edit form */}
-          <div className="rounded-2xl p-5 flex flex-col" style={{ backgroundColor: CREAM, minHeight: '400px' }}>
+          <div className="rounded-2xl p-4 sm:p-5 flex flex-col min-h-[22rem] xl:min-h-0 xl:h-full" style={{ backgroundColor: CREAM }}>
             {activeTab === 'lessons' ? (
               editingLesson ? (
                 <LessonForm
