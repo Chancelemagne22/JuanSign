@@ -15,9 +15,10 @@ import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import AssessmentView from '@/components/module/AssessmentView';
+import type { AssessmentQuestion } from '@/components/module/AssessmentView';
+import LessonCompleteModal from '@/components/module/LessonCompleteModal';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
-import SettingsModal from '@/components/settings/SettingsModal';
-import { useSettings } from '@/hooks/useSettings';
+import { useSettings, useSettingsModal } from '@/hooks/useSettings';
 import { useLanguage } from '@/hooks/useLanguage';
 
 interface LevelMeta {
@@ -29,13 +30,15 @@ export default function AssessmentChapterPage() {
   const router            = useRouter();
   const { chapterId }     = useParams<{ chapterId: string }>();
   const { t } = useLanguage();
-  const { settings, updateSetting } = useSettings();
+  const { settings } = useSettings();
+  const { openSettings } = useSettingsModal();
 
   const [levelMeta,     setLevelMeta]     = useState<LevelMeta | null>(null);
-  const [hasQuestions,  setHasQuestions]  = useState(false);
+  const [questions, setQuestions] = useState<AssessmentQuestion[]>([]);
   const [loading,       setLoading]       = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
 
   useEffect(() => {
     if (!settings.showTimer) return;
@@ -51,34 +54,47 @@ export default function AssessmentChapterPage() {
 
   useEffect(() => {
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.replace('/'); return; }
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { router.replace('/'); return; }
 
-      const [levelRes, questionsRes] = await Promise.all([
-        supabase
-          .from('levels')
-          .select('level_name, level_order')
-          .eq('level_id', chapterId)
-          .single(),
-        supabase
-          .from('assessment_questions')
-          .select('question_id', { count: 'exact', head: true })
-          .eq('level_id', chapterId),
-      ]);
+        const [levelRes, questionRes] = await Promise.all([
+          supabase
+            .from('levels')
+            .select('level_name, level_order')
+            .eq('level_id', chapterId)
+            .single(),
+          fetch(`/api/assessment/questions?levelId=${encodeURIComponent(chapterId)}&status=active`, {
+            cache: 'no-store',
+          }),
+        ]);
 
-      setLevelMeta({
-        levelNum: levelRes.data?.level_order ?? 1,
-        label:    levelRes.data?.level_name  ?? t('common.levelLabel').replace('{{number}}', ''),
-      });
-      setHasQuestions((questionsRes.count ?? 0) > 0);
-      setLoading(false);
+        const questionJson = await questionRes.json().catch(() => ({ questions: [] }));
+
+        if (!questionRes.ok) {
+          throw new Error(questionJson.error ?? 'Failed to load assessment questions')
+        }
+
+        setLevelMeta({
+          levelNum: levelRes.data?.level_order ?? 1,
+          label: levelRes.data?.level_name ?? t('common.levelLabel').replace('{{number}}', ''),
+        });
+
+        setQuestions(questionJson.questions ?? []);
+        setLoadError(null);
+      } catch (error) {
+        console.error('[assessment chapter] failed to load assessment data:', error)
+        setLoadError(error instanceof Error ? error.message : 'Failed to load assessment')
+      } finally {
+        setLoading(false)
+      }
     }
     init();
   }, [chapterId, router, t]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="h-[100dvh] overflow-hidden flex items-center justify-center bg-white">
         <p className="text-[#7B3F00] font-bold text-lg animate-pulse">{t('common.loading')}</p>
       </div>
     );
@@ -86,15 +102,29 @@ export default function AssessmentChapterPage() {
 
   if (!levelMeta) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white px-6">
+      <div className="h-[100dvh] overflow-hidden flex items-center justify-center bg-white px-6">
         <p className="text-[#7B3F00] font-semibold text-center">{t('assessmentPage.chapterNotFound')}</p>
       </div>
     );
   }
 
-  if (!hasQuestions) {
+  if (loadError) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white px-6 gap-4">
+      <div className="h-[100dvh] overflow-hidden flex flex-col items-center justify-center bg-white px-6 gap-4">
+        <p className="text-[#B91C1C] font-bold text-center">{loadError}</p>
+        <button
+          onClick={() => router.replace('/dashboard/assessment')}
+          className="mt-2 bg-[#E8A87C] border-[3px] border-[#E8A87C] text-white font-black px-8 py-2 rounded-full shadow-md hover:scale-105 transition-transform"
+        >
+          {t('common.goBack')}
+        </button>
+      </div>
+    )
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className="h-[100dvh] overflow-hidden flex flex-col items-center justify-center bg-white px-6 gap-4">
         <div className="w-20 h-20 rounded-full bg-amber-100 border-4 border-amber-400 flex items-center justify-center text-4xl">
           🚧
         </div>
@@ -113,10 +143,10 @@ export default function AssessmentChapterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white px-6 pt-5 pb-12">
+    <div className="h-[100dvh] overflow-hidden bg-white px-4 sm:px-6 pt-2 sm:pt-3 pb-3 sm:pb-4 flex flex-col">
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2 sm:mb-3 shrink-0">
         <button
           onClick={() => router.replace('/dashboard/assessment')}
           className="flex items-center justify-center flex-shrink-0 transition-transform"
@@ -142,12 +172,10 @@ export default function AssessmentChapterPage() {
           </svg>
         </button>
 
-        {settings.showTimer && (
-          <p className="text-[#7B3F00] font-black text-sm sm:text-base">{timerLabel}</p>
-        )}
+        <div aria-hidden className="w-[clamp(36px,6vw,44px)]" />
 
         <button
-          onClick={() => setShowSettings(true)}
+          onClick={openSettings}
           className="flex items-center justify-center flex-shrink-0 transition-transform"
           style={{
             zIndex: 9999,
@@ -170,22 +198,33 @@ export default function AssessmentChapterPage() {
         </button>
       </div>
 
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-        settings={settings}
-        updateSetting={updateSetting}
-      />
-
       {/* ── Assessment view ───────────────────────────────────────── */}
-      <AssessmentView
-        levelNum={levelMeta.levelNum}
-        levelLabel={levelMeta.label}
-        chapterId={chapterId}
-        confirmSubmit={settings.confirmSubmit}
-        reviewBeforeSubmit={settings.reviewBeforeSubmit}
-        onFinish={() => router.replace('/dashboard/assessment')}
-      />
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <AssessmentView
+          levelNum={levelMeta.levelNum}
+          levelLabel={levelMeta.label}
+          chapterId={chapterId}
+          questions={questions}
+          showTimer={settings.showTimer}
+          timerLabel={timerLabel}
+          confirmSubmit={settings.confirmSubmit}
+          reviewBeforeSubmit={settings.reviewBeforeSubmit}
+          onFinish={() => setShowCompleteModal(true)}
+        />
+      </div>
+
+      {showCompleteModal && (
+        <LessonCompleteModal
+          mode="assessment"
+          levelNumber={levelMeta.levelNum}
+          onReplay={() => {
+            setShowCompleteModal(false);
+            router.refresh();
+          }}
+          onClose={() => router.replace('/dashboard/assessment')}
+          onNext={() => router.replace('/dashboard')}
+        />
+      )}
 
     </div>
   );

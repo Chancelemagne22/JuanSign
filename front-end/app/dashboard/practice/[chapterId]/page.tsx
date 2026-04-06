@@ -14,9 +14,9 @@ import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import PracticeView  from '@/components/module/PracticeView';
 import IdentifyView  from '@/components/module/IdentifyView';
+import LessonCompleteModal from '@/components/module/LessonCompleteModal';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
-import SettingsModal from '@/components/settings/SettingsModal';
-import { useSettings } from '@/hooks/useSettings';
+import { useSettings, useSettingsModal } from '@/hooks/useSettings';
 import { useLanguage } from '@/hooks/useLanguage';
 
 interface QuestionUnit {
@@ -43,14 +43,15 @@ export default function PracticeChapterPage() {
   const router          = useRouter();
   const { chapterId }   = useParams<{ chapterId: string }>();
   const { t } = useLanguage();
-  const { settings, updateSetting } = useSettings();
+  const { settings } = useSettings();
+  const { openSettings } = useSettingsModal();
 
   const [rawQuestions, setRawQuestions] = useState<QuestionUnit[]>([]);
   const [questions,    setQuestions]    = useState<QuestionUnit[]>([]);
   const [levelMeta,    setLevelMeta]    = useState<LevelMeta | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading,      setLoading]      = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
 
   const accuracyScores = useRef<number[]>([]);
   const activeQuestionIdRef = useRef<string | null>(null);
@@ -149,7 +150,7 @@ export default function PracticeChapterPage() {
       setCurrentIndex((i) => i + 1);
     } else {
       await completePractice();
-      router.replace('/dashboard/practice');
+      setShowCompleteModal(true);
     }
   }
 
@@ -207,7 +208,8 @@ export default function PracticeChapterPage() {
   const current = questions[currentIndex];
 
   return (
-    <div className="h-screen overflow-hidden bg-white px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 flex flex-col">
+    <>
+    <div className="min-h-dvh overflow-x-hidden overflow-y-auto bg-white px-4 sm:px-6 pt-4 sm:pt-5 pb-4 sm:pb-5 flex flex-col">
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <div className="relative z-20 flex items-center justify-start mb-3 sm:mb-4 shrink-0">
@@ -237,7 +239,7 @@ export default function PracticeChapterPage() {
         </button>
 
         <button
-          onClick={() => setShowSettings(true)}
+          onClick={openSettings}
           className="ml-auto flex items-center justify-center flex-shrink-0 transition-transform"
           style={{
             zIndex: 9999,
@@ -260,23 +262,15 @@ export default function PracticeChapterPage() {
         </button>
 
       </div>
-
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-        settings={settings}
-        updateSetting={updateSetting}
-      />
-
       {/* ── Page heading ─────────────────────────────────────────── */}
-      <div className="relative z-20 text-center mb-3 sm:mb-4 shrink-0">
+      <div className="relative z-20 text-center mb-2 shrink-0">
         <h1
-          className="font-black text-[2rem] leading-tight"
-          style={{ fontFamily: 'var(--font-baloo)', color: '#CC2200' }}
+          className="font-black leading-tight text-[2rem] sm:text-[2.35rem]"
+          style={{ fontFamily: 'var(--font-spicy-rice)', color: '#FF6600' }}
         >
           {t('practicePage.letsPractice')}
         </h1>
-        <p className="text-[#4A2C0A] font-bold text-sm mt-1">
+        <p className="text-[#4A2C0A] font-bold text-base sm:text-lg mt-0.5">
           <span className="font-black">{t('common.levelLabel').replace('{{number}}', String(levelMeta.levelNum))}</span>
           {'  '}
           <span className="font-semibold">{levelMeta.label}</span>
@@ -284,7 +278,7 @@ export default function PracticeChapterPage() {
       </div>
 
       {/* ── Question view — fills remaining height ────────────────── */}
-      <div className="relative z-10 flex-1 min-h-0 overflow-hidden pt-1 sm:pt-2">
+      <div className="relative z-10 flex-1 min-h-0 overflow-visible pt-1 sm:pt-2">
         {current.type === 'perform' ? (
           <PracticeView
             key={current.id}
@@ -316,5 +310,19 @@ export default function PracticeChapterPage() {
       </div>
 
     </div>
+    {showCompleteModal && levelMeta && (
+      <LessonCompleteModal
+        mode="practice"
+        levelNumber={levelMeta.levelNum}
+        onReplay={() => {
+          accuracyScores.current = [];
+          setCurrentIndex(0);
+          setShowCompleteModal(false);
+        }}
+        onClose={() => router.replace('/dashboard/practice')}
+        onNext={() => router.replace(`/dashboard/assessment/${chapterId}`)}
+      />
+    )}
+    </>
   );
 }

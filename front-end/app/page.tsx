@@ -67,9 +67,7 @@ function HomeContent() {
       />
 
       {/* Controls cluster at root level for fixed positioning */}
-      <ControlsCluster
-        onSettings={() => console.log(t('common.settings'))}
-      />
+      <ControlsCluster />
 
       <div className="welcome-title-wrapper">
         <p className="welcome-title-text">{t('welcome.welcomeTo')}</p>
@@ -89,7 +87,6 @@ function HomeContent() {
         <WelcomeButtons
           onGetStarted={openSignup}
           onLogin={openLogin}
-          onSettings={() => console.log(t('common.settings'))}
         />
       </div>
 

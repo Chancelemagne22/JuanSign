@@ -70,6 +70,10 @@ export default function IdentifyView({
 }: Props) {
   const { t } = useLanguage();
   const options = { A: optionA, B: optionB, C: optionC, D: optionD };
+  const resolvedQuestionText =
+    !questionText || questionText.trim().toLowerCase() === 'what sign is shown in the video?'
+      ? t('identifyView.defaultQuestionPrompt')
+      : questionText;
 
   const [selected,  setSelected]  = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
@@ -104,10 +108,10 @@ export default function IdentifyView({
 
   const customControls = videoUrl ? (
     <div
-      className={sideBySide ? 'w-full max-w-[1280px]' : 'w-full'}
-      style={sideBySide ? { width: 'min(100%, calc((100vh - 320px) * 16 / 9))' } : undefined}
+      className={sideBySide ? 'w-full max-w-full' : 'w-full'}
+      style={sideBySide ? { width: 'min(100%, 80rem, calc((100dvh - 20rem) * 16 / 9))' } : undefined}
     >
-      <div className="flex items-center justify-start gap-2.5">
+      <div className="flex items-center justify-start gap-2.5 flex-wrap">
         <VideoControlBtn onClick={playVideo} ariaLabel={t('lessonView.play')}>
           <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
             <path d="M8 5v14l11-7z" />
@@ -206,7 +210,7 @@ export default function IdentifyView({
   );
 
   const optionsGrid = (
-    <div className="grid grid-cols-2 gap-3 px-1">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-1">
       {OPTION_KEYS.map((key) => {
         const showCorrect = confirmed && key === correctAnswer;
         const showWrong   = confirmed && selected === key && key !== correctAnswer;
@@ -222,7 +226,7 @@ export default function IdentifyView({
             key={key}
             disabled={confirmed}
             onClick={() => setSelected(key)}
-            className={`rounded-2xl border-[3px] px-5 py-3 font-bold text-sm text-center transition-all shadow-sm disabled:cursor-default ${bg}`}
+              className={`rounded-2xl border-[3px] px-4 sm:px-5 py-3 font-bold text-sm text-center transition-all shadow-sm disabled:cursor-default min-w-0 ${bg}`}
             style={{ fontFamily: 'var(--font-fredoka)' }}
           >
             {options[key]}
@@ -234,18 +238,18 @@ export default function IdentifyView({
 
   if (sideBySide) {
     return (
-      <div className="h-full min-h-0 flex flex-col gap-3 overflow-y-auto pb-2">
+      <div className="h-full min-h-0 flex flex-col gap-3 overflow-y-auto overflow-x-hidden pb-2 min-w-0">
         <p className="text-center text-[#7B3F00] font-black text-base sm:text-lg">
           {t('identifyView.questionLabel')
             .replace('{{current}}', String(questionIndex + 1))
             .replace('{{total}}', String(totalQuestions))}
         </p>
 
-        <div className="mx-auto w-full max-w-[1320px] grid min-h-0 flex-1 gap-3 lg:gap-4 lg:items-center lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
-          <div className="min-w-0 flex flex-col items-center lg:items-end gap-3">
+        <div className="mx-auto w-full max-w-[1320px] grid min-h-0 flex-1 gap-4 xl:gap-5 xl:items-center xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+          <div className="min-w-0 flex flex-col items-center xl:items-end gap-3">
             <div
-              className="relative w-full max-w-[1280px] aspect-video rounded-[24px] border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A]"
-              style={{ width: 'min(100%, calc((100vh - 320px) * 16 / 9))' }}
+              className="relative w-full max-w-full xl:max-w-[1280px] aspect-video rounded-[20px] sm:rounded-[24px] border-[4px] sm:border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A]"
+              style={{ width: 'min(100%, 80rem, calc((100dvh - 20rem) * 16 / 9))' }}
             >
               {videoUrl ? (
                 <video
@@ -266,15 +270,15 @@ export default function IdentifyView({
             {customControls}
           </div>
 
-          <div className="min-w-0 flex flex-col gap-4 lg:justify-center lg:justify-self-start lg:w-full lg:max-w-[560px]">
+            <div className="min-w-0 flex flex-col gap-4 xl:justify-center xl:justify-self-start xl:w-full xl:max-w-[560px]">
             <p
-              className="text-center lg:text-left font-bold text-[1.15rem] sm:text-[1.25rem] text-[#4A2C0A] px-1"
+              className="text-center xl:text-left font-bold text-[1.05rem] sm:text-[1.15rem] lg:text-[1.25rem] text-[#4A2C0A] px-1 break-words"
               style={{ fontFamily: 'var(--font-fredoka)' }}
             >
-              {questionText}
+              {resolvedQuestionText}
             </p>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 px-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-0">
               {OPTION_KEYS.map((key) => {
                 const showCorrect = confirmed && key === correctAnswer;
                 const showWrong   = confirmed && selected === key && key !== correctAnswer;
@@ -290,7 +294,7 @@ export default function IdentifyView({
                     key={key}
                     disabled={confirmed}
                     onClick={() => setSelected(key)}
-                    className={`rounded-2xl border-[3px] px-5 py-3 font-bold text-sm text-center transition-all shadow-sm disabled:cursor-default ${bg}`}
+                    className={`rounded-2xl border-[3px] px-4 sm:px-5 py-3 font-bold text-sm text-center transition-all shadow-sm disabled:cursor-default min-w-0 ${bg}`}
                     style={{ fontFamily: 'var(--font-fredoka)' }}
                   >
                     {options[key]}
@@ -308,7 +312,7 @@ export default function IdentifyView({
               </p>
             </div>
 
-            <div className="flex justify-center lg:justify-end gap-3">
+            <div className="flex justify-center xl:justify-end gap-3">
               {actionButton}
             </div>
           </div>
@@ -318,7 +322,7 @@ export default function IdentifyView({
   }
 
   return (
-    <div className="flex flex-col gap-4 h-full overflow-y-auto pb-4">
+    <div className="flex flex-col gap-4 h-full overflow-y-auto overflow-x-hidden pb-4 min-w-0">
 
       {/* ── Progress ──────────────────────────────────────────────── */}
       <p className="text-center text-[#7B3F00] font-black text-base sm:text-lg">
@@ -328,7 +332,7 @@ export default function IdentifyView({
       {/* ── Video (if provided) ───────────────────────────────────── */}
       {videoUrl && (
         <>
-          <div className="w-full rounded-[20px] overflow-hidden border-4 border-[#BF7B45] bg-black aspect-video">
+          <div className="w-full rounded-[20px] overflow-hidden border-4 border-[#BF7B45] bg-black aspect-video min-w-0">
             <video
               ref={stackedVideoRef}
               src={videoUrl}
@@ -345,10 +349,10 @@ export default function IdentifyView({
 
       {/* ── Question text ─────────────────────────────────────────── */}
       <p
-        className="text-center font-bold text-[1.15rem] sm:text-[1.25rem] text-[#4A2C0A] px-2"
+        className="text-center font-bold text-[1.05rem] sm:text-[1.15rem] lg:text-[1.25rem] text-[#4A2C0A] px-2 break-words"
         style={{ fontFamily: 'var(--font-fredoka)' }}
       >
-        {questionText}
+        {resolvedQuestionText}
       </p>
 
       {/* ── Options ───────────────────────────────────────────────── */}
@@ -365,7 +369,7 @@ export default function IdentifyView({
       </div>
 
       {/* ── Action buttons ────────────────────────────────────────── */}
-      <div className="flex justify-center gap-3 mt-auto">
+      <div className="flex flex-col sm:flex-row justify-center gap-3 mt-auto">
         {actionButton}
       </div>
 

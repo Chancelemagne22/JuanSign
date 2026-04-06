@@ -96,13 +96,13 @@ export default function LessonView({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-3 sm:gap-4 min-w-0">
 
       {/* ── Video box ──────────────────────────────────────────────────────── */}
-      <div className="flex-1 min-h-0 flex items-center justify-center">
+      <div className="flex-1 min-h-0 flex items-center justify-center min-w-0">
         <div
-          className="relative w-full max-w-[1280px] aspect-video rounded-[24px] border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A]"
-          style={{ width: 'min(100%, calc((100vh - 280px) * 16 / 9))' }}
+          className="relative w-full max-w-full aspect-video rounded-[20px] sm:rounded-[24px] border-[4px] sm:border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A]"
+          style={{ width: 'min(100%, 80rem, calc((100dvh - 17.5rem) * 16 / 9))' }}
         >
           {videoUrl && !videoError ? (
             <video
@@ -133,7 +133,7 @@ export default function LessonView({
           )}
 
           {/* ── Controls overlay (bottom-left inside the box) ───────────────── */}
-          <div className="absolute bottom-4 left-4 flex gap-2.5 z-10">
+          <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 flex flex-wrap gap-2 z-10 max-w-[calc(100%-1.5rem)] sm:max-w-none">
             <ControlBtn onClick={play} ariaLabel={t('lessonView.play')}>
               <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
                 <path d="M8 5v14l11-7z" />
@@ -162,9 +162,9 @@ export default function LessonView({
       </div>
 
       {/* ── Below box: centered level label + next arrow (right) ────────────── */}
-      <div className="grid grid-cols-3 items-center px-1 shrink-0">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-center px-1 shrink-0">
         {showCaptions ? (
-          <p className="text-[#4A2C0A] text-lg sm:text-xl justify-self-center text-center col-start-2">
+          <p className="text-[#4A2C0A] text-base sm:text-lg lg:text-xl justify-self-center text-center sm:col-start-2">
             <span className="font-black">{t('lessonView.levelLabel').replace('{{number}}', String(levelNum))}</span>
             {'  '}
             <span className="font-semibold">{levelLabel}</span>
@@ -178,8 +178,9 @@ export default function LessonView({
           onClick={onNext}
           aria-label={nextLabel ?? t('lessonView.nextAria')}
           className="
-            justify-self-end col-start-3
-            rounded-full px-5 h-12
+            justify-self-center sm:justify-self-end sm:col-start-3
+            w-full sm:w-auto max-w-[16rem]
+            rounded-full px-5 h-11 sm:h-12
             bg-[#33AA11] border-[3px] border-[#33AA11]
             flex items-center justify-center gap-2
             text-white font-black text-sm

@@ -33,7 +33,8 @@ function ResetPasswordContent() {
   const [showNewPw, setShowNewPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [rawError, setRawError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [tokenValid, setTokenValid] = useState(false);
   const [tokenChecking, setTokenChecking] = useState(true);
@@ -68,11 +69,11 @@ function ResetPasswordContent() {
         setTokenValid(true);
       } else {
         // If we get here, neither code nor token is present
-        setError('Invalid reset link. Please try requesting a new email.');
+        setErrorKey('resetPassword.invalidLink');
       }
     } catch (err: any) {
       console.error("[DEBUG] Verification error:", err.message);
-      setError('Your reset link has expired or been used already.');
+      setErrorKey('resetPassword.invalidLink');
     } finally {
       setTokenChecking(false);
     }
@@ -82,22 +83,23 @@ function ResetPasswordContent() {
 }, [searchParams]);
 
   async function handleResetPassword() {
-    setError(null);
+    setErrorKey(null);
+    setRawError(null);
     setSuccess(false);
 
     // Validation
     if (!newPassword.trim()) {
-      setError(t('resetPassword.newPasswordRequired'));
+      setErrorKey('resetPassword.newPasswordRequired');
       return;
     }
 
     if (newPassword.length < 6) {
-      setError(t('resetPassword.minPasswordLength'));
+      setErrorKey('resetPassword.minPasswordLength');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError(t('resetPassword.passwordsDoNotMatch'));
+      setErrorKey('resetPassword.passwordsDoNotMatch');
       return;
     }
 
@@ -112,7 +114,11 @@ function ResetPasswordContent() {
       setLoading(false);
 
       if (updateError) {
-        setError(updateError.message || t('resetPassword.updateFailed'));
+        if (updateError.message) {
+          setRawError(updateError.message);
+        } else {
+          setErrorKey('resetPassword.updateFailed');
+        }
         return;
       }
 
@@ -127,7 +133,7 @@ function ResetPasswordContent() {
       }, 3000);
     } catch (err) {
       setLoading(false);
-      setError(t('resetPassword.unexpectedError'));
+      setErrorKey('resetPassword.unexpectedError');
       console.error('Password reset error:', err);
     }
   }
@@ -165,7 +171,7 @@ function ResetPasswordContent() {
 
           {!tokenChecking && !tokenValid && (
             <div className="text-center py-8">
-              <p className="text-red-800 font-semibold mb-4">{error}</p>
+              <p className="text-red-800 font-semibold mb-4">{rawError ?? (errorKey ? t(errorKey) : '')}</p>
               <Link
                 href="/reset-password"
                 className="inline-block px-6 py-2 bg-[#2E8B2E] text-white font-bold rounded-full hover:bg-[#329932] transition-colors text-sm md:text-base"
@@ -190,9 +196,9 @@ function ResetPasswordContent() {
               )}
 
               {/* Error message */}
-              {error && !success && (
+              {(rawError || errorKey) && !success && (
                 <p className="text-red-800 text-sm font-semibold text-center mb-4 px-2">
-                  {error}
+                  {rawError ?? (errorKey ? t(errorKey) : '')}
                 </p>
               )}
 

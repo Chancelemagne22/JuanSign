@@ -285,15 +285,15 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       : `${t('module.showSignFor')} "${letter}"!`;
 
   return (
-    <div className="h-full min-h-0 overflow-hidden flex flex-col gap-3">
+    <div className="h-full min-h-0 overflow-hidden flex flex-col gap-2 sm:gap-3 min-w-0">
 
       {/* ── Camera box — responsive 2:1, centered horizontally ─────────────── */}
-      <div className="flex-1 min-h-0 flex items-center justify-center">
+      <div className="flex-1 min-h-0 flex items-center justify-center min-w-0">
       <div
-        className="relative w-full max-w-full rounded-[24px] border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A]"
+        className="relative w-full max-w-full rounded-[20px] sm:rounded-[24px] border-[4px] sm:border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A]"
         style={{
           aspectRatio: '6/3',
-          width: 'min(100%, calc((100vh - 390px) * 2))',
+          width: 'min(100%, 72rem, calc((100dvh - 26.25rem) * 2))',
         }}
       >
         {camError ? (
@@ -350,7 +350,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
         )}
 
         {/* ── Controls overlay (bottom-left inside the box) ───────────────── */}
-        <div className="absolute bottom-4 left-4 flex gap-2.5 z-10">
+        <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 flex flex-wrap gap-2 z-10 max-w-[calc(100%-1.5rem)] sm:max-w-none">
 
           {/* Record / Resume */}
           <ControlBtn
@@ -393,21 +393,23 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       </div>
 
       {/* ── Below box: mascot | speech bubble + star bar | buttons ─────────── */}
-      <div className="shrink-0 flex items-end gap-2 sm:gap-3 px-1">
+      <div className="shrink-0 flex flex-col sm:flex-row sm:items-end gap-2 sm:gap-3 px-1 min-w-0">
 
         {/* Left: mascot character */}
-        <MascotPlaceholder />
+        <div className="self-center sm:self-auto shrink-0">
+          <MascotPlaceholder />
+        </div>
 
         {/* Center: speech bubble stacked above star bar — same width, aligned */}
-        <div className="flex-1 min-w-0 flex flex-col gap-1.5 sm:gap-2 items-start">
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5 sm:gap-2 items-stretch sm:items-start">
 
           {/* Speech bubble (tail points bottom-left toward mascot) */}
-          <div className="self-start inline-flex w-fit max-w-[min(68vw,30rem)] sm:max-w-[min(62vw,34rem)] bg-[#F8F8F8] border border-[#D9D9D9] rounded-[20px] rounded-bl-[8px] px-4 sm:px-5 py-2.5 sm:py-3 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
-            <p className="text-[#2E7D1C] font-black text-[clamp(0.88rem,1.5vw,1.05rem)] leading-snug">{bubbleText}</p>
+          <div className="self-stretch sm:self-start inline-flex w-full sm:w-fit max-w-full sm:max-w-[min(58vw,30rem)] bg-[#F8F8F8] border border-[#D9D9D9] rounded-[18px] rounded-bl-[8px] px-3.5 sm:px-4 py-2 sm:py-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
+            <p className="text-[#2E7D1C] font-black text-[clamp(0.82rem,1.3vw,0.95rem)] leading-snug">{bubbleText}</p>
           </div>
 
           {/* Star progress bar */}
-          <div className="relative self-stretch w-full h-9 flex items-center">
+          <div className="relative self-stretch w-full h-8 flex items-center">
             {/* Track */}
             <div className="absolute inset-x-4 my-auto h-3 bg-[#E8C49A] rounded-full border-2 border-[#E8C49A]" />
             {/* Fill */}
@@ -426,7 +428,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
                 }}
               >
                 <span
-                  className={`text-3xl leading-none drop-shadow-sm ${
+                  className={`text-[1.6rem] leading-none drop-shadow-sm ${
                     progressPct >= pct ? 'text-yellow-400' : 'text-gray-300'
                   }`}
                 >
@@ -439,11 +441,12 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
         </div>
 
         {/* Right: Upload Video + Next buttons */}
-        <div className="-translate-y-1 flex flex-col items-center gap-2 flex-shrink-0">
+        <div className="w-full sm:w-auto sm:-translate-y-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2 flex-shrink-0">
           <button
             onClick={handleUploadPrediction}
             disabled={isUploading}
             className="
+              w-full sm:w-auto
               bg-[#E5E5E5] border-2 border-[#E5E5E5] text-[#2a7abf]
               font-black text-sm px-5 py-2 rounded-full shadow-[0_4px_0_#BEBEBE,0_6px_12px_rgba(0,0,0,0.18)]
               hover:bg-[#DCDCDC] transition-colors
@@ -456,6 +459,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
           <button
             onClick={onNext}
             className="
+              w-full sm:w-auto
               bg-[#33AA11] border-[3px] border-[#33AA11] text-white
               font-black text-sm px-5 py-2 rounded-full
               shadow-[0_4px_0_#165c00]

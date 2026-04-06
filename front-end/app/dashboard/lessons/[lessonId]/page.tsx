@@ -14,9 +14,9 @@ import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import LessonPanelView from '@/components/module/LessonPanelView';
+import LessonCompleteModal from '@/components/module/LessonCompleteModal';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
-import SettingsModal from '@/components/settings/SettingsModal';
-import { useSettings } from '@/hooks/useSettings';
+import { useSettings, useSettingsModal } from '@/hooks/useSettings';
 import { useLanguage } from '@/hooks/useLanguage';
 
 interface LetterUnit {
@@ -34,13 +34,14 @@ export default function LessonPage() {
   const router             = useRouter();
   const { lessonId }       = useParams<{ lessonId: string }>();
   const { t } = useLanguage();
-  const { settings, updateSetting } = useSettings();
+  const { settings } = useSettings();
+  const { openSettings } = useSettingsModal();
 
   const [letters,     setLetters]     = useState<LetterUnit[]>([]);
   const [levelMeta,   setLevelMeta]   = useState<LevelMeta | null>(null);
   const [letterIndex, setLetterIndex] = useState(0);
   const [loading,     setLoading]     = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -88,7 +89,14 @@ export default function LessonPage() {
     } else {
       // Last letter finished — mark lesson complete and unlock next level
       await completeLesson();
-      router.replace('/dashboard/lessons');
+      setShowCompleteModal(true);
+    }
+  }
+
+  async function handlePrevious() {
+    if (letterIndex > 0) {
+      // Go back to previous letter
+      setLetterIndex((i) => i - 1);
     }
   }
 
@@ -144,7 +152,8 @@ export default function LessonPage() {
   const isLast        = letterIndex === letters.length - 1;
 
   return (
-    <div className="h-screen overflow-hidden bg-white px-6 pt-5 pb-6 flex flex-col">
+    <>
+    <div className="min-h-dvh overflow-x-hidden overflow-y-auto xl:h-dvh xl:overflow-hidden bg-white px-4 sm:px-6 pt-4 sm:pt-5 pb-4 sm:pb-5 flex flex-col">
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-4 shrink-0">
@@ -179,7 +188,7 @@ export default function LessonPage() {
         </p>
 
         <button
-          onClick={() => setShowSettings(true)}
+          onClick={openSettings}
           className="flex items-center justify-center flex-shrink-0 transition-transform"
           style={{
             zIndex: 9999,
@@ -202,34 +211,26 @@ export default function LessonPage() {
         </button>
       </div>
 
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-        settings={settings}
-        updateSetting={updateSetting}
-      />
-
       {/* ── Page heading ─────────────────────────────────────────── */}
-      <div className="text-center mb-4 shrink-0">
+      <div className="text-center mb-2 shrink-0">
         <h1
-          className="font-black leading-tight text-[1.75rem] sm:text-[1.9rem]"
+          className="font-black leading-tight text-[2rem] sm:text-[2.35rem]"
           style={{
             fontFamily:       'var(--font-spicy-rice)',
             color:            '#2E7D1C',
-            WebkitTextStroke: '1px #1a4d10',
           }}
         >
           {t('lessonsPage.letsLearn')}
         </h1>
         {settings.showCaptions && (
-          <p className="text-[#4A2C0A] font-bold text-sm mt-1">
+          <p className="text-[#4A2C0A] font-bold text-base sm:text-lg mt-0.5">
             {t('lessonsPage.buildSkills')}
           </p>
         )}
       </div>
 
       {/* ── Lesson video and context panel — fills remaining height ─────────────────── */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-visible">
         <LessonPanelView
           letter={currentLetter.label}
           videoUrl={currentLetter.videoUrl}
@@ -239,14 +240,28 @@ export default function LessonPage() {
           currentIndex={letterIndex}
           totalLessons={letters.length}
           onNext={handleNext}
+          onPrevious={handlePrevious}
           autoplayNext={settings.autoplayLesson}
           playbackSpeed={settings.playbackSpeed}
           showCaptions={settings.showCaptions}
-          nextLabel={isLast ? `${t('module.finish')} ✓` : undefined}
+          nextLabel={isLast ? t('module.finish') : undefined}
         />
       </div>
 
     </div>
+    {showCompleteModal && levelMeta && (
+      <LessonCompleteModal
+        mode="lesson"
+        levelNumber={levelMeta.levelNum}
+        onReplay={() => {
+          setLetterIndex(0);
+          setShowCompleteModal(false);
+        }}
+        onNext={() => router.replace(`/dashboard/practice/${lessonId}`)}
+        onClose={() => router.replace('/dashboard/lessons')}
+      />
+    )}
+    </>
   );
 }
 
