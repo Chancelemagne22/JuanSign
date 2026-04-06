@@ -13,8 +13,8 @@ function VerifyEmailWaitContent() {
   const { t } = useLanguage();
   const [isResending, setIsResending] = useState(false);
   const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [messageKey, setMessageKey] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
   const [autoResendTriggered, setAutoResendTriggered] = useState(false);
 
   const email = useMemo(() => searchParams.get('email') ?? '', [searchParams]);
@@ -30,13 +30,13 @@ function VerifyEmailWaitContent() {
   }, [resendSecondsLeft]);
 
   async function handleResend(isAuto = false) {
-    setMessage(null);
-    setError(null);
+    setMessageKey(null);
+    setErrorKey(null);
 
     if (resendSecondsLeft > 0) return;
 
     if (!email) {
-      setError(t('verifyEmail.missingEmail'));
+      setErrorKey('verifyEmail.missingEmail');
       return;
     }
 
@@ -51,11 +51,11 @@ function VerifyEmailWaitContent() {
     setIsResending(false);
 
     if (resendError) {
-      setError(resendError.message || t('verifyEmail.resendFailed'));
+      setErrorKey('verifyEmail.resendFailed');
       return;
     }
 
-    setMessage(isAuto ? t('verifyEmail.sent') : t('verifyEmail.sent'));
+    setMessageKey(isAuto ? 'verifyEmail.sent' : 'verifyEmail.sent');
     setResendSecondsLeft(10);
   }
 
@@ -73,8 +73,8 @@ function VerifyEmailWaitContent() {
         onContinue={() => router.push('/')}
         isResendDisabled={isResending || resendSecondsLeft > 0}
         resendSecondsLeft={resendSecondsLeft}
-        feedbackMessage={message}
-        errorMessage={error}
+        feedbackMessage={messageKey ? t(messageKey) : null}
+        errorMessage={errorKey ? t(errorKey) : null}
       />
     </div>
   );

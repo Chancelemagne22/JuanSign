@@ -32,36 +32,38 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
   const [showNewPw, setShowNewPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [rawError, setRawError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   async function handleChangePassword() {
-    setError(null);
+    setErrorKey(null);
+    setRawError(null);
     setSuccess(false);
 
     // Validation
     if (!currentPassword.trim()) {
-      setError(t('settings.currentPasswordRequired'));
+      setErrorKey('settings.currentPasswordRequired');
       return;
     }
 
     if (!newPassword.trim()) {
-      setError(t('settings.newPasswordRequired'));
+      setErrorKey('settings.newPasswordRequired');
       return;
     }
 
     if (newPassword.length < 6) {
-      setError(t('settings.minPasswordLength'));
+      setErrorKey('settings.minPasswordLength');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError(t('settings.passwordsDoNotMatch'));
+      setErrorKey('settings.passwordsDoNotMatch');
       return;
     }
 
     if (currentPassword === newPassword) {
-      setError(t('settings.passwordMustDiffer'));
+      setErrorKey('settings.passwordMustDiffer');
       return;
     }
 
@@ -71,7 +73,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
       // First, verify the current password by attempting to sign in
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user?.email) {
-        setError(t('settings.verifyAccountFailed'));
+        setErrorKey('settings.verifyAccountFailed');
         setLoading(false);
         return;
       }
@@ -83,7 +85,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
       });
 
       if (verifyError) {
-        setError(t('settings.currentPasswordIncorrect'));
+        setErrorKey('settings.currentPasswordIncorrect');
         setLoading(false);
         return;
       }
@@ -96,7 +98,11 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
       setLoading(false);
 
       if (updateError) {
-        setError(updateError.message || t('settings.updatePasswordFailed'));
+        if (updateError.message) {
+          setRawError(updateError.message);
+        } else {
+          setErrorKey('settings.updatePasswordFailed');
+        }
         return;
       }
 
@@ -115,7 +121,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
       }
     } catch (err) {
       setLoading(false);
-      setError(t('settings.unexpectedError'));
+      setErrorKey('settings.unexpectedError');
       console.error('Password change error:', err);
     }
   }
@@ -123,7 +129,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
   return (
     /* ── Backdrop ──────────────────────────────────────────────── */
     <div
-      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4"
+      className="fixed inset-0 bg-black/60 z-[10020] flex items-center justify-center px-4"
       onClick={onClose}
     >
       {/* ── Card ───────────────────────── ────────────────────────── */}
@@ -177,9 +183,9 @@ export default function ChangePasswordModal({ onClose, onSuccess }: Props) {
           )}
 
           {/* Error message */}
-          {error && !success && (
+          {(rawError || errorKey) && !success && (
             <p className="text-red-800 text-xs font-semibold text-center mb-4 px-2">
-              {error}
+              {rawError ?? (errorKey ? t(errorKey) : '')}
             </p>
           )}
 

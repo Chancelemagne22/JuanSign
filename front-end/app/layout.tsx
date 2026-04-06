@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Baloo_2, Spicy_Rice, Fredoka } from "next/font/google";
 import { SessionRefreshProvider } from "@/components/SessionRefreshProvider";
+import SettingsModal from "@/components/settings/SettingsModal";
 import { LanguageProvider } from "@/context/LanguageContext";
+import { SettingsProvider } from "@/hooks/useSettings";
 import "../styles/globals.css";
 
 const baloo = Baloo_2({
@@ -40,7 +42,10 @@ export default function RootLayout({
       <body className={`${baloo.variable} ${spicyRice.variable} ${fredoka.variable} antialiased`}>
         <LanguageProvider>
           <SessionRefreshProvider>
-            {children}
+            <SettingsProvider>
+              {children}
+              <SettingsModal />
+            </SettingsProvider>
           </SessionRefreshProvider>
         </LanguageProvider>
       </body>

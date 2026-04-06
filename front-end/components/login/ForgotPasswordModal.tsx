@@ -15,22 +15,22 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
   const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   async function handleForgotPassword() {
-    setError(null);
+    setErrorKey(null);
     setSuccess(false);
 
     if (!email.trim()) {
-      setError(t('forgotPassword.emailRequired'));
+      setErrorKey('forgotPassword.emailRequired');
       return;
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
-      setError(t('forgotPassword.invalidEmail'));
+      setErrorKey('forgotPassword.invalidEmail');
       return;
     }
 
@@ -55,7 +55,7 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
       setTimeout(onBackToLogin, 4000);
     } catch (err) {
       setLoading(false);
-      setError(t('forgotPassword.unexpectedError'));
+      setErrorKey('forgotPassword.unexpectedError');
       console.error('Forgot password error:', err);
     }
   }
@@ -117,18 +117,18 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
           {success && (
             <div className="mb-5 p-4 rounded-lg bg-green-100 border border-green-400">
               <p className="text-green-800 text-sm font-semibold text-center mb-2">
-                ✓ Check your email
+                {`✓ ${t('forgotPassword.successTitle')}`}
               </p>
               <p className="text-green-700 text-xs text-center">
-                If this email exists in our system, you'll receive a password reset link. It will expire in 24 hours.
+                {t('forgotPassword.successMessage')}
               </p>
             </div>
           )}
 
           {/* Error message */}
-          {error && !success && (
+          {errorKey && !success && (
             <p className="text-red-800 text-xs font-semibold text-center mb-4 px-2">
-              {error}
+              {t(errorKey)}
             </p>
           )}
 
