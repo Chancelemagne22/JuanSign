@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
-
-function isAuthorized(request: NextRequest): boolean {
-  const cookie = request.cookies.get('admin_auth')?.value
-  const secret = process.env.ADMIN_AUTH_SECRET
-  return !!(cookie && secret && cookie === secret)
-}
+import { getAuthorizedAdmin } from '@/lib/adminAuth'
 
 type Mode = 'practice' | 'assessment'
 
@@ -18,7 +13,8 @@ const ASSESSMENT_COLS = 'question_id, question_type, question_text, video_url, o
 
 // GET /api/admin/questions?mode=practice&levelId=xxx
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  const adminUser = await getAuthorizedAdmin(request)
+  if (!adminUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -49,7 +45,8 @@ export async function GET(request: NextRequest) {
 
 // POST /api/admin/questions — insert new question
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  const adminUser = await getAuthorizedAdmin(request)
+  if (!adminUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -102,7 +99,8 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/admin/questions — update existing question
 export async function PUT(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  const adminUser = await getAuthorizedAdmin(request)
+  if (!adminUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -148,7 +146,8 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/admin/questions?mode=practice&id=xxx
 export async function DELETE(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  const adminUser = await getAuthorizedAdmin(request)
+  if (!adminUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
