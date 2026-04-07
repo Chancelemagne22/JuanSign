@@ -15,15 +15,15 @@ export default function InviteGenerator() {
     setError('')
 
     try {
-      const { data: authData } = await supabase.auth.getUser()
-      if (!authData.user?.session?.access_token) {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
         throw new Error('Not authenticated')
       }
 
       const response = await fetch('/api/admin/generate-invite', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${authData.user.session.access_token}`,
+          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
       })
