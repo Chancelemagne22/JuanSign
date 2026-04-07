@@ -60,9 +60,16 @@ export default function AdminSetupPage() {
         throw new Error('Password must be at least 6 characters')
       }
 
+      // Sign up via client (anon key) with admin role metadata
+      // This ensures the trigger sets role to 'admin' in profiles table
       const { data: authData, error: signupError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            role: 'admin',
+          },
+        },
       })
 
       if (signupError) {
@@ -73,6 +80,10 @@ export default function AdminSetupPage() {
         throw new Error('Failed to create user account')
       }
 
+      const userId = authData.user.id
+
+      // Complete admin setup with invite code
+      // Note: Authorization header not needed - RPC function validates everything server-side
       const response = await fetch('/api/admin/setup-admin', {
         method: 'POST',
         headers: {
@@ -80,7 +91,7 @@ export default function AdminSetupPage() {
         },
         body: JSON.stringify({
           inviteCode: code,
-          userId: authData.user.id,
+          userId,
         }),
       })
 
@@ -94,6 +105,7 @@ export default function AdminSetupPage() {
       setTimeout(() => {
         router.push('/admin')
       }, 2000)
+      
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
       setStep('error')
