@@ -277,7 +277,6 @@ export default function AdminReportsPage() {
 
     const levelTableEndY = (doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? 156
     const learnerStartY = levelTableEndY + 28
-
     autoTable(doc, {
       startY: learnerStartY,
       head: [['User Name', 'Current Level', 'Attempts', 'Latest Score', 'Status']],
