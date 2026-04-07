@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
+import { adminFetch } from '@/lib/adminFetch'
 import type { AdminUser } from '@/app/api/admin/users/route'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -105,7 +106,7 @@ function UserDetailView({ user, onUserDeleted }: { user: AdminUser; onUserDelete
   async function handleDeleteUser() {
     setIsDeleting(true)
     try {
-      const res = await fetch(`/api/admin/users?authUserId=${encodeURIComponent(user.authUserId)}`, {
+      const res = await adminFetch(`/api/admin/users?authUserId=${encodeURIComponent(user.authUserId)}`, {
         method: 'DELETE',
       })
       if (!res.ok) {
@@ -314,7 +315,7 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
 
   useEffect(() => {
-    fetch('/api/admin/users')
+    adminFetch('/api/admin/users')
       .then((r) => r.json())
       .then((d) => {
         if (d.error) throw new Error(d.error)

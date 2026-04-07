@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { createClient } from '@supabase/supabase-js'
-
-function isAuthorized(request: NextRequest): boolean {
-  const cookie = request.cookies.get('admin_auth')?.value
-  const secret = process.env.ADMIN_AUTH_SECRET
-  return !!(cookie && secret && cookie === secret)
-}
+import { getAuthorizedAdmin } from '@/lib/adminAuth'
 
 // Route handler - dispatch based on URL
 export async function GET(request: NextRequest) {
@@ -18,7 +13,8 @@ export async function GET(request: NextRequest) {
   }
 
   // Otherwise, handle as normal lessons GET
-  if (!isAuthorized(request)) {
+  const adminUser = await getAuthorizedAdmin(request)
+  if (!adminUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -97,7 +93,8 @@ async function handleListVideos() {
 
 // POST /api/admin/lessons — create lesson
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  const adminUser = await getAuthorizedAdmin(request)
+  if (!adminUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -125,7 +122,8 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/admin/lessons — update lesson
 export async function PUT(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  const adminUser = await getAuthorizedAdmin(request)
+  if (!adminUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -154,7 +152,8 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/admin/lessons?id=xxx
 export async function DELETE(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  const adminUser = await getAuthorizedAdmin(request)
+  if (!adminUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
