@@ -18,11 +18,11 @@ export async function getAuthorizedAdmin(request: NextRequest) {
   const token = authHeader.substring(7)
   const { data: user, error: authError } = await supabaseAdmin.auth.getUser(token)
 
-  if (authError || !user) {
+  if (authError || !user || !user.user) {
     return null
   }
 
-  const userId = user.user?.id || user.id
+  const userId = user.user.id
 
   if (!userId) {
     return null

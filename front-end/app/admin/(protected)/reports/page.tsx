@@ -323,7 +323,7 @@ export default function AdminReportsPage() {
     const pdfBlobUrl = doc.output('bloburl')
 
     const link = document.createElement('a')
-    link.href = pdfBlobUrl
+    link.href = pdfBlobUrl.toString()
     link.target = '_blank'
     link.rel = 'noopener,noreferrer'
     document.body.appendChild(link)
