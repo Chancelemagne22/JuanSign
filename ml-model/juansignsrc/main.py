@@ -69,24 +69,24 @@ image = (
 model_volume = modal.Volume.from_name("juansign-model-vol")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# CONSTANTS  — must match frame_extractor.py, fsl_dataset.py, architecture
+# CONSTANTS  — JuanSign V2.2 with ResNet50, 2-hand landmarks, relative normalization
 # ══════════════════════════════════════════════════════════════════════════════
 
 TARGET_FRAMES    = 32
 TARGET_SIZE      = 224
-HAND_PADDING     = 60
+HAND_PADDING     = 40       # Optimized zoom level for JuanSign V2.2
 FLOW_NORM_SCALE  = 30.0
 
-# Landmark dims
+# Landmark dims — two hands (21 points × 2 hands × 3 coords)
 NUM_LANDMARKS    = 21
-LANDMARK_FEATURE = NUM_LANDMARKS * 3      # 63
+LANDMARK_FEATURE = NUM_LANDMARKS * 2 * 3  # 126 (two hands)
 
-# Architecture dims
-RESNET_OUT       = 512
-LANDMARK_HIDDEN  = 64
+# Architecture dims — ResNet50 + 2-hand landmarks
+RESNET_OUT       = 2048    # ResNet50 output channels
+LANDMARK_HIDDEN  = 128     # Increased for 2-hand input
 LSTM_HIDDEN      = 256
 LSTM_LAYERS      = 2
-LSTM_TOTAL_OUT   = LSTM_HIDDEN * 2        # 512
+LSTM_TOTAL_OUT   = LSTM_HIDDEN * 2        # 512 (bidirectional)
 DROPOUT_P        = 0.5
 
 # ImageNet normalisation — must match all transform definitions
@@ -96,7 +96,7 @@ IMAGENET_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 # Sliding window inference
 WINDOW_STRIDE       = 8      # new window every 8 frames (~4 inferences / 32 frames)
 CONFIDENCE_THRESHOLD = 0.70  # only accept predictions above 70% confidence
-MODEL_PATH = "/model-weights/model/juansign_model.pth"
+MODEL_PATH = "/model-weights/model/juansign_model_v2_2.pth"
 HAND_MODEL = "/hand_landmarker.task"
 FACE_MODEL = "/face_detector.tflite"
 
@@ -105,17 +105,19 @@ FACE_MODEL = "/face_detector.tflite"
 # ══════════════════════════════════════════════════════════════════════════════
 
 class VisualEncoder(nn.Module):
-    """5-channel ResNet18 with weight inflation on Conv1."""
+    """5-channel ResNet50 with weight inflation on Conv1 for optical flow."""
 
     def __init__(self):
         super().__init__()
-        resnet   = models.resnet18(weights=None)     # no pretrained at inference
+        resnet = models.resnet50(weights=None)      # ResNet50 for JuanSign V2.2
         old_conv = resnet.conv1
 
+        # Inflate Conv1 to accept 5 channels (RGB + 2 flow channels)
         new_conv = nn.Conv2d(5, 64, kernel_size=7, stride=2, padding=3, bias=False)
         # Weights initialised to zeros — loaded from checkpoint
         resnet.conv1 = new_conv
 
+        # Remove final avg pool and FC layer; keep feature layers
         self.feature_extractor = nn.Sequential(*list(resnet.children())[:-2])
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
 
@@ -124,83 +126,87 @@ class VisualEncoder(nn.Module):
         x = x.view(B * T, C, H, W)
         x = self.feature_extractor(x)
         x = self.pool(x)
-        x = x.view(B * T, RESNET_OUT)
-        return x.view(B, T, RESNET_OUT)
+        x = x.view(B * T, RESNET_OUT)  # [B*T, 2048]
+        return x.view(B, T, RESNET_OUT)  # [B, T, 2048]
 
 
 class LandmarkEncoder(nn.Module):
-    """Per-frame MLP + temporal LSTM over hand landmark sequences."""
+    """Per-frame MLP + temporal LSTM over 2-hand landmark sequences (126-dim)."""
 
     def __init__(self):
         super().__init__()
+        # MLP: 126 (two hands) → 128 → LANDMARK_HIDDEN (128)
         self.mlp = nn.Sequential(
-            nn.Linear(LANDMARK_FEATURE, 128),
+            nn.Linear(LANDMARK_FEATURE, 128),     # 126 → 128
             nn.BatchNorm1d(128),
             nn.ReLU(inplace=True),
             nn.Dropout(p=0.2),
-            nn.Linear(128, LANDMARK_HIDDEN),
+            nn.Linear(128, LANDMARK_HIDDEN),      # 128 → 128
             nn.BatchNorm1d(LANDMARK_HIDDEN),
             nn.ReLU(inplace=True),
         )
         self.lstm = nn.LSTM(
-            input_size  = LANDMARK_HIDDEN,
-            hidden_size = LANDMARK_HIDDEN,
+            input_size  = LANDMARK_HIDDEN,        # 128
+            hidden_size = LANDMARK_HIDDEN,        # 128
             num_layers  = 1,
             batch_first = True,
         )
 
     def forward(self, landmarks):
         B, T, _ = landmarks.size()
-        lm = landmarks.view(B * T, LANDMARK_FEATURE)
+        lm = landmarks.view(B * T, LANDMARK_FEATURE)  # [B*T, 126]
         lm = self.mlp(lm)
-        lm = lm.view(B, T, LANDMARK_HIDDEN)
+        lm = lm.view(B, T, LANDMARK_HIDDEN)           # [B, T, 128]
         lm, _ = self.lstm(lm)
-        return lm
+        return lm  # [B, T, 128]
 
 
 class ResNetLSTM(nn.Module):
-    """Full enhanced JuanSign architecture."""
+    """Full JuanSign V2.2 architecture: ResNet50 + 2-hand landmarks + BiLSTM fusion."""
 
     def __init__(self, num_classes):
         super().__init__()
-        self.visual_encoder   = VisualEncoder()
-        self.landmark_encoder = LandmarkEncoder()
+        self.visual_encoder   = VisualEncoder()      # [B, T, 2048]
+        self.landmark_encoder = LandmarkEncoder()    # [B, T, 128]
 
-        fusion_size = RESNET_OUT + LANDMARK_HIDDEN   # 576
+        # Fusion: 2048 (ResNet50) + 128 (landmarks) = 2176
+        fusion_size = RESNET_OUT + LANDMARK_HIDDEN   # 2176
 
         self.bilstm = nn.LSTM(
-            input_size    = fusion_size,
-            hidden_size   = LSTM_HIDDEN,
+            input_size    = fusion_size,             # 2176
+            hidden_size   = LSTM_HIDDEN,             # 256
             num_layers    = LSTM_LAYERS,
             batch_first   = True,
-            bidirectional = True,
+            bidirectional = True,                    # 256 * 2 = 512 output
             dropout       = 0.3,
         )
         self.dropout = nn.Dropout(p=DROPOUT_P)
-        self.fc      = nn.Linear(LSTM_TOTAL_OUT, num_classes)
+        self.fc      = nn.Linear(LSTM_TOTAL_OUT, num_classes)  # 512 → num_classes
 
     def forward(self, frames, landmarks):
-        visual_feat   = self.visual_encoder(frames)
-        landmark_feat = self.landmark_encoder(landmarks)
-        fused         = torch.cat([visual_feat, landmark_feat], dim=2)
+        """Forward pass with ResNet50 + 2-hand landmarks + BiLSTM."""
+        visual_feat   = self.visual_encoder(frames)       # [B, T, 2048]
+        landmark_feat = self.landmark_encoder(landmarks)  # [B, T, 128]
+        fused         = torch.cat([visual_feat, landmark_feat], dim=2)  # [B, T, 2176]
         lstm_out, _   = self.bilstm(fused)
-        last_hidden   = lstm_out[:, -1, :]
+        last_hidden   = lstm_out[:, -1, :]                # [B, 512]
         out           = self.dropout(last_hidden)
-        return self.fc(out)
+        return self.fc(out)  # [B, num_classes]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# MEDIAPIPE HELPERS  (same logic as frame_extractor.py, inlined)
+# MEDIAPIPE HELPERS  (updated for 2-hand detection)
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _build_mediapipe():
+    """Build MediaPipe detectors: 2 hands + face for anonymization."""
     import mediapipe as mp
     from mediapipe.tasks import python as mp_python
     from mediapipe.tasks.python import vision as mp_vision
 
     hand_opts = mp_vision.HandLandmarkerOptions(
         base_options = mp_python.BaseOptions(model_asset_path=HAND_MODEL),
-        num_hands    = 1,
+        num_hands    = 2,  # JuanSign V2.2: detect both hands
         min_hand_detection_confidence = 0.3,
         min_hand_presence_confidence  = 0.3,
         min_tracking_confidence       = 0.3,
@@ -208,7 +214,7 @@ def _build_mediapipe():
     hand_detector = mp_vision.HandLandmarker.create_from_options(hand_opts)
 
     face_opts = mp_vision.FaceDetectorOptions(
-        base_options = mp_python.BaseOptions(model_asset_path=FACE_MODEL),  # ← fixed
+        base_options = mp_python.BaseOptions(model_asset_path=FACE_MODEL),
         min_detection_confidence = 0.4,
     )
     face_detector = mp_vision.FaceDetector.create_from_options(face_opts)
@@ -234,23 +240,64 @@ def _anonymize_face(frame_bgr, face_detector):
     return frame_bgr
 
 
+def _get_face_center(frame_bgr, face_detector):
+    """Extract face center as anchor for missing hands (frame-invariant)."""
+    import mediapipe as mp
+    h, w = frame_bgr.shape[:2]
+    rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+    
+    try:
+        result = face_detector.detect(
+            mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        )
+        if result.detections:
+            bb = result.detections[0].bounding_box
+            face_center_x = bb.origin_x + bb.width / 2
+            face_center_y = bb.origin_y + bb.height / 2
+            return np.array([face_center_x, face_center_y], dtype=np.float32)
+    except:
+        pass
+    
+    # Default: frame center if face not detected
+    return np.array([0.5, 0.5], dtype=np.float32)
+
+
 def _hand_crop(frame_bgr, hand_detector):
+    """Extract hand crops and landmarks for up to 2 hands.
+    
+    Returns:
+        crop: Cropped image or None if no hands detected
+        landmarks: [126] array with normalized landmarks for 2 hands (zeros if missing)
+    """
     import mediapipe as mp
     h, w = frame_bgr.shape[:2]
     rgb  = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+    
     result = hand_detector.detect(
         mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
     )
+    
     if not result.hand_landmarks:
         return None, np.zeros(LANDMARK_FEATURE, dtype=np.float32)
 
+    # Collect landmarks for up to 2 hands
     xs, ys, coords = [], [], []
-    for hand in result.hand_landmarks:
+    for hand_idx, hand in enumerate(result.hand_landmarks):
+        if hand_idx >= 2:  # Only take first 2 hands
+            break
         for lm in hand:
             xs.append(int(lm.x * w))
             ys.append(int(lm.y * h))
             coords.extend([lm.x, lm.y, lm.z])
+    
+    # Pad with zeros if only 1 hand detected (second hand = zeros)
+    while len(coords) < LANDMARK_FEATURE:
+        coords.append(0.0)
 
+    # Compute bounding box around all detected hands
+    if not xs or not ys:
+        return None, np.zeros(LANDMARK_FEATURE, dtype=np.float32)
+    
     x1 = max(0, min(xs) - HAND_PADDING)
     y1 = max(0, min(ys) - HAND_PADDING)
     x2 = min(w, max(xs) + HAND_PADDING)
@@ -273,6 +320,30 @@ def _sample_indices(total, n=TARGET_FRAMES):
     if total <= 0:  return [0] * n
     if total <= n:  return list(range(total)) + [total - 1] * (n - total)
     return np.linspace(0, total - 1, n, dtype=int).tolist()
+
+
+def _normalize_landmarks_relative(lm_tensor):
+    """Apply Relative Landmark Normalization for room-invariance.
+    
+    For each hand (0-62 and 63-125), subtract wrist (landmark 0) from all points.
+    This centers the hand at origin, making the model robust to hand position in frame.
+    
+    Args:
+        lm_tensor: [B, T, 126] landmark tensor
+    
+    Returns:
+        lm_normalized: [B, T, 126] with relative coordinates
+    """
+    lm = lm_tensor.clone()
+    # Hand 1: landmarks 0-62 (21 points × 3 coords)
+    wrist_1 = lm[:, :, 0:3]  # First hand wrist
+    lm[:, :, 0:63] = lm[:, :, 0:63] - wrist_1.unsqueeze(2).repeat(1, 1, 21, 1).reshape(lm.shape[0], lm.shape[1], 63)
+    
+    # Hand 2: landmarks 63-125 (21 points × 3 coords)
+    wrist_2 = lm[:, :, 63:66]  # Second hand wrist
+    lm[:, :, 63:126] = lm[:, :, 63:126] - wrist_2.unsqueeze(2).repeat(1, 1, 21, 1).reshape(lm.shape[0], lm.shape[1], 63)
+    
+    return lm
 
 
 def _compute_optical_flow(frames_bgr):
@@ -368,11 +439,16 @@ def _decode_base64_to_mp4(video_b64: str) -> str:
 
 def _extract_frames(video_path, face_detector, hand_detector):
     """
-    Extract TARGET_FRAMES from a video file.
-
+    Extract TARGET_FRAMES from a video file with robust hand detection.
+    
+    Implements 'Forward Fill' (Heal) logic:
+    - If a hand is missing: reuse last valid frame + landmarks
+    - If first frame missing: scan forward to find first valid one
+    - Use face center as anchor for completely missing hands
+    
     Returns:
         frames_tensor    : float32 tensor [1, T, 5, H, W]   (batch dim added)
-        landmarks_tensor : float32 tensor [1, T, 63]
+        landmarks_tensor : float32 tensor [1, T, 126] after relative normalization
         debug_info       : dict with hand detection stats
     """
     import time
@@ -384,37 +460,76 @@ def _extract_frames(video_path, face_detector, hand_detector):
     indices = _sample_indices(total)
     print(f"[_extract_frames] Video loaded: {total} total frames, sampling {len(indices)} frames")
 
+    # Pre-scan: find first valid hand frame for fallback
+    first_valid_frame = None
+    first_valid_lm = np.zeros(LANDMARK_FEATURE, dtype=np.float32)
+    for scan_idx in range(0, min(30, total)):  # Scan first 30 frames
+        cap.set(cv2.CAP_PROP_POS_FRAMES, scan_idx)
+        ret, scan_frame = cap.read()
+        if ret:
+            scan_frame = _anonymize_face(scan_frame, face_detector)
+            crop, lm = _hand_crop(scan_frame, hand_detector)
+            if crop is not None:
+                first_valid_frame = cv2.resize(crop, (TARGET_SIZE, TARGET_SIZE), interpolation=cv2.INTER_AREA)
+                first_valid_lm = lm
+                print(f"[_extract_frames] First valid hand found at frame {scan_idx}")
+                break
+    
     frames_bgr     = []
     landmarks_list = []
     hand_count     = 0
+    last_valid_frame = first_valid_frame
+    last_valid_lm = first_valid_lm
+    face_center = None  # Will be extracted on first frame
 
     for frame_idx in indices:
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
         ret, frame = cap.read()
 
         if not ret:
+            # Frame read failed: use last valid frame (forward fill)
             if frames_bgr:
                 frames_bgr.append(frames_bgr[-1].copy())
                 landmarks_list.append(landmarks_list[-1].copy())
             else:
-                frames_bgr.append(np.zeros((TARGET_SIZE, TARGET_SIZE, 3), dtype=np.uint8))
-                landmarks_list.append(np.zeros(LANDMARK_FEATURE, dtype=np.float32))
+                # Fallback on first frame failure
+                if first_valid_frame is not None:
+                    frames_bgr.append(first_valid_frame.copy())
+                    landmarks_list.append(first_valid_lm.copy())
+                else:
+                    frames_bgr.append(np.zeros((TARGET_SIZE, TARGET_SIZE, 3), dtype=np.uint8))
+                    landmarks_list.append(np.zeros(LANDMARK_FEATURE, dtype=np.float32))
             continue
 
         frame = _anonymize_face(frame, face_detector)
+        
+        # Extract face center for anchor (room-invariant)
+        if face_center is None:
+            face_center = _get_face_center(frame, face_detector)
+        
         cropped, lm = _hand_crop(frame, hand_detector)
 
         if cropped is not None:
+            # Hand(s) detected
             hand_count += 1
             frame_bgr = cv2.resize(cropped, (TARGET_SIZE, TARGET_SIZE), interpolation=cv2.INTER_AREA)
+            last_valid_frame = frame_bgr.copy()
+            last_valid_lm = lm.copy()
         else:
-            frame_bgr = cv2.resize(_center_crop(frame), (TARGET_SIZE, TARGET_SIZE), interpolation=cv2.INTER_AREA)
+            # No hand detected: use forward fill (last valid frame/landmarks)
+            if last_valid_frame is not None:
+                frame_bgr = last_valid_frame.copy()
+                lm = last_valid_lm.copy()
+            else:
+                # Ultimate fallback: center crop with face center anchor
+                frame_bgr = cv2.resize(_center_crop(frame), (TARGET_SIZE, TARGET_SIZE), interpolation=cv2.INTER_AREA)
+                lm = np.zeros(LANDMARK_FEATURE, dtype=np.float32)
 
         frames_bgr.append(frame_bgr)
         landmarks_list.append(lm)
 
     cap.release()
-    print(f"[_extract_frames] Extracted {len(frames_bgr)} frames, {hand_count} hands detected")
+    print(f"[_extract_frames] Extracted {len(frames_bgr)} frames, {hand_count} hands detected (forward fill applied)")
 
     # ── Build 5-channel frame tensor ─────────────────────────────────────────
     flow_array = _compute_optical_flow(frames_bgr)   # [T, 2, H, W]
@@ -437,18 +552,24 @@ def _extract_frames(video_path, face_detector, hand_detector):
     print(f"[_extract_frames] Frames tensor built: {frames_tensor.shape}")
 
     # ── Build landmark tensor ─────────────────────────────────────────────────
-    landmarks_np     = np.stack(landmarks_list, axis=0)                    # [T, 63]
-    landmarks_tensor = torch.from_numpy(landmarks_np).unsqueeze(0)         # [1, T, 63]
+    landmarks_np     = np.stack(landmarks_list, axis=0)                    # [T, 126]
+    landmarks_tensor = torch.from_numpy(landmarks_np).unsqueeze(0)         # [1, T, 126]
     print(f"[_extract_frames] Landmarks tensor built: {landmarks_tensor.shape}")
+    
+    # ── Apply Relative Landmark Normalization ────────────────────────────────
+    landmarks_tensor = _normalize_landmarks_relative(landmarks_tensor.float())  # [1, T, 126]
+    print(f"[_extract_frames] Relative landmark normalization applied")
 
     debug_info = {
         "total_frames"  : total,
         "hand_detected" : hand_count,
         "hand_ratio"    : round(hand_count / TARGET_FRAMES, 2),
+        "two_hand_model": True,  # JuanSign V2.2
+        "normalization" : "relative",
     }
     
     elapsed = time.time() - start_time
-    print(f"[_extract_frames] ✓ Complete in {elapsed:.2f}s. Hands: {hand_count}/{TARGET_FRAMES}")
+    print(f"[_extract_frames] ✓ Complete in {elapsed:.2f}s. Hands: {hand_count}/{TARGET_FRAMES} (forward fill applied)")
 
     return frames_tensor, landmarks_tensor, debug_info
 

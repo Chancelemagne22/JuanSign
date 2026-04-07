@@ -68,7 +68,7 @@ export default function AdminProtectedLayout({ children }: { children: React.Rea
             Hello, {loading ? 'Admin' : adminName}!
           </h1>
 
-          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white flex-shrink-0">
+          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shrink-0">
             <div
               className="w-full h-full flex items-center justify-center text-white font-bold text-lg"
               style={{ backgroundColor: '#B5621E', fontFamily: 'var(--font-fredoka)' }}

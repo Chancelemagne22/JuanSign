@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
+import { getAuthorizedAdmin } from '@/lib/adminAuth'
 
 async function getAuthorizedUser(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -10,11 +11,11 @@ async function getAuthorizedUser(request: NextRequest) {
   const token = authHeader.substring(7)
   const { data: user, error: authError } = await supabaseAdmin.auth.getUser(token)
 
-  if (authError || !user) {
+  if (authError || !user || !user.user) {
     return null
   }
 
-  const userId = user.user?.id || user.id
+  const userId = user.user.id
   
   if (!userId) {
     return null
