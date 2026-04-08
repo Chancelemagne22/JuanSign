@@ -20,6 +20,12 @@ export interface AssessmentQuestion {
   points: number
 }
 
+export interface AssessmentCompletionSummary {
+  scorePercent: number
+  starsEarned: number
+  isPassed: boolean
+}
+
 interface Props {
   levelNum: number
   levelLabel: string
@@ -27,7 +33,7 @@ interface Props {
   questions: AssessmentQuestion[]
   timerLabel?: string
   showTimer?: boolean
-  onFinish: () => void
+  onFinish: (summary: AssessmentCompletionSummary) => void
   confirmSubmit?: boolean
   reviewBeforeSubmit?: boolean
 }
@@ -47,12 +53,34 @@ export default function AssessmentView({
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showReviewPrompt, setShowReviewPrompt] = useState(false)
   const performAccuracyRef = useRef<number | null>(null)
+  const scoresRef = useRef<number[]>([])
 
   const current = questions[currentIndex]
 
+  function normalizeAccuracy(value: number): number {
+    if (!Number.isFinite(value)) return 0
+    const normalized = value > 1 ? value / 100 : value
+    return Math.max(0, Math.min(1, normalized))
+  }
+
+  function buildSummary(): AssessmentCompletionSummary {
+    const answersCount = scoresRef.current.length
+    const avg = answersCount > 0
+      ? scoresRef.current.reduce((sum, value) => sum + value, 0) / answersCount
+      : 0
+    const scorePercent = Math.round(avg * 100)
+    const starsEarned = scorePercent >= 80 ? 3 : scorePercent >= 60 ? 2 : scorePercent >= 40 ? 1 : 0
+
+    return {
+      scorePercent,
+      starsEarned,
+      isPassed: scorePercent >= 60,
+    }
+  }
+
   function finalizeSubmit() {
     if (confirmSubmit && !window.confirm(t('assessmentView.submitConfirm'))) return
-    onFinish()
+    onFinish(buildSummary())
   }
 
   function handleCompleteAssessment() {
@@ -64,6 +92,7 @@ export default function AssessmentView({
   }
 
   function handleNext(accuracy: number) {
+    scoresRef.current.push(normalizeAccuracy(accuracy))
     performAccuracyRef.current = null
     if (currentIndex < questions.length - 1) {
       setCurrentIndex((prev) => prev + 1)
