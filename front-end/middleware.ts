@@ -114,7 +114,7 @@ export async function middleware(request: NextRequest) {
       // Make sure user has a profile (is a student, not admin)
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id')
+        .select('profile_id')
         .eq('auth_user_id', user.id)
         .single()
 
