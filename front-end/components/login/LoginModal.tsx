@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import WoodArc from '@/public/images/svgs/arc.svg';
 import { supabase } from '@/lib/supabase';
+import { getOverallCompletionRate, getOverallStars } from '@/lib/lessonProgress';
 import { useLanguage } from '@/hooks/useLanguage';
 import type { UserData } from '@/types/user';
 
@@ -79,24 +80,16 @@ export default function LoginModal({
     const userId   = authUser.id;
 
     // Fetch real profile data — fall back to metadata if the query fails
-    const [profileResult, starsResult, progressResult] = await Promise.all([
+    const [profileResult, progressResult, completionRate, totalStars] = await Promise.all([
       supabase.from('profiles').select('username, avatar_url').eq('auth_user_id', userId).single(),
-      supabase.from('assessment_results').select('stars_earned').eq('auth_user_id', userId),
       supabase.from('user_progress').select('is_unlocked, lessons_completed').eq('auth_user_id', userId),
+      getOverallCompletionRate(userId),
+      getOverallStars(userId),
     ]);
 
     const profile     = profileResult.data;
-    const totalStars  = starsResult.data?.reduce((s, r) => s + (r.stars_earned ?? 0), 0) ?? 0;
     const unlocked    = progressResult.data?.filter((p) => p.is_unlocked).length ?? 0;
     const currentLevel = Math.max(unlocked, 1);
-
-    // Completion rate = unlocked levels / total levels * 100
-    const { count: totalLevels } = await supabase
-      .from('levels')
-      .select('level_id', { count: 'exact', head: true });
-    const completionRate = totalLevels
-      ? Math.round((unlocked / totalLevels) * 100)
-      : 0;
 
     
     onLogin({

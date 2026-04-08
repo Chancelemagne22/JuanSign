@@ -178,3 +178,124 @@ export async function resetLastPageIndex(
     return false;
   }
 }
+
+/**
+ * Get an overall completion rate based on completed lessons, practice, and assessments.
+ *
+ * The rate is calculated from the unique milestone counts:
+ * - Lesson completion per level
+ * - Practice completion per level
+ * - Passed assessments per level
+ *
+ * This keeps the profile modal in sync with the actual learning flow instead of
+ * relying on unlocked levels alone.
+ */
+export async function getOverallCompletionRate(userId: string): Promise<number> {
+  try {
+    const [levelsResult, progressResult, practiceResult, assessmentResult, practiceContentResult, assessmentContentResult] =
+      await Promise.all([
+        supabase.from('levels').select('level_id'),
+        supabase.from('user_progress').select('level_id, lessons_completed').eq('auth_user_id', userId),
+        supabase.from('practice_sessions').select('level_id').eq('auth_user_id', userId),
+        supabase.from('assessment_results').select('level_id, is_passed').eq('auth_user_id', userId),
+        supabase.from('practice_questions').select('level_id'),
+        supabase.from('assessment_questions').select('level_id'),
+      ]);
+
+    const totalLessons = levelsResult.data?.length ?? 0;
+    const totalPractices = new Set((practiceContentResult.data ?? []).map((row) => row.level_id)).size;
+    const totalAssessments = new Set((assessmentContentResult.data ?? []).map((row) => row.level_id)).size;
+
+    const completedLessons = new Set(
+      (progressResult.data ?? [])
+        .filter((row) => (row.lessons_completed ?? 0) > 0)
+        .map((row) => row.level_id)
+    ).size;
+
+    const completedPractices = new Set((practiceResult.data ?? []).map((row) => row.level_id)).size;
+    const completedAssessments = new Set(
+      (assessmentResult.data ?? [])
+        .filter((row) => row.is_passed)
+        .map((row) => row.level_id)
+    ).size;
+
+    const totalMilestones = totalLessons + totalPractices + totalAssessments;
+    const completedMilestones = completedLessons + completedPractices + completedAssessments;
+
+    return totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
+  } catch (error) {
+    console.warn('[lessonProgress] getOverallCompletionRate error:', error);
+    return 0;
+  }
+}
+
+function normalizeAccuracyPercent(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  const percent = value <= 1 ? value * 100 : value;
+  return Math.max(0, Math.min(100, percent));
+}
+
+function starsFromPercent(percent: number): number {
+  if (percent >= 80) return 3;
+  if (percent >= 60) return 2;
+  if (percent >= 40) return 1;
+  return 0;
+}
+
+/**
+ * Get total stars for profile display.
+ *
+ * Star sources:
+ * - Lessons: 1 star per level with at least one completed lesson.
+ * - Practice: best (max) derived stars per level from practice session accuracy.
+ * - Assessments: best (max) stars per level from assessment results.
+ */
+export async function getOverallStars(userId: string): Promise<number> {
+  try {
+    const [progressResult, practiceResult, assessmentResult] = await Promise.all([
+      supabase
+        .from('user_progress')
+        .select('level_id, lessons_completed')
+        .eq('auth_user_id', userId),
+      supabase
+        .from('practice_sessions')
+        .select('level_id, average_accuracy')
+        .eq('auth_user_id', userId),
+      supabase
+        .from('assessment_results')
+        .select('level_id, stars_earned, score')
+        .eq('auth_user_id', userId),
+    ]);
+
+    const lessonStars = new Set(
+      (progressResult.data ?? [])
+        .filter((row) => (row.lessons_completed ?? 0) > 0)
+        .map((row) => row.level_id)
+    ).size;
+
+    const practiceBestByLevel = new Map<string, number>();
+    for (const row of practiceResult.data ?? []) {
+      const nextStars = starsFromPercent(normalizeAccuracyPercent(row.average_accuracy ?? 0));
+      const prev = practiceBestByLevel.get(row.level_id) ?? 0;
+      if (nextStars > prev) practiceBestByLevel.set(row.level_id, nextStars);
+    }
+    const practiceStars = Array.from(practiceBestByLevel.values()).reduce((sum, value) => sum + value, 0);
+
+    const assessmentBestByLevel = new Map<string, number>();
+    for (const row of assessmentResult.data ?? []) {
+      const normalizedFromScore = starsFromPercent(normalizeAccuracyPercent(row.score ?? 0));
+      const directStars = Number.isFinite(row.stars_earned ?? NaN)
+        ? Math.max(0, Math.min(3, row.stars_earned ?? 0))
+        : normalizedFromScore;
+      const nextStars = Math.max(directStars, normalizedFromScore);
+      const prev = assessmentBestByLevel.get(row.level_id) ?? 0;
+      if (nextStars > prev) assessmentBestByLevel.set(row.level_id, nextStars);
+    }
+    const assessmentStars = Array.from(assessmentBestByLevel.values()).reduce((sum, value) => sum + value, 0);
+
+    return lessonStars + practiceStars + assessmentStars;
+  } catch (error) {
+    console.warn('[lessonProgress] getOverallStars error:', error);
+    return 0;
+  }
+}

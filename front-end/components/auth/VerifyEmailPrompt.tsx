@@ -36,7 +36,7 @@ export default function VerifyEmailPrompt({
       </div>
 
       {feedbackMessage && <p className="mt-4 text-green-800 text-sm font-semibold">{feedbackMessage}</p>}
-      {errorMessage && <p className="mt-4 text-red-800 text-sm font-semibold">{errorMessage}</p>}
+      {!feedbackMessage && errorMessage && <p className="mt-4 text-red-800 text-sm font-semibold">{errorMessage}</p>}
 
       <button
         type="button"
