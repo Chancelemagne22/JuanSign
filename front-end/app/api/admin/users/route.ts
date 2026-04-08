@@ -46,6 +46,7 @@ export interface AdminUser {
   avgAccuracy: number
   levelsCompleted: string
   avatarUrl: string | null
+  role: string
 }
 
 export async function GET(request: NextRequest) {
@@ -68,7 +69,8 @@ export async function GET(request: NextRequest) {
       supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
       supabaseAdmin
         .from('profiles')
-        .select('auth_user_id, username, first_name, last_name, avatar_url, is_active, last_seen')
+        .select('auth_user_id, username, first_name, last_name, avatar_url, is_active, last_seen, role')
+        .eq('role', 'student')
         .order('created_at', { ascending: false }),
       supabaseAdmin
         .from('user_progress')
@@ -166,6 +168,7 @@ export async function GET(request: NextRequest) {
         avgAccuracy,
         levelsCompleted,
         avatarUrl: profile.avatar_url ?? null,
+        role: profile.role,
       }
     })
 
