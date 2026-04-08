@@ -40,31 +40,6 @@ const CREAM_HOVER_LIGHT = 'var(--admin-cream-hover-light)'
 const TAN_LIGHT = 'var(--admin-tan-light)'
 const PAGE_SIZE = 20
 
-// ── Checkbox ───────────────────────────────────────────────────────────────────
-
-function Checkbox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
-  return (
-    <button
-      onClick={(e) => {
-        e.stopPropagation()
-        onChange()
-      }}
-      className="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
-      style={{
-        borderColor: checked ? MEDIUM_BROWN : GOLD,
-        backgroundColor: checked ? MEDIUM_BROWN : 'transparent',
-      }}
-      aria-label={checked ? 'Deselect' : 'Select'}
-    >
-      {checked && (
-        <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
-          <path d="M1 4L4 7L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      )}
-    </button>
-  )
-}
-
 // ── Sort icon ──────────────────────────────────────────────────────────────────
 
 function SortIcon({ active, asc }: { active: boolean; asc: boolean }) {
@@ -310,7 +285,6 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('displayId')
   const [sortAsc, setSortAsc] = useState(true)
-  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(1)
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
 
@@ -349,8 +323,6 @@ export default function AdminUsersPage() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-  const allOnPageSelected =
-    paginated.length > 0 && paginated.every((u) => selected.has(u.authUserId))
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc((v) => !v)
@@ -359,30 +331,6 @@ export default function AdminUsersPage() {
       setSortAsc(true)
     }
     setPage(1)
-  }
-
-  const toggleSelectAll = () => {
-    if (allOnPageSelected) {
-      setSelected((prev) => {
-        const next = new Set(prev)
-        paginated.forEach((u) => next.delete(u.authUserId))
-        return next
-      })
-    } else {
-      setSelected((prev) => {
-        const next = new Set(prev)
-        paginated.forEach((u) => next.add(u.authUserId))
-        return next
-      })
-    }
-  }
-
-  const toggleOne = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
   }
 
   const handleRowClick = (user: AdminUser) => {
@@ -446,13 +394,10 @@ export default function AdminUsersPage() {
               <div
                 className="grid px-4 sm:px-6 py-2.5 border-b"
                 style={{
-                  gridTemplateColumns: '40px 78px minmax(90px,0.95fr) minmax(150px,1.4fr) minmax(115px,1fr) 84px 88px',
+                  gridTemplateColumns: '78px minmax(90px,0.95fr) minmax(150px,1.4fr) minmax(115px,1fr) 84px 88px',
                   borderColor: DIVIDER,
                 }}
               >
-                <div className="flex items-center">
-                  <Checkbox checked={allOnPageSelected} onChange={toggleSelectAll} />
-                </div>
                 {COLUMNS.map((col) => (
                   <button
                     key={col.key}
@@ -483,7 +428,7 @@ export default function AdminUsersPage() {
                         onClick={() => handleRowClick(user)}
                         className="grid px-4 sm:px-6 py-2.5 border-t cursor-pointer transition-colors"
                         style={{
-                          gridTemplateColumns: '40px 78px minmax(90px,0.95fr) minmax(150px,1.4fr) minmax(115px,1fr) 84px 88px',
+                          gridTemplateColumns: '78px minmax(90px,0.95fr) minmax(150px,1.4fr) minmax(115px,1fr) 84px 88px',
                           borderColor: DIVIDER,
                           backgroundColor: isRowSelected ? CREAM_HOVER : 'transparent',
                         }}
@@ -496,12 +441,6 @@ export default function AdminUsersPage() {
                             (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'
                         }}
                       >
-                        <div className="flex items-center">
-                          <Checkbox
-                            checked={selected.has(user.authUserId)}
-                            onChange={() => toggleOne(user.authUserId)}
-                          />
-                        </div>
                         <span className="min-w-0" style={{ fontFamily: FONT, color: BROWN, fontSize: '0.82rem' }}>
                           {user.displayId}
                         </span>
