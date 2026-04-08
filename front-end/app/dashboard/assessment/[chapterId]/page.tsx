@@ -16,6 +16,7 @@ import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import AssessmentView from '@/components/module/AssessmentView';
 import type { AssessmentQuestion } from '@/components/module/AssessmentView';
+import type { AssessmentCompletionSummary } from '@/components/module/AssessmentView';
 import LessonCompleteModal from '@/components/module/LessonCompleteModal';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
 import { useSettings, useSettingsModal } from '@/hooks/useSettings';
@@ -39,6 +40,46 @@ export default function AssessmentChapterPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+
+  async function handleAssessmentFinish(summary: AssessmentCompletionSummary) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setShowCompleteModal(true);
+        return;
+      }
+
+      await supabase.from('assessment_results').insert({
+        auth_user_id: user.id,
+        level_id: chapterId,
+        score: summary.scorePercent,
+        stars_earned: summary.starsEarned,
+        time_taken_seconds: elapsedSeconds,
+        is_passed: summary.isPassed,
+      });
+
+      if (summary.isPassed) {
+        const { data: nextLevel } = await supabase
+          .from('levels')
+          .select('level_id')
+          .eq('previous_level_id', chapterId)
+          .single();
+
+        if (nextLevel) {
+          await supabase
+            .from('user_progress')
+            .upsert(
+              { auth_user_id: user.id, level_id: nextLevel.level_id, is_unlocked: true },
+              { onConflict: 'auth_user_id,level_id' },
+            );
+        }
+      }
+    } catch (error) {
+      console.error('[assessment chapter] failed to persist assessment result:', error);
+    } finally {
+      setShowCompleteModal(true);
+    }
+  }
 
   useEffect(() => {
     if (!settings.showTimer) return;
@@ -209,7 +250,7 @@ export default function AssessmentChapterPage() {
           timerLabel={timerLabel}
           confirmSubmit={settings.confirmSubmit}
           reviewBeforeSubmit={settings.reviewBeforeSubmit}
-          onFinish={() => setShowCompleteModal(true)}
+          onFinish={handleAssessmentFinish}
         />
       </div>
 
@@ -221,8 +262,8 @@ export default function AssessmentChapterPage() {
             setShowCompleteModal(false);
             router.refresh();
           }}
-          onClose={() => router.replace('/dashboard/assessment')}
-          onNext={() => router.replace('/dashboard')}
+          onClose={() => router.replace('/dashboard/lessons')}
+          onNext={() => router.replace('/dashboard/lessons')}
         />
       )}
 

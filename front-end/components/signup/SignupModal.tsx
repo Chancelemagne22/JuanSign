@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import WoodArc from '@/public/images/svgs/arc.svg';
 import { supabase } from '@/lib/supabase';
+import { logSupabaseHealthCheck } from '@/lib/supabaseHealthCheck';
+import { retryWithBackoff } from '@/lib/retryUtils';
+import VerifyEmailPrompt from '@/components/auth/VerifyEmailPrompt';
 import { useLanguage } from '@/hooks/useLanguage';
 import type { UserData } from '@/types/user';
 
@@ -39,7 +41,6 @@ interface Props {
 }
 
 export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props) {
-  const router = useRouter();
   const { t } = useLanguage();
   const [firstName,   setFirstName]   = useState('');
   const [lastName,    setLastName]    = useState('');
@@ -52,10 +53,73 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
   const [photo,       setPhoto]       = useState<File | null>(null);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
-  // Tracks post-signup state separately so the user sees what happened
-  const [signupDone,  setSignupDone]  = useState(false);
-  const [avatarWarn,  setAvatarWarn]  = useState<string | null>(null);
+  const [showVerifyPrompt, setShowVerifyPrompt] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [resendError, setResendError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Run health check on mount to diagnose connectivity issues
+  useEffect(() => {
+    logSupabaseHealthCheck().catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (resendSecondsLeft <= 0) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setResendSecondsLeft((prev) => prev - 1);
+    }, 1000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [resendSecondsLeft]);
+
+  async function handleResendVerificationEmail() {
+    if (isResending || resendSecondsLeft > 0) return;
+
+    setResendMessage(null);
+    setResendError(null);
+
+    if (!email.trim()) {
+      setResendError(t('verifyEmail.missingEmail'));
+      return;
+    }
+
+    setIsResending(true);
+
+    const { error: resendRequestError } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+      options: {
+        emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/confirm?next=/`,
+      },
+    });
+
+    setIsResending(false);
+
+    if (resendRequestError) {
+      const resendMessageLower = (resendRequestError.message ?? '').toLowerCase();
+      const isRateLimitedButLikelySent =
+        resendMessageLower.includes('rate limit') ||
+        resendMessageLower.includes('too many') ||
+        resendMessageLower.includes('security purposes') ||
+        resendMessageLower.includes('already');
+
+      if (isRateLimitedButLikelySent) {
+        // Supabase can reject repeated resend requests while a recent email was already sent.
+        setResendMessage(t('verifyEmail.sent'));
+        setResendSecondsLeft(30);
+        return;
+      }
+
+      setResendError(t('verifyEmail.resendFailed'));
+      return;
+    }
+
+    setResendMessage(t('verifyEmail.sent'));
+    setResendSecondsLeft(10);
+  }
 
   async function handleSignup() {
     setError(null);
@@ -71,88 +135,135 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
 
     setLoading(true);
 
-    // 1. Create the auth user — pass all profile fields as metadata so the
-    //    trigger (if updated) can pick them up immediately.
-    const { data: authData, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/confirm?next=/`,
-        data: {
-          username:   username.trim(),
-          first_name: firstName.trim(),
-          last_name:  lastName.trim(),
-        },
-      },
-    });
+    try {
+      // 1. Create the auth user — pass all profile fields as metadata
+      console.log('[Signup] Starting signup process with email:', email);
+      console.log('[Signup] Supabase config - URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+      
+      // Use retry with backoff to handle transient network failures
+      const { data: authData, error: signUpError } = await retryWithBackoff(
+        () => supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/confirm?next=/`,
+            data: {
+              username:   username.trim(),
+              first_name: firstName.trim(),
+              last_name:  lastName.trim(),
+            },
+          },
+        }),
+        {
+          maxAttempts: 3,
+          initialDelayMs: 1000,
+          maxDelayMs: 5000,
+          backoffMultiplier: 2,
+        }
+      );
 
-    if (signUpError) {
+      if (signUpError) {
+        console.error('[Signup] Error during signup:', signUpError);
+        
+        // Provide more detailed error messages
+        let errorMessage = signUpError.message;
+        if (errorMessage.includes('fetch') || errorMessage.includes('Failed to fetch')) {
+          errorMessage = 'Network error: Unable to reach authentication service. Please check your internet connection and try again.';
+          console.error('[Signup] Network connectivity issue detected');
+        }
+        
+        setLoading(false);
+        setError(errorMessage);
+        return;
+      }
+
+      console.log('[Signup] Signup successful, user ID:', authData.user?.id);
+
+      const userId = authData.user?.id;
+      const session = authData.session;   // null when email confirmation is required
+
+      // 2. Upload avatar + update profile via server-side API route (uses service
+      //    role key) so it works even when session is null (email confirmation on).
+      let avatarUrl: string | null = null;
+      let localAvatarWarn: string | null = null;
+
+      if (userId) {
+        const fd = new FormData();
+        fd.append('userId',    userId);
+        fd.append('username',  username.trim());
+        fd.append('firstName', firstName.trim());
+        fd.append('lastName',  lastName.trim());
+        if (photo) fd.append('photo', photo);
+
+        const res = await fetch('/api/post-signup', { method: 'POST', body: fd });
+        if (res.ok) {
+          const data = await res.json();
+          avatarUrl = data.avatarUrl ?? null;
+        } else {
+          localAvatarWarn = t('signup.profileSaveFailed');
+        }
+      }
+
       setLoading(false);
-      setError(signUpError.message);
-      return;
-    }
 
-    const userId  = authData.user?.id;
-    const session = authData.session;   // null when email confirmation is required
+      // Email confirmation is ON — session is null until the user clicks the link.
+      // Keep the user on the welcome page and show the verify modal in-place.
+      if (!session) {
+        setResendError(null);
+        setResendMessage(null);
+        setResendSecondsLeft(0);
+        setShowVerifyPrompt(true);
+        return;
+      }
 
-    // 2. Upload avatar + update profile via server-side API route (uses service
-    //    role key) so it works even when session is null (email confirmation on).
-    let avatarUrl: string | null = null;
-    let localAvatarWarn: string | null = null;
+      const userData: UserData = {
+        username:       username.trim(),
+        password:       '',
+        photoUrl:       avatarUrl,
+        stars:          0,
+        level:          1,
+        completionRate: 0,
+      };
 
-    if (userId) {
-      const fd = new FormData();
-      fd.append('userId',    userId);
-      fd.append('username',  username.trim());
-      fd.append('firstName', firstName.trim());
-      fd.append('lastName',  lastName.trim());
-      if (photo) fd.append('photo', photo);
-
-      const res = await fetch('/api/post-signup', { method: 'POST', body: fd });
-      if (res.ok) {
-        const data = await res.json();
-        avatarUrl = data.avatarUrl ?? null;
+      if (onSuccess) {
+        // Hand control to the parent — it will show UserProfileModal.
+        // Avatar warning (if any) will be visible as a missing photo in the profile.
+        onSuccess(userData);
       } else {
-        localAvatarWarn = t('signup.profileSaveFailed');
+        onClose();
+      }
+    } catch (err) {
+      console.error('[Signup] Unexpected error during signup:', err);
+      setLoading(false);
+      
+      const errorMsg = err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.';
+      if (errorMsg.includes('fetch') || errorMsg.includes('Failed to fetch')) {
+        setError('Network error: Unable to reach authentication service. Please check your internet connection and try again.');
+      } else {
+        setError(errorMsg);
       }
     }
+  }
 
-    setLoading(false);
-
-    // Email confirmation is ON — session is null until the user clicks the link.
-    // Send users directly to the verify-email prompt flow.
-    if (!session) {
-      await supabase.auth.resend({
-        type: 'signup',
-        email: email.trim(),
-        options: {
-          emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/confirm?next=/`,
-        },
-      }).catch(() => {});
-
-      router.push(`/verify-email-wait?email=${encodeURIComponent(email.trim())}`);
-      return;
-    }
-
-    const userData: UserData = {
-      username:       username.trim(),
-      password:       '',
-      photoUrl:       avatarUrl,
-      stars:          0,
-      level:          1,
-      completionRate: 0,
-    };
-
-    if (onSuccess) {
-      // Hand control to the parent — it will show UserProfileModal.
-      // Avatar warning (if any) will be visible as a missing photo in the profile.
-      onSuccess(userData);
-    } else if (localAvatarWarn) {
-      setAvatarWarn(localAvatarWarn);
-      setSignupDone(true);
-    } else {
-      onClose();
-    }
+  if (showVerifyPrompt) {
+    return (
+      <div
+        className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4"
+        onClick={onClose}
+      >
+        <div onClick={(e) => e.stopPropagation()}>
+          <VerifyEmailPrompt
+            email={email.trim()}
+            onResend={handleResendVerificationEmail}
+            onContinue={onClose}
+            isResendDisabled={isResending || resendSecondsLeft > 0}
+            resendSecondsLeft={resendSecondsLeft}
+            feedbackMessage={resendMessage}
+            errorMessage={resendError}
+          />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -202,41 +313,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
           </div>
         </div>
 
-        {/* ── Post-signup result screen ────────────────────────── */}
-        {signupDone && (
-          <div className="relative z-10 flex flex-col items-center justify-start text-center px-6 py-8 mt-[40px]">
-            <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center shadow-lg mb-4">
-              <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <p className="text-[#5D3A1A] font-bold text-[21px] leading-tight mb-3">{t('signup.accountCreated')}</p>
-            <p
-              className="text-[#7B3F00] font-semibold text-[14px] leading-[1.5] w-full max-w-[260px] mx-auto px-1"
-              style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
-            >
-              {t('signup.accountCreatedBody')} <span className="font-black">{email}</span>.
-              {' '}{t('signup.accountCreatedBody2')}
-            </p>
-            {avatarWarn && (
-              <div className="mt-3 bg-amber-100 border border-amber-100 rounded-2xl px-4 py-3 w-full max-w-[80%]">
-                <p className="text-amber-800 font-semibold text-xs leading-snug">{avatarWarn}</p>
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                router.push(`/verify-email-wait?email=${encodeURIComponent(email.trim())}`);
-              }}
-              className="mt-8 w-[200px] bg-[#2E8B2E] hover:bg-[#329932] text-white font-black uppercase tracking-widest text-base py-3 rounded-full shadow-[0_6px_0_#1a5c1a] active:shadow-[0_2px_0_#1a5c1a] active:translate-y-1 transition-all"
-            >
-              {t('signup.continue')}
-            </button>
-          </div>
-        )}
-
         {/* ── Form body ────────────────────────────────────────── */}
-        {!signupDone && (
         <div className="relative z-10 pt-15 pb-7 px-20 flex flex-col gap-3 max-w-[460px] mx-auto w-full">
 
           {/* First Name + Last Name — Grid layout for visual grouping */}
@@ -398,7 +475,6 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
           </div>
 
         </div>
-        )}
       </div>
 
       {/* ── Below-card login link ─────────────────────────────────── */}

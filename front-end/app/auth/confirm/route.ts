@@ -5,25 +5,32 @@ import type { EmailOtpType } from '@supabase/supabase-js';
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const tokenHash = requestUrl.searchParams.get('token_hash');
+  const code = requestUrl.searchParams.get('code');
   const type = requestUrl.searchParams.get('type') as EmailOtpType | null;
   const next = requestUrl.searchParams.get('next') || '/';
   const redirectBase = new URL(next, requestUrl.origin);
-
-  if (!tokenHash || !type) {
-    redirectBase.searchParams.set('verified', '0');
-    return NextResponse.redirect(redirectBase);
-  }
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  const { error } = await supabase.auth.verifyOtp({
-    token_hash: tokenHash,
-    type,
-  });
+  // Support both confirmation styles from Supabase links:
+  // 1) token_hash + type (verifyOtp)
+  // 2) code (exchangeCodeForSession)
+  let verified = false;
 
-  redirectBase.searchParams.set('verified', error ? '0' : '1');
+  if (tokenHash && type) {
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type,
+    });
+    verified = !error;
+  } else if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    verified = !error;
+  }
+
+  redirectBase.searchParams.set('verified', verified ? '1' : '0');
   return NextResponse.redirect(redirectBase);
 }

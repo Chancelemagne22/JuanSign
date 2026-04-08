@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import WoodArc from '@/public/images/svgs/arc.svg';
 import { supabase } from '@/lib/supabase';
+import { getOverallCompletionRate, getOverallStars } from '@/lib/lessonProgress';
 import { useLanguage } from '@/hooks/useLanguage';
 import type { UserData } from '@/types/user';
 
@@ -38,11 +39,31 @@ export default function UserProfileModal({ user, onContinue, onClose }: Props) {
   const { t } = useLanguage();
   const [username,    setUsername]    = useState(user.username);
   const [newPassword, setNewPassword] = useState('');
+  const [stars, setStars] = useState(user.stars);
+  const [completionRate, setCompletionRate] = useState(user.completionRate);
   const [editingUser, setEditingUser] = useState(false);
   const [editingPw,   setEditingPw]   = useState(false);
   const [saving,      setSaving]      = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
+    async function refreshCompletionRate() {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      const [latestCompletionRate, latestStars] = await Promise.all([
+        getOverallCompletionRate(authUser.id),
+        getOverallStars(authUser.id),
+      ]);
+      if (isMounted) {
+        setCompletionRate(latestCompletionRate);
+        setStars(latestStars);
+      }
+    }
+
+    void refreshCompletionRate();
+
     function blockEscapeClose(e: KeyboardEvent) {
       if (e.key !== 'Escape') return;
       e.preventDefault();
@@ -50,7 +71,10 @@ export default function UserProfileModal({ user, onContinue, onClose }: Props) {
     }
 
     window.addEventListener('keydown', blockEscapeClose, true);
-    return () => window.removeEventListener('keydown', blockEscapeClose, true);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('keydown', blockEscapeClose, true);
+    };
   }, []);
 
   async function saveUsername() {
@@ -203,11 +227,11 @@ export default function UserProfileModal({ user, onContinue, onClose }: Props) {
               {t('profile.starObtained')}:{' '}
               <span className="inline-flex items-center gap-1">
                 <span>⭐</span>
-                <span className="text-[#E8A020]">{user.stars}</span>
+                <span className="text-[#5D3A1A]">{stars}</span>
               </span>
             </p>
             <p>{t('profile.currentLevel')}:&nbsp;&nbsp; {t('profile.levelLabel')} {user.level}</p>
-            <p>{t('profile.completionRate')}:&nbsp; {user.completionRate}%</p>
+            <p>{t('profile.completionRate')}:&nbsp; {completionRate}%</p>
           </div>
 
           {/* CONTINUE button */}
