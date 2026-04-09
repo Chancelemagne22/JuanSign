@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('')
@@ -28,6 +29,13 @@ export default function AdminLoginPage() {
         const data = await res.json()
         setError(data.error ?? 'Invalid credentials.')
       } else {
+        const data = await res.json()
+        
+        // Set the session in the client-side Supabase instance
+        if (data.session) {
+          await supabase.auth.setSession(data.session)
+        }
+        
         router.push('/admin')
       }
     } catch {

@@ -220,6 +220,11 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       }
       const result: PredictionResult = await res.json();
 
+      // Validate the response contains required fields
+      if (!result || typeof result !== 'object' || !('is_correct' in result)) {
+        throw new Error('Invalid response from Modal: missing required fields');
+      }
+
       // 4. Show result + notify parent
       setPredictionResult(result);
       setFeedback(

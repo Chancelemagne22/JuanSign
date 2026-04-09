@@ -139,7 +139,7 @@ function ResetPasswordContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#2E7D1C] to-[#1a4d10] flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4 py-8">
       <div className="w-full modal-responsive">
         
         {/* Header */}
@@ -148,14 +148,14 @@ function ResetPasswordContent() {
             className="heading-lg"
             style={{
               fontFamily: 'var(--font-spicy-rice)',
-              color: '#2E7D1C',
-              WebkitTextStroke: '1px #1a4d10',
-              textShadow: '1px 1px 0 #1a4d10',
+              color: '#0077F8',
+              WebkitTextStroke: '1px #152978',
+              textShadow: '1px 1px 0 #152978',
             }}
           >
             {t('resetPassword.title')}
           </h1>
-          <p className="text-[#F5C47A] font-semibold text-sm md:text-base">
+          <p className="text-[#333333] font-semibold text-sm md:text-base">
             {t('resetPassword.subtitle')}
           </p>
         </div>

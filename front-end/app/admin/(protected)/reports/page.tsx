@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { adminFetch } from '@/lib/adminFetch'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { ReportData, LevelPerformanceRow, LearnerPerformanceRow } from '@/app/api/admin/reports/route'
@@ -154,7 +155,7 @@ export default function AdminReportsPage() {
 
   // Load levels for selector
   useEffect(() => {
-    fetch('/api/admin/levels-list')
+    adminFetch('/api/admin/levels-list')
       .then((r) => r.json())
       .then((d) => setLevels(d.levels ?? []))
   }, [])
@@ -166,7 +167,7 @@ export default function AdminReportsPage() {
       dateRange: filters.dateRange,
       status: filters.status,
     })
-    fetch(`/api/admin/reports?${params}`)
+    adminFetch(`/api/admin/reports?${params}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.error) throw new Error(d.error)
@@ -277,7 +278,6 @@ export default function AdminReportsPage() {
 
     const levelTableEndY = (doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? 156
     const learnerStartY = levelTableEndY + 28
-
     autoTable(doc, {
       startY: learnerStartY,
       head: [['User Name', 'Current Level', 'Attempts', 'Latest Score', 'Status']],
@@ -323,7 +323,7 @@ export default function AdminReportsPage() {
     const pdfBlobUrl = doc.output('bloburl')
 
     const link = document.createElement('a')
-    link.href = pdfBlobUrl
+    link.href = pdfBlobUrl.toString()
     link.target = '_blank'
     link.rel = 'noopener,noreferrer'
     document.body.appendChild(link)

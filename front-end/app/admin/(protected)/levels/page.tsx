@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { adminFetch } from '@/lib/adminFetch'
 import { VideoSelect } from '@/components/VideoSelect'
 import { listLessonVideos, getLessonVideoUrl } from '@/lib/storage'
 
@@ -502,7 +503,7 @@ function NewLevelModal({ onCreated, onClose }: { onCreated: (level: Level) => vo
     setSaving(true)
     setError('')
     try {
-      const res = await fetch('/api/admin/levels', {
+      const res = await adminFetch('/api/admin/levels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ level_name: name, sequence_order: order, passing_score: passingScore }),
@@ -605,7 +606,7 @@ export default function AdminLevelsPage() {
 
   // Load levels
   useEffect(() => {
-    fetch('/api/admin/levels-list')
+    adminFetch('/api/admin/levels-list')
       .then(r => r.json())
       .then(d => {
         const lvls: Level[] = d.levels ?? []
@@ -620,7 +621,7 @@ export default function AdminLevelsPage() {
     setLoadingLessons(true)
     setSelectedLessonIdx(null)
     setAddingLesson(false)
-    fetch(`/api/admin/lessons?levelId=${selectedLevelId}`)
+    adminFetch(`/api/admin/lessons?levelId=${selectedLevelId}`)
       .then(r => r.json())
       .then(d => setLessons(d.lessons ?? []))
       .finally(() => setLoadingLessons(false))
@@ -632,7 +633,7 @@ export default function AdminLevelsPage() {
     setLoadingQuestions(true)
     setSelectedQIdx(null)
     setAddingQuestion(false)
-    fetch(`/api/admin/questions?mode=${activeTab}&levelId=${selectedLevelId}`)
+    adminFetch(`/api/admin/questions?mode=${activeTab}&levelId=${selectedLevelId}`)
       .then(r => r.json())
       .then(d => setQuestions((d.questions ?? []).map((q: Partial<Question>) => normalizeQuestion(q))))
       .finally(() => setLoadingQuestions(false))
@@ -645,7 +646,7 @@ export default function AdminLevelsPage() {
 
   const handleSaveLesson = async (form: Omit<Lesson, 'lesson_id'> & { lesson_id?: string }) => {
     if (form.lesson_id) {
-      const res = await fetch('/api/admin/lessons', {
+      const res = await adminFetch('/api/admin/lessons', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: form.lesson_id, ...form }),
@@ -655,7 +656,7 @@ export default function AdminLevelsPage() {
       setLessons(prev => prev.map(l => l.lesson_id === form.lesson_id ? { ...l, ...form } as Lesson : l))
       showToast('Lesson updated.', true)
     } else {
-      const res = await fetch('/api/admin/lessons', {
+      const res = await adminFetch('/api/admin/lessons', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ levelId: selectedLevelId, ...form }),
@@ -671,7 +672,7 @@ export default function AdminLevelsPage() {
 
   const handleDeleteLesson = async (id: string) => {
     if (!window.confirm('Delete this lesson? This cannot be undone.')) return
-    const res = await fetch(`/api/admin/lessons?id=${id}`, { method: 'DELETE' })
+    const res = await adminFetch(`/api/admin/lessons?id=${id}`, { method: 'DELETE' })
     if (!res.ok) { showToast('Failed to delete lesson.', false); return }
     setLessons(prev => prev.filter(l => l.lesson_id !== id))
     setSelectedLessonIdx(null)
@@ -683,7 +684,7 @@ export default function AdminLevelsPage() {
   const handleSaveQuestion = async (form: Omit<Question, 'question_id'> & { question_id?: string }) => {
     const mode = activeTab as 'practice' | 'assessment'
     if (form.question_id) {
-      const res = await fetch('/api/admin/questions', {
+      const res = await adminFetch('/api/admin/questions', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode, id: form.question_id, ...form }),
@@ -709,7 +710,7 @@ export default function AdminLevelsPage() {
 
   const handleDeleteQuestion = async (id: string) => {
     if (!window.confirm('Delete this question? This cannot be undone.')) return
-    const res = await fetch(`/api/admin/questions?mode=${activeTab}&id=${id}`, { method: 'DELETE' })
+    const res = await adminFetch(`/api/admin/questions?mode=${activeTab}&id=${id}`, { method: 'DELETE' })
     if (!res.ok) { showToast('Failed to delete question.', false); return }
     setQuestions(prev => prev.filter(q => q.question_id !== id))
     setSelectedQIdx(null)

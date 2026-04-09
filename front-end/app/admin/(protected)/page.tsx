@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -184,16 +185,36 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/admin/stats').then((r) => r.json()),
-      fetch('/api/admin/dashboard').then((r) => r.json()),
-    ])
-      .then(([s, d]) => {
-        if (s.error) throw new Error(s.error)
-        setStats(s)
-        setDashboardData(d)
-      })
-      .catch((err) => setError(err.message))
+    const fetchData = async () => {
+      try {
+        const { data: session, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError || !session?.session?.access_token) {
+          setError('Unauthorized')
+          return
+        }
+
+        const token = session.session.access_token
+
+        const [statsRes, dashboardRes] = await Promise.all([
+          fetch('/api/admin/stats', { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch('/api/admin/dashboard', { headers: { 'Authorization': `Bearer ${token}` } }),
+        ])
+
+        const statsData = await statsRes.json()
+        const dashboardDataRes = await dashboardRes.json()
+
+        if (statsData.error) throw new Error(statsData.error)
+        if (dashboardDataRes.error) throw new Error(dashboardDataRes.error)
+
+        setStats(statsData)
+        setDashboardData(dashboardDataRes)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch data')
+      }
+    }
+
+    fetchData()
   }, [])
 
   if (error) {

@@ -106,13 +106,13 @@ export default function AssessmentView({
     console.log('[AssessmentView] Question answered with accuracy:', accuracy);
   }
 
-  async function handleNext(accuracy?: number) {
+  function handleNext(accuracy?: number) {
     if (accuracy !== undefined) scoresRef.current.push(accuracy);
 
     if (currentIndex < questions.length - 1) {
       setCurrentIndex((i) => i + 1);
     } else {
-      await completeAssessment();
+      void completeAssessment();
     }
   }
 
@@ -332,8 +332,9 @@ export default function AssessmentView({
             optionC={current.optionC}
             optionD={current.optionD}
             correctAnswer={current.correctAnswer}
+            questionIndex={currentIndex}
+            totalQuestions={questions.length}
             onNext={handleNext}
-            onResult={handleResult}
           />
         )}
       </div>

@@ -103,6 +103,7 @@ def evaluate(model, loader, criterion, device):
 def train():
     torch.manual_seed(SEED)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
     print(f"--- Training JuanSign V2.2 on {torch.cuda.get_device_name(0)} ---")
     
     # 1. Data

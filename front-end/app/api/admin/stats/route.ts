@@ -1,14 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
+import { getAuthorizedAdmin } from '@/lib/adminAuth'
 
-function isAuthorized(request: NextRequest): boolean {
-  const cookie = request.cookies.get('admin_auth')?.value
-  const secret = process.env.ADMIN_AUTH_SECRET
-  return !!(cookie && secret && cookie === secret)
+async function getAuthorizedUser(request: NextRequest) {
+  const authHeader = request.headers.get('authorization')
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null
+  }
+
+  const token = authHeader.substring(7)
+  const { data: user, error: authError } = await supabaseAdmin.auth.getUser(token)
+
+  if (authError || !user || !user.user) {
+    return null
+  }
+
+  // Supabase returns user wrapped in a user property: { user: { id, ... } }
+  const userId = user.user.id
+  
+  if (!userId) {
+    return null
+  }
+
+  // Check if user has admin or super_admin role in profiles table
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .select('role')
+    .eq('auth_user_id', userId)
+    .single()
+
+  if (profileError || !profile || !['admin', 'super_admin'].includes(profile.role)) {
+    return null
+  }
+
+  return user
 }
 
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  const user = await getAuthorizedUser(request)
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

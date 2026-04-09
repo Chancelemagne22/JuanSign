@@ -6,7 +6,7 @@ async function isSuperAdmin(userId: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin
     .from('profiles')
     .select('role')
-    .eq('id', userId)
+    .eq('auth_user_id', userId)
     .single()
 
   if (error || !data) {
@@ -54,6 +54,8 @@ export async function POST(request: NextRequest) {
         code,
         is_used: false,
         expires_at: expiresAt.toISOString(),
+        status: 'pending',
+        invited_by: user.user.id,
       })
       .select()
       .single()
