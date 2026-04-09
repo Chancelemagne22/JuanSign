@@ -138,10 +138,10 @@ function InstructionSteps({ text }: { text: string }) {
   });
 
   return (
-    <div className="space-y-3 max-w-[65ch]">
+    <div className="space-y-4 max-w-[70ch]">
       {cleanedLines.map((line, idx) => (
-        <div key={idx} className="flex gap-3 text-[#4A2C0A] text-base lg:text-lg leading-relaxed">
-          <p className="font-medium">{line}</p>
+        <div key={idx} className="flex gap-3 text-[#3B2408] text-[1.05rem] sm:text-[1.15rem] lg:text-[1.3rem] leading-[1.7]">
+          <p className="font-semibold">{line}</p>
         </div>
       ))}
     </div>
@@ -288,24 +288,24 @@ export default function LessonPanelView({
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           RIGHT SECTION: INSTRUCTIONS (structured, readable)
           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <div className="flex-1 min-h-0 flex flex-col rounded-[12px] border-[3px] border-[#8B5E3C] bg-[#F5E6D3] p-3.5 sm:p-5 overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.08)] min-w-0 max-h-[34dvh] sm:max-h-[40dvh] xl:max-h-none xl:h-full">
+        <div className="flex-1 min-h-0 flex flex-col rounded-[12px] border-[3px] border-[#8B5E3C] bg-[#F6ECDD] p-4 sm:p-6 overflow-y-auto shadow-[0_6px_16px_rgba(0,0,0,0.12)] min-w-0 max-h-[34dvh] sm:max-h-[40dvh] xl:max-h-none xl:h-full">
           
           {translatedContextText ? (
             <>
               {/* SECTION TITLE */}
-              <h3 className="text-[#4A2C0A] font-black text-base lg:text-lg mb-3 sm:mb-4 flex-shrink-0">
+              <h3 className="text-[#2F1B05] font-black text-[1.2rem] sm:text-[1.35rem] lg:text-[1.55rem] mb-4 sm:mb-5 flex-shrink-0 tracking-tight">
                 {t('lessonView.instructions')}
               </h3>
 
               {/* INSTRUCTIONS CONTENT - Parsed steps with structure */}
-              <div className="flex-1 min-h-0 overflow-y-auto mb-3 sm:mb-4 min-w-0">
+              <div className="flex-1 min-h-0 overflow-y-auto mb-4 sm:mb-5 min-w-0">
                 <InstructionSteps text={translatedContextText} />
               </div>
 
               {/* TIPS/FOCUS CALLOUT */}
-              <div className="mt-2 sm:mt-4 pt-3 sm:pt-4 border-t-2 border-[#D4C4B0] flex-shrink-0">
-                <p className="text-[#4A2C0A] font-medium text-sm leading-relaxed">
-                  <span className="font-black text-base">💡 </span>
+              <div className="mt-2 sm:mt-4 pt-3 sm:pt-4 border-t-2 border-[#CCB89E] flex-shrink-0">
+                <p className="text-[#3B2408] font-medium text-[0.95rem] sm:text-[1.02rem] leading-relaxed">
+                  <span className="font-black text-[1.05rem] sm:text-[1.12rem]">💡 </span>
                   <span className="font-black">{t('lessonView.tipLabel')}</span>{' '}
                   {t('lessonView.tipBody')}
                 </p>
@@ -315,10 +315,10 @@ export default function LessonPanelView({
             /* EMPTY STATE - Helpful messaging */
             <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
               <div className="text-5xl mb-3 opacity-40">📝</div>
-              <p className="text-[#7B3F00] font-semibold text-sm mb-1">
+              <p className="text-[#6A3805] font-semibold text-base mb-1">
                 {t('common.noContextAvailable')}
               </p>
-              <p className="text-[#9B6F30] font-medium text-xs">
+              <p className="text-[#8A5B24] font-medium text-sm">
                 {t('lessonView.instructionsComingSoon')}
               </p>
             </div>
