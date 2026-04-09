@@ -278,7 +278,7 @@ export default function IdentifyView({
         <div className="mx-auto w-full max-w-[1320px] grid min-h-0 flex-1 gap-3 sm:gap-4 xl:grid-cols-2">
           <div className="min-w-0 rounded-2xl border-2 border-transparent bg-transparent p-3 sm:p-4 shadow-none flex flex-col gap-3">
             <div
-              className="relative w-full rounded-[20px] sm:rounded-[24px] border-[4px] sm:border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A] h-[210px] sm:h-[250px] lg:h-[280px]"
+              className="relative w-full rounded-[20px] sm:rounded-[24px] border-[4px] sm:border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A] aspect-video lg:h-[280px]"
             >
               {videoUrl ? (
                 <video
@@ -299,7 +299,7 @@ export default function IdentifyView({
             <div className="min-h-[3rem]">{customControls}</div>
           </div>
 
-          <div className="min-w-0 rounded-2xl border-2 border-transparent bg-transparent p-3 sm:p-4 shadow-none h-[210px] sm:h-[250px] lg:h-[280px] overflow-hidden flex flex-col gap-3">
+          <div className="min-w-0 rounded-2xl border-2 border-transparent bg-transparent p-3 sm:p-4 shadow-none h-auto lg:h-[280px] overflow-visible lg:overflow-hidden flex flex-col gap-3">
             <p
               className="text-center xl:text-left font-bold text-[1.05rem] sm:text-[1.15rem] lg:text-[1.25rem] text-[#4A2C0A] px-1 break-words"
               style={{ fontFamily: 'var(--font-fredoka)' }}
