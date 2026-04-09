@@ -218,6 +218,11 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       }
       const result: PredictionResult = await res.json();
 
+      // Validate the response contains required fields
+      if (!result || typeof result !== 'object' || !('is_correct' in result)) {
+        throw new Error('Invalid response from Modal: missing required fields');
+      }
+
       // 4. Show result + notify parent
       setPredictionResult(result);
       setFeedback(
@@ -338,7 +343,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
             </p>
             <p className="text-white/90 font-semibold text-sm">
               {t('module.aiSaw')} <span className="font-black">{predictionResult.sign}</span>
-              {'  '}({Number(predictionResult.confidence ?? 0).toFixed(1)}%)
+              {'  '}({Math.round((predictionResult.confidence ?? 0) * 100)}%)
             </p>
             <button
               onClick={() => setPredictionResult(null)}

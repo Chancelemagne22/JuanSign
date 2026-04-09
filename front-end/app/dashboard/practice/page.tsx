@@ -114,7 +114,7 @@ export default function PracticePage() {
         supabase
           .from('practice_sessions')
           .select('level_id')
-          .eq('auth_user_id', user.id),
+          .eq('user_id', user.id),
         supabase
           .from('practice_questions')
           .select('level_id')
