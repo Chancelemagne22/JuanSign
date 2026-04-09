@@ -184,7 +184,7 @@ export default function AssessmentChapterPage() {
   }
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-white px-4 sm:px-6 pt-2 sm:pt-3 pb-3 sm:pb-4 flex flex-col">
+    <div className="min-h-dvh overflow-x-hidden overflow-y-auto xl:h-dvh xl:overflow-hidden bg-white px-4 sm:px-6 pt-2 sm:pt-3 pb-3 sm:pb-4 flex flex-col">
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-2 sm:mb-3 shrink-0">
