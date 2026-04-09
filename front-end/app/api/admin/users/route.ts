@@ -1,10 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 
-function isAuthorized(request: NextRequest): boolean {
-  const cookie = request.cookies.get('admin_auth')?.value
-  const secret = process.env.ADMIN_AUTH_SECRET
-  return !!(cookie && secret && cookie === secret)
+async function getAuthorizedUser(request: NextRequest) {
+  const authHeader = request.headers.get('authorization')
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null
+  }
+
+  const token = authHeader.substring(7)
+  const { data: user, error: authError } = await supabaseAdmin.auth.getUser(token)
+
+  if (authError || !user || !user.user) {
+    return null
+  }
+
+  const userId = user.user.id
+  
+  if (!userId) {
+    return null
+  }
+
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .select('role')
+    .eq('auth_user_id', userId)
+    .single()
+
+  if (profileError || !profile || !['admin', 'super_admin'].includes(profile.role)) {
+    return null
+  }
+
+  return user
 }
 
 export interface AdminUser {
@@ -20,10 +46,13 @@ export interface AdminUser {
   avgAccuracy: number
   levelsCompleted: string
   avatarUrl: string | null
+  role: string
 }
 
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  const user = await getAuthorizedUser(request)
+  console.log("Is this shii?")
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -40,7 +69,8 @@ export async function GET(request: NextRequest) {
       supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
       supabaseAdmin
         .from('profiles')
-        .select('auth_user_id, username, first_name, last_name, avatar_url, is_active, last_seen')
+        .select('auth_user_id, username, first_name, last_name, avatar_url, is_active, last_seen, role')
+        .eq('role', 'student')
         .order('created_at', { ascending: false }),
       supabaseAdmin
         .from('user_progress')
@@ -138,6 +168,7 @@ export async function GET(request: NextRequest) {
         avgAccuracy,
         levelsCompleted,
         avatarUrl: profile.avatar_url ?? null,
+        role: profile.role,
       }
     })
 
@@ -149,7 +180,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!getAuthorizedUser(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

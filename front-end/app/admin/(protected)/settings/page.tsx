@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { adminFetch } from '@/lib/adminFetch'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -195,7 +196,7 @@ export default function AdminSettingsPage() {
 
   // Load system info on mount
   useEffect(() => {
-    fetch('/api/admin/settings')
+    adminFetch('/api/admin/settings')
       .then((r) => r.json())
       .then((d) => setSysInfo(d))
       .finally(() => setLoadingSys(false))
@@ -216,7 +217,7 @@ export default function AdminSettingsPage() {
     if (!newEmail.includes('@')) return showToast('Please enter a valid email address.', false)
     if (!emailCurrentPw) return showToast('Please enter your current password.', false)
     setSaving(true)
-    const res = await fetch('/api/admin/settings', {
+    const res = await adminFetch('/api/admin/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'change-email', currentPassword: emailCurrentPw, newValue: newEmail }),
@@ -237,7 +238,7 @@ export default function AdminSettingsPage() {
     if (newPw.length < 6) return showToast('New password must be at least 6 characters.', false)
     if (newPw !== confirmPw) return showToast('New passwords do not match.', false)
     setSaving(true)
-    const res = await fetch('/api/admin/settings', {
+    const res = await adminFetch('/api/admin/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'change-password', currentPassword: currentPw }),
@@ -257,7 +258,7 @@ export default function AdminSettingsPage() {
   const handleDelete = async () => {
     if (deleteInput !== 'DELETE') return
     setDeleting(true)
-    await fetch('/api/admin/logout', { method: 'POST' })
+    await adminFetch('/api/admin/logout', { method: 'POST' })
     router.push('/admin/login')
   }
 

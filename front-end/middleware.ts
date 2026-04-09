@@ -1,46 +1,135 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  
-  // ── ADMIN ROUTES (separate auth system using ADMIN_AUTH_SECRET) ──
-  const adminAuth = request.cookies.get('admin_auth')?.value
-  const secret = process.env.ADMIN_AUTH_SECRET
-  const isAdminAuthenticated = !!(adminAuth && secret && adminAuth === secret)
+  const response = NextResponse.next()
 
-  // If on admin login page and already authenticated, redirect to admin dashboard
-  if (pathname === '/admin/login') {
-    if (isAdminAuthenticated) {
-      return NextResponse.redirect(new URL('/admin', request.url))
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          )
+        },
+      },
     }
-    return NextResponse.next()
+  )
+
+  // Handle /admin/* routes (Supabase auth + admin table check)
+  if (pathname.startsWith('/admin/')) {
+    // Allow /admin/setup without auth (public invite page)
+    if (pathname === '/admin/setup') {
+      return response
+    }
+
+    // Allow /admin/login without auth
+    if (pathname === '/admin/login' || pathname === '/admin/(auth)/login') {
+      return response
+    }
+
+    // For protected admin routes, check Supabase session and admin role in profiles
+    if (pathname.startsWith('/admin/')) {
+      try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+        if (!user || userError) {
+          return NextResponse.redirect(new URL('/admin/login', request.url))
+        }
+
+        // Check if user has admin or super_admin role in profiles table
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('auth_user_id', user.id)
+          .single()
+
+        if (profileError || !profile || !['admin', 'super_admin'].includes(profile.role)) {
+          // User is authenticated but not an admin
+          return NextResponse.redirect(new URL('/admin/login', request.url))
+        }
+      } catch (error) {
+        console.error('Admin middleware error:', error)
+        return NextResponse.redirect(new URL('/admin/login', request.url))
+      }
+    }
   }
 
-  // Protect all /admin routes — admin auth is separate from student auth
-  if (pathname.startsWith('/admin')) {
-    if (!isAdminAuthenticated) {
-      return NextResponse.redirect(new URL('/admin/login', request.url))
+  // Handle /super-admin/* routes (Supabase role-based auth)
+  if (pathname.startsWith('/super-admin/')) {
+    console.log('[Middleware] Checking super-admin route:', pathname)
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      
+      console.log('[Middleware] Auth user:', user?.id, 'Error:', userError?.message)
+      
+      if (!user || userError) {
+        console.log('[Middleware] No user found, redirecting to /auth/login')
+        return NextResponse.redirect(new URL('/auth/login', request.url))
+      }
+
+      // Check user role in profiles table
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('auth_user_id', user.id)
+        .single()
+
+      console.log('[Middleware] Profile query - Data:', profile, 'Error:', profileError?.message)
+
+      if (!profile?.role) {
+        console.log('[Middleware] No profile or role found, redirecting to /dashboard')
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+      }
+
+      console.log('[Middleware] User role:', profile.role, '| Required: super_admin | Match:', profile.role === 'super_admin')
+
+      if (profile.role !== 'super_admin') {
+        console.log('[Middleware] Role mismatch - redirecting to /dashboard')
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+      }
+
+      console.log('[Middleware] Authorization passed, allowing access')
+    } catch (error) {
+      console.error('[Middleware] Super-admin middleware error:', error)
+      return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
 
-  // ── STUDENT ROUTES (use Supabase JWT stored in cookies/localStorage) ──
-  // Note: Supabase JS SDK stores session in localStorage (client-side).
-  // For true server-side verification, we'd need to read from request context.
-  // Since middleware cannot access client-stored localStorage, we check if
-  // a session cookie exists (optional setup — requires custom auth setup).
-  // For now, we'll redirect unauthenticated users at page-level in layout components.
-  // 
-  // This is a limitation of middleware on client-side auth. To enforce here,
-  // students can configure Supabase to use HTTP-only cookies for sessions:
-  // https://supabase.com/docs/guides/auth/auth-helpers/nextjs#configure
-  //
-  // TEMPORARY: We rely on component-level redirects in dashboard layout.
-  // TODO: Implement Supabase session cookies to make middleware auth work here.
+  // Handle /dashboard/* routes (student auth - check profiles table)
+  if (pathname.startsWith('/dashboard/')) {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-  return NextResponse.next()
+      if (!user || userError) {
+        return NextResponse.redirect(new URL('/', request.url))
+      }
+
+      // Make sure user has a profile (is a student, not admin)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('profile_id')
+        .eq('auth_user_id', user.id)
+        .single()
+
+      if (!profile) {
+        return NextResponse.redirect(new URL('/', request.url))
+      }
+    } catch (error) {
+      console.error('Dashboard middleware error:', error)
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+  }
+
+  return response
 }
 
 export const config = {
-  matcher: ['/admin', '/admin/(.*)', '/dashboard', '/dashboard/(.*)'],
+  matcher: ['/admin/:path*', '/dashboard/:path*', '/super-admin/:path*'],
 }
