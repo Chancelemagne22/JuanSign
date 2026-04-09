@@ -23,7 +23,7 @@ interface Props {
   showStarBar?: boolean;
 }
 
-type RecordState = 'idle' | 'recording' | 'paused' | 'done';
+type RecordState = 'idle' | 'recording' | 'done';
 
 interface PredictionResult {
   sign:       string;
@@ -81,7 +81,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
   const mediaRef   = useRef<MediaRecorder | null>(null);
   const chunksRef  = useRef<Blob[]>([]);
   const streamRef  = useRef<MediaStream | null>(null);
-  const pendingUploadRef = useRef(false);
+  const autoStopTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [recordState,      setRecordState]      = useState<RecordState>('idle');
   const [recordedBlob,     setRecordedBlob]     = useState<Blob | null>(null);
@@ -113,8 +113,12 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
 
     return () => {
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      // Clean up auto-stop timer on unmount
+      if (autoStopTimerRef.current) {
+        clearTimeout(autoStopTimerRef.current);
+      }
     };
-  }, []);
+  }, [t]);
 
   /* ── Recording controls ────────────────────────────────────────────────── */
   function startRecording() {
@@ -129,50 +133,43 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       setRecordedBlob(blob);
       setRecordState('done');
 
-      if (pendingUploadRef.current) {
-        pendingUploadRef.current = false;
-        if (blob.size > 0) {
-          void uploadPrediction(blob);
-        } else {
-          setFeedback(t('module.noVideoCaptured'));
-        }
+      // Auto-upload after recording stops
+      if (blob.size > 0) {
+        void uploadPrediction(blob);
+      } else {
+        setFeedback(t('module.noVideoCaptured'));
       }
     };
     mediaRef.current = recorder;
     recorder.start();
     setRecordState('recording');
     setFeedback(null);
+
+    // Auto-stop after 4-5 seconds (random between 4000-5000ms)
+    const duration = 4000 + Math.random() * 1000;
+    autoStopTimerRef.current = setTimeout(() => {
+      if (mediaRef.current && mediaRef.current.state !== 'inactive') {
+        mediaRef.current.stop();
+      }
+    }, duration);
   }
 
-  function pauseRecording() {
-    if (mediaRef.current?.state === 'recording') {
-      mediaRef.current.pause();
-      setRecordState('paused');
-    }
-  }
 
-  function resumeRecording() {
-    if (mediaRef.current?.state === 'paused') {
-      mediaRef.current.resume();
-      setRecordState('recording');
-    }
-  }
 
   function resetRecording() {
-    pendingUploadRef.current = false;
+    // Clear auto-stop timer if running
+    if (autoStopTimerRef.current) {
+      clearTimeout(autoStopTimerRef.current);
+      autoStopTimerRef.current = null;
+    }
     if (mediaRef.current && mediaRef.current.state !== 'inactive') {
       mediaRef.current.stop();
     }
     chunksRef.current = [];
     setRecordedBlob(null);
+    setPredictionResult(null);
     setFeedback(null);
     setRecordState('idle');
-  }
-
-  function stopRecording() {
-    if (mediaRef.current && mediaRef.current.state !== 'inactive') {
-      mediaRef.current.stop(); // triggers onstop → sets recordState to 'done'
-    }
   }
 
   /* ── ML Prediction Upload ────────────────────────────────────────────────
@@ -251,33 +248,11 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
     }
   }
 
-  async function handleUploadPrediction() {
-    if (isUploading) return;
 
-    // If user taps upload while still recording, finalize first then auto-upload.
-    if (recordState === 'recording' || recordState === 'paused') {
-      pendingUploadRef.current = true;
-      stopRecording();
-      return;
-    }
-
-    if (!recordedBlob) {
-      setFeedback(t('module.recordYourSign'));
-      return;
-    }
-
-    if (recordedBlob.size === 0) {
-      setFeedback(t('module.noVideoCaptured'));
-      return;
-    }
-
-    await uploadPrediction(recordedBlob);
-  }
 
   /* ── Derived button states ─────────────────────────────────────────────── */
   const isIdle      = recordState === 'idle';
   const isRecording = recordState === 'recording';
-  const isPaused    = recordState === 'paused';
   const isDone      = recordState === 'done';
 
   const progressPct = totalLetters > 1 ? (letterIndex / (totalLetters - 1)) * 100 : 0;
@@ -338,7 +313,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
               </p>
               <p className="text-white/90 font-semibold text-sm">
                 {t('module.aiSaw')} <span className="font-black">{predictionResult.sign}</span>
-                {'  '}({Number(predictionResult.confidence ?? 0).toFixed(1)}%)
+                {'  '}({Math.round((predictionResult.confidence ?? 0) * 100)}%)
               </p>
               <button
                 onClick={() => setPredictionResult(null)}
@@ -349,37 +324,21 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
             </div>
           )}
 
-          {/* Controls overlay */}
+          {/* Controls overlay — Capture and Retry only */}
           <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 flex flex-wrap gap-2 z-10 max-w-[calc(100%-1.5rem)] sm:max-w-none">
             <ControlBtn
-              onClick={isPaused ? resumeRecording : startRecording}
+              onClick={startRecording}
               disabled={isRecording || isDone}
-              ariaLabel={isPaused ? t('module.resumeRecording') : t('module.startRecording')}
+              ariaLabel={t('module.startRecording')}
             >
               <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
                 <path d="M8 5v14l11-7z" />
               </svg>
             </ControlBtn>
 
-            <ControlBtn onClick={pauseRecording} disabled={!isRecording} ariaLabel={t('module.pauseRecording')}>
-              <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
-                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-              </svg>
-            </ControlBtn>
-
-            <ControlBtn onClick={resetRecording} disabled={isIdle} ariaLabel={t('module.restartRecording')}>
+            <ControlBtn onClick={resetRecording} disabled={isIdle} ariaLabel={t('module.retryRecording')}>
               <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
                 <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
-              </svg>
-            </ControlBtn>
-
-            <ControlBtn
-              onClick={stopRecording}
-              disabled={isIdle || isDone}
-              ariaLabel={t('module.stopRecording')}
-            >
-              <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
-                <path d="M6 6h12v12H6z" />
               </svg>
             </ControlBtn>
           </div>
@@ -444,24 +403,11 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
 
         </div>
 
-        {/* Right: Upload Video + Next buttons */}
-        <div className="w-full sm:w-auto sm:-translate-y-3 lg:-translate-y-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2 flex-shrink-0">
-          <button
-            onClick={handleUploadPrediction}
-            disabled={isUploading}
-            className="
-              w-full sm:w-auto
-              bg-[#E5E5E5] border-2 border-[#E5E5E5] text-[#2a7abf]
-              font-black text-sm px-5 py-2 rounded-full shadow-[0_4px_0_#BEBEBE,0_6px_12px_rgba(0,0,0,0.18)]
-              hover:bg-[#DCDCDC] transition-colors
-              disabled:opacity-40 disabled:cursor-not-allowed
-            "
-          >
-            {isUploading ? t('module.uploading') : t('module.uploadVideo')}
-          </button>
-
+        {/* Right: Next button only (Upload is automatic) */}
+        <div className="w-full sm:w-auto sm:-translate-y-3 lg:-translate-y-4 flex-shrink-0">
           <button
             onClick={onNext}
+            disabled={!predictionResult}
             className="
               w-full sm:w-auto
               bg-[#33AA11] border-[3px] border-[#33AA11] text-white
@@ -469,6 +415,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
               shadow-[0_4px_0_#165c00]
               active:translate-y-1 active:shadow-[0_1px_0_#165c00]
               transition-transform hover:brightness-110
+              disabled:opacity-40 disabled:cursor-not-allowed
             "
           >
             {letterIndex < totalLetters - 1 ? t('module.next') : t('module.finish')}

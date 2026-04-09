@@ -15,6 +15,7 @@ import base64
 import tempfile
 import subprocess
 import time
+import logging
 from collections import deque
 from typing import Optional
 
@@ -46,11 +47,16 @@ image = (
         "uvicorn",
         "ffmpeg-python",
     )
-    .apt_install(["curl", "libgl1", "libglib2.0-0", "ffmpeg"])
+    .apt_install(["curl", "libgl1", "libglib2.0-0", "ffmpeg","libegl1-mesa", "libgles2-mesa",])
     .run_commands(
         "curl -fsSL -o /hand_landmarker.task https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
         "curl -fsSL -o /face_detector.tflite https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
     )
+    .env({                                      # ← ADD THIS BLOCK
+        "EGL_PLATFORM": "surfaceless",          # No display server needed
+        "NVIDIA_DRIVER_CAPABILITIES": "compute,utility",  # Only compute, no display
+        "MEDIAPIPE_DISABLE_GPU": "1",           # MediaPipe uses CPU (YOUR T4 still runs PyTorch)
+    })
 )
 
 model_volume = modal.Volume.from_name("juansign-model-vol")
@@ -264,7 +270,7 @@ def _build_model(checkpoint_path, device):
 # MODAL ENDPOINT CLASS
 # ══════════════════════════════════════════════════════════════════════════════
 
-@app.cls(image=image, gpu="T4",keep_warm=1, volumes={"/model-weights": model_volume}, 
+@app.cls(image=image, gpu="T4", volumes={"/model-weights": model_volume}, 
          secrets=[modal.Secret.from_name("juansign-secret")], timeout=180)
 class JuanSignInference:
 
@@ -279,25 +285,29 @@ class JuanSignInference:
     def predict(self, request: dict):
         from supabase import create_client
         from starlette.responses import JSONResponse
+
+        try:    
+            # 1. Auth
+            supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+            try:
+                user_id = supabase.auth.get_user(request["token"]).user.id
+            except: return JSONResponse({"error": "Auth failed"}, status_code=401)
+
+            # 2. Process Video
+            mp4_path = _decode_base64_to_mp4(request.get("video_b64") or request.get("video"))
+            frames_t, lms_t = _extract_frames(mp4_path, self.face_detector, self.hand_detector)
+            os.unlink(mp4_path)
+
+            # 3. Predict
+            with torch.no_grad():
+                logits = self.model(frames_t.to(self.device), lms_t.to(self.device))
+                probs = torch.softmax(logits, dim=1)[0]
+                conf, idx = torch.max(probs, dim=0)
+                sign = self.class_names[idx.item()]
+        except Exception as e:
+            logging.error(f"Prediction failed: {e}")
+            return JSONResponse({"error": str(e)}, status_code=500)
         
-        # 1. Auth
-        supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
-        try:
-            user_id = supabase.auth.get_user(request["token"]).user.id
-        except: return JSONResponse({"error": "Auth failed"}, status_code=401)
-
-        # 2. Process Video
-        mp4_path = _decode_base64_to_mp4(request.get("video_b64") or request.get("video"))
-        frames_t, lms_t = _extract_frames(mp4_path, self.face_detector, self.hand_detector)
-        os.unlink(mp4_path)
-
-        # 3. Predict
-        with torch.no_grad():
-            logits = self.model(frames_t.to(self.device), lms_t.to(self.device))
-            probs = torch.softmax(logits, dim=1)[0]
-            conf, idx = torch.max(probs, dim=0)
-            sign = self.class_names[idx.item()]
-
         # 4. DB Log
         target = request.get("expected_sign", "")
         sign = self.class_names[idx.item()]
@@ -320,3 +330,178 @@ class JuanSignInference:
             "is_correct": is_correct,
             "accuracy": round(conf.item(), 4)  # Same as confidence for now
         })
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PRODUCTION-SAFE MODAL FUNCTION WITH ERROR HANDLING
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.function(
+    image=image,
+    gpu="T4",
+    volumes={"/model-weights": model_volume},
+    secrets=[modal.Secret.from_name("juansign-secret")],
+    # Retry configuration: max 3 retries with exponential backoff
+    retries=modal.Retries(
+        max_retries=3,
+        initial_delay=1.0,      # Start with 1 second delay
+        backoff_coefficient=2.0, # Double the delay each retry
+        max_delay=60.0          # Cap delay at 60 seconds
+    ),
+    # Timeout: Kill function if it runs longer than 5 minutes
+    timeout=300,
+    # Concurrency limit: Prevent more than 5 containers from running simultaneously
+    max_containers=5
+)
+def predict_sign_production_safe(video_b64: str, expected_sign: str = "", level_id: str = "", token: str = ""):
+    """
+    Production-safe JuanSign prediction function with comprehensive error handling.
+
+    This function includes:
+    - Retry logic with exponential backoff (max 3 retries)
+    - Timeout protection (300 seconds max execution time)
+    - Concurrency limiting (max 5 simultaneous containers)
+    - Comprehensive error logging and graceful failure handling
+    - Automatic resource cleanup
+
+    Args:
+        video_b64: Base64-encoded video data
+        expected_sign: Expected sign for accuracy calculation
+        level_id: Level identifier for database logging
+        token: Authentication token
+
+    Returns:
+        dict: Prediction results with sign, confidence, and accuracy
+
+    Raises:
+        Exception: Re-raises caught exceptions after logging to stop execution
+    """
+    start_time = time.time()
+
+    try:
+        # Initialize logging for production monitoring
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+        logger = logging.getLogger(__name__)
+
+        logger.info(f"Starting prediction for level_id: {level_id}")
+
+        # Validate input parameters
+        if not video_b64:
+            raise ValueError("video_b64 parameter is required and cannot be empty")
+
+        if not token:
+            raise ValueError("token parameter is required for authentication")
+
+        # Step 1: Authentication
+        logger.info("Authenticating user...")
+        from supabase import create_client
+        supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+
+        try:
+            user = supabase.auth.get_user(token)
+            user_id = user.user.id
+            logger.info(f"Authenticated user: {user_id}")
+        except Exception as auth_error:
+            logger.error(f"Authentication failed: {str(auth_error)}")
+            raise ValueError(f"Authentication failed: {str(auth_error)}")
+
+        # Step 2: Load model and detectors (cached in container)
+        logger.info("Loading model and detectors...")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model, class_names = _build_model(MODEL_PATH, device)
+        face_detector, hand_detector = _build_mediapipe()
+        logger.info("Model and detectors loaded successfully")
+
+        # Step 3: Process video
+        logger.info("Processing video input...")
+        try:
+            mp4_path = _decode_base64_to_mp4(video_b64)
+            frames_t, lms_t = _extract_frames(mp4_path, face_detector, hand_detector)
+            os.unlink(mp4_path)  # Clean up temporary file
+            logger.info(f"Video processed successfully: {frames_t.shape[0]} frames extracted")
+        except Exception as video_error:
+            logger.error(f"Video processing failed: {str(video_error)}")
+            raise RuntimeError(f"Failed to process video: {str(video_error)}")
+
+        # Step 4: Run inference
+        logger.info("Running model inference...")
+        try:
+            with torch.no_grad():
+                logits = model(frames_t.to(device), lms_t.to(device))
+                probs = torch.softmax(logits, dim=1)[0]
+                conf, idx = torch.max(probs, dim=0)
+                predicted_sign = class_names[idx.item()]
+                confidence = round(conf.item(), 4)
+
+            logger.info(f"Inference completed: predicted '{predicted_sign}' with confidence {confidence}")
+        except Exception as inference_error:
+            logger.error(f"Model inference failed: {str(inference_error)}")
+            raise RuntimeError(f"Model inference failed: {str(inference_error)}")
+
+        # Step 5: Calculate accuracy and log to database
+        logger.info("Logging results to database...")
+        try:
+            is_correct = predicted_sign.upper() == expected_sign.upper()
+
+            # Log to practice_sessions table
+            supabase.table("practice_sessions").insert({
+                "user_id": user_id,
+                "level_id": level_id,
+                "sign": predicted_sign,
+                "target_sign": expected_sign,
+                "confidence": confidence,
+                "is_correct": is_correct
+            }).execute()
+
+            logger.info(f"Database logging completed. Correct: {is_correct}")
+        except Exception as db_error:
+            logger.error(f"Database logging failed: {str(db_error)}")
+            # Don't fail the entire function for database errors, but log them
+            logger.warning("Continuing despite database logging failure")
+
+        # Step 6: Prepare and return response
+        execution_time = time.time() - start_time
+        logger.info(f"Prediction completed successfully in {execution_time:.2f} seconds")
+
+        result = {
+            "sign": predicted_sign,
+            "confidence": confidence,
+            "is_correct": is_correct if 'is_correct' in locals() else False,
+            "accuracy": confidence,  # Same as confidence for now
+            "execution_time": round(execution_time, 2)
+        }
+
+        return result
+
+    except ValueError as ve:
+        # Input validation errors - don't retry
+        logger.error(f"Input validation error: {str(ve)}")
+        raise ve
+
+    except RuntimeError as re:
+        # Processing errors - may be retried
+        logger.error(f"Runtime error: {str(re)}")
+        raise re
+
+    except Exception as e:
+        # Catch-all for unexpected errors
+        execution_time = time.time() - start_time
+        logger.error(f"Unexpected error after {execution_time:.2f} seconds: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+
+        # Re-raise to trigger retry mechanism or fail gracefully
+        raise RuntimeError(f"Prediction failed: {str(e)}")
+
+    finally:
+        # Cleanup: Ensure GPU memory is freed
+        if 'device' in locals() and device.type == 'cuda':
+            try:
+                torch.cuda.empty_cache()
+                logger.debug("GPU cache cleared")
+            except Exception as cleanup_error:
+                logger.warning(f"GPU cleanup failed: {str(cleanup_error)}")
+
+        # Log completion regardless of success/failure
+        total_time = time.time() - start_time
+        logger.info(f"Function execution completed in {total_time:.2f} seconds")

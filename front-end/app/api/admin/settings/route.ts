@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     modal: modalStatus,
     appVersion: process.env.NEXT_PUBLIC_APP_VERSION ?? 'v1.0',
     environment: process.env.NEXT_PUBLIC_ENV ?? process.env.NODE_ENV ?? 'development',
-    lastUpdate: process.env.NEXT_PUBLIC_LAST_UPDATE ?? 'January 15, 2026',
+    lastUpdate: process.env.NEXT_PUBLIC_LAST_UPDATE ?? 'April 9, 2026',
     adminEmail: process.env.ADMIN_EMAIL ?? '',
   })
 }

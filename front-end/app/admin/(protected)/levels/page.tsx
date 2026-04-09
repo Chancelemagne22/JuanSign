@@ -777,7 +777,7 @@ export default function AdminLevelsPage() {
     setReorderingQuestions(true)
     try {
       const mode = activeTab as 'practice' | 'assessment'
-      const res = await fetch('/api/admin/questions', {
+      const res = await adminFetch('/api/admin/questions', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode, levelId: selectedLevelId, reorderIds: nextQuestions.map(q => q.question_id) }),

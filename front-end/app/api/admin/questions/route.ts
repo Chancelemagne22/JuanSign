@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/questions — insert new question
 export async function POST(request: NextRequest) {
   const adminUser = await getAuthorizedAdmin(request)
+  console.log(adminUser)
   if (!adminUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -167,6 +168,8 @@ export async function POST(request: NextRequest) {
 // PUT /api/admin/questions — update existing question
 export async function PUT(request: NextRequest) {
   const adminUser = await getAuthorizedAdmin(request)
+  console.log(adminUser)
+
   if (!adminUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
