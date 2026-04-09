@@ -247,19 +247,14 @@ function starsFromPercent(percent: number): number {
  *
  * Star sources:
  * - Lessons: 1 star per level with at least one completed lesson.
- * - Practice: best (max) derived stars per level from practice session accuracy.
  * - Assessments: best (max) stars per level from assessment results.
  */
 export async function getOverallStars(userId: string): Promise<number> {
   try {
-    const [progressResult, practiceResult, assessmentResult] = await Promise.all([
+    const [progressResult, assessmentResult] = await Promise.all([
       supabase
         .from('user_progress')
         .select('level_id, lessons_completed')
-        .eq('auth_user_id', userId),
-      supabase
-        .from('practice_sessions')
-        .select('level_id, average_accuracy')
         .eq('auth_user_id', userId),
       supabase
         .from('assessment_results')
@@ -273,14 +268,6 @@ export async function getOverallStars(userId: string): Promise<number> {
         .map((row) => row.level_id)
     ).size;
 
-    const practiceBestByLevel = new Map<string, number>();
-    for (const row of practiceResult.data ?? []) {
-      const nextStars = starsFromPercent(normalizeAccuracyPercent(row.average_accuracy ?? 0));
-      const prev = practiceBestByLevel.get(row.level_id) ?? 0;
-      if (nextStars > prev) practiceBestByLevel.set(row.level_id, nextStars);
-    }
-    const practiceStars = Array.from(practiceBestByLevel.values()).reduce((sum, value) => sum + value, 0);
-
     const assessmentBestByLevel = new Map<string, number>();
     for (const row of assessmentResult.data ?? []) {
       const normalizedFromScore = starsFromPercent(normalizeAccuracyPercent(row.score ?? 0));
@@ -293,7 +280,7 @@ export async function getOverallStars(userId: string): Promise<number> {
     }
     const assessmentStars = Array.from(assessmentBestByLevel.values()).reduce((sum, value) => sum + value, 0);
 
-    return lessonStars + practiceStars + assessmentStars;
+    return lessonStars + assessmentStars;
   } catch (error) {
     console.warn('[lessonProgress] getOverallStars error:', error);
     return 0;

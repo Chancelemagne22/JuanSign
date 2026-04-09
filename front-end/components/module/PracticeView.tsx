@@ -19,6 +19,8 @@ interface Props {
   onNext:       () => void;
   /** Called with the accuracy (0.0–1.0) after each successful prediction */
   onResult?:    (accuracy: number) => void;
+  /** Show lesson-style star progress bar (used by assessment only) */
+  showStarBar?: boolean;
 }
 
 type RecordState = 'idle' | 'recording' | 'paused' | 'done';
@@ -69,11 +71,11 @@ function MascotPlaceholder() {
       alt="JuanSign Mascot"
       width={90}
       height={110}
-      className="object-contain flex-shrink-0 w-[clamp(56px,8vw,90px)] h-auto"
+      className="object-contain flex-shrink-0 w-[clamp(42px,6.5vw,70px)] h-auto"
     />
   );
 }
-export default function PracticeView({ letter, letterIndex, totalLetters, levelId, onNext, onResult }: Props) {
+export default function PracticeView({ letter, letterIndex, totalLetters, levelId, onNext, onResult, showStarBar = false }: Props) {
   const { t } = useLanguage();
   const videoRef   = useRef<HTMLVideoElement>(null);
   const mediaRef   = useRef<MediaRecorder | null>(null);
@@ -278,8 +280,6 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
   const isPaused    = recordState === 'paused';
   const isDone      = recordState === 'done';
 
-  /* ── Star progress bar ─────────────────────────────────────────────────── */
-  // Fills based on how many letters have been practiced (letterIndex = 0-based current letter).
   const progressPct = totalLetters > 1 ? (letterIndex / (totalLetters - 1)) * 100 : 0;
 
   /* ── Bubble message ────────────────────────────────────────────────────── */
@@ -292,120 +292,121 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
   return (
     <div className="h-full min-h-0 overflow-hidden flex flex-col gap-2 sm:gap-3 min-w-0">
 
-      {/* ── Camera box — responsive 2:1, centered horizontally ─────────────── */}
-      <div className="flex-1 min-h-0 flex items-center justify-center min-w-0">
-      <div
-        className="relative w-full max-w-full rounded-[20px] sm:rounded-[24px] border-[4px] sm:border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A]"
-        style={{
-          aspectRatio: '6/3',
-          width: 'min(100%, 72rem, calc((100dvh - 26.25rem) * 2))',
-        }}
-      >
-        {camError ? (
-          <div className="absolute inset-0 flex items-center justify-center px-6">
-            <p className="text-white font-semibold text-sm text-center">{camError}</p>
-          </div>
-        ) : (
-          /* Mirror the feed so the user sees a selfie-style view */
-          <video
-            ref={videoRef}
-            muted
-            playsInline
-            className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"
-          />
-        )}
+      {/* ── Top row: Video left | Instructions right (same visual size) ───── */}
+      <div className="shrink-0 grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 items-stretch min-w-0">
+        {/* Left: Camera card */}
+        <div className="relative w-full rounded-[20px] sm:rounded-[24px] border-[4px] sm:border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A] h-[210px] sm:h-[250px] lg:h-[280px]">
+          {camError ? (
+            <div className="absolute inset-0 flex items-center justify-center px-6">
+              <p className="text-white font-semibold text-sm text-center">{camError}</p>
+            </div>
+          ) : (
+            /* Mirror the feed so the user sees a selfie-style view */
+            <video
+              ref={videoRef}
+              muted
+              playsInline
+              className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"
+            />
+          )}
 
-        {/* Recording indicator */}
-        {isRecording && (
-          <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/50 rounded-full px-3 py-1.5 z-10">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-white text-xs font-bold tracking-wide">{t('module.rec')}</span>
-          </div>
-        )}
+          {/* Recording indicator */}
+          {isRecording && (
+            <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/50 rounded-full px-3 py-1.5 z-10">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-white text-xs font-bold tracking-wide">{t('module.rec')}</span>
+            </div>
+          )}
 
-        {/* Uploading spinner */}
-        {isUploading && (
-          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-3 z-20">
-            <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin" />
-            <p className="text-white font-bold text-sm">{t('module.analyzing')}</p>
-          </div>
-        )}
+          {/* Uploading spinner */}
+          {isUploading && (
+            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-3 z-20">
+              <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+              <p className="text-white font-bold text-sm">{t('module.analyzing')}</p>
+            </div>
+          )}
 
-        {/* Prediction result overlay */}
-        {predictionResult && !isUploading && (
-          <div
-            className={`absolute inset-0 flex flex-col items-center justify-center gap-2 z-20
-              ${predictionResult.is_correct ? 'bg-green-600/80' : 'bg-red-600/80'}`}
-          >
-            <span className="text-5xl">{predictionResult.is_correct ? '✓' : '✗'}</span>
-            <p className="text-white font-black text-lg">
-              {predictionResult.is_correct ? t('module.correct') : t('module.tryAgain')}
-            </p>
-            <p className="text-white/90 font-semibold text-sm">
-              {t('module.aiSaw')} <span className="font-black">{predictionResult.sign}</span>
-              {'  '}({Math.round((predictionResult.confidence ?? 0) * 100)}%)
-            </p>
-            <button
-              onClick={() => setPredictionResult(null)}
-              className="mt-2 bg-white/20 hover:bg-white/30 text-white font-bold text-xs px-4 py-1.5 rounded-full transition-colors"
+          {/* Prediction result overlay */}
+          {predictionResult && !isUploading && (
+            <div
+              className={`absolute inset-0 flex flex-col items-center justify-center gap-2 z-20
+                ${predictionResult.is_correct ? 'bg-green-600/80' : 'bg-red-600/80'}`}
             >
-              {t('module.dismiss')}
-            </button>
+              <span className="text-5xl">{predictionResult.is_correct ? '✓' : '✗'}</span>
+              <p className="text-white font-black text-lg">
+                {predictionResult.is_correct ? t('module.correct') : t('module.tryAgain')}
+              </p>
+              <p className="text-white/90 font-semibold text-sm">
+                {t('module.aiSaw')} <span className="font-black">{predictionResult.sign}</span>
+                {'  '}({Number(predictionResult.confidence ?? 0).toFixed(1)}%)
+              </p>
+              <button
+                onClick={() => setPredictionResult(null)}
+                className="mt-2 bg-white/20 hover:bg-white/30 text-white font-bold text-xs px-4 py-1.5 rounded-full transition-colors"
+              >
+                {t('module.dismiss')}
+              </button>
+            </div>
+          )}
+
+          {/* Controls overlay */}
+          <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 flex flex-wrap gap-2 z-10 max-w-[calc(100%-1.5rem)] sm:max-w-none">
+            <ControlBtn
+              onClick={isPaused ? resumeRecording : startRecording}
+              disabled={isRecording || isDone}
+              ariaLabel={isPaused ? t('module.resumeRecording') : t('module.startRecording')}
+            >
+              <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </ControlBtn>
+
+            <ControlBtn onClick={pauseRecording} disabled={!isRecording} ariaLabel={t('module.pauseRecording')}>
+              <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
+                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+              </svg>
+            </ControlBtn>
+
+            <ControlBtn onClick={resetRecording} disabled={isIdle} ariaLabel={t('module.restartRecording')}>
+              <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
+                <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
+              </svg>
+            </ControlBtn>
+
+            <ControlBtn
+              onClick={stopRecording}
+              disabled={isIdle || isDone}
+              ariaLabel={t('module.stopRecording')}
+            >
+              <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
+                <path d="M6 6h12v12H6z" />
+              </svg>
+            </ControlBtn>
           </div>
-        )}
+        </div>
 
-        {/* ── Controls overlay (bottom-left inside the box) ───────────────── */}
-        <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 flex flex-wrap gap-2 z-10 max-w-[calc(100%-1.5rem)] sm:max-w-none">
-
-          {/* Record / Resume */}
-          <ControlBtn
-            onClick={isPaused ? resumeRecording : startRecording}
-            disabled={isRecording || isDone}
-            ariaLabel={isPaused ? t('module.resumeRecording') : t('module.startRecording')}
-          >
-            <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </ControlBtn>
-
-          {/* Pause */}
-          <ControlBtn onClick={pauseRecording} disabled={!isRecording} ariaLabel={t('module.pauseRecording')}>
-            <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
-              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-            </svg>
-          </ControlBtn>
-
-          {/* Restart — discard current recording and go back to idle */}
-          <ControlBtn onClick={resetRecording} disabled={isIdle} ariaLabel={t('module.restartRecording')}>
-            <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
-              <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
-            </svg>
-          </ControlBtn>
-
-          {/* Stop — finalize recording */}
-          <ControlBtn
-            onClick={stopRecording}
-            disabled={isIdle || isDone}
-            ariaLabel={t('module.stopRecording')}
-          >
-            <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
-              <path d="M6 6h12v12H6z" />
-            </svg>
-          </ControlBtn>
-
+        {/* Right: Instructions card (same height as video card) */}
+        <div className="rounded-2xl border-2 border-[#BF7B45] bg-[#FFF7EA] px-4 sm:px-5 py-3 sm:py-4 shadow-[0_3px_10px_rgba(0,0,0,0.08)] h-[210px] sm:h-[250px] lg:h-[280px] overflow-y-auto">
+          <p className="text-[#5D3A1A] font-black text-base sm:text-lg mb-2" style={{ fontFamily: 'var(--font-fredoka)' }}>
+            {t('module.practiceStepsTitle')}
+          </p>
+          <ol className="list-decimal pl-5 space-y-2 text-[#4A2C0A] font-semibold text-[0.92rem] sm:text-[1rem] leading-relaxed" style={{ fontFamily: 'var(--font-fredoka)' }}>
+            <li>{t('module.practiceStep1')}</li>
+            <li>{t('module.practiceStep2')}</li>
+            <li>{t('module.practiceStep3')}</li>
+          </ol>
         </div>
       </div>
-      </div>
 
-      {/* ── Below box: mascot | speech bubble + star bar | buttons ─────────── */}
-      <div className="shrink-0 flex flex-col sm:flex-row sm:items-end gap-2 sm:gap-3 px-1 min-w-0">
+      {/* ── Below box: mascot | speech bubble | buttons ────────────────────── */}
+      <div className="shrink-0 flex flex-col sm:flex-row sm:items-end gap-1.5 sm:gap-2.5 px-1 min-w-0">
 
         {/* Left: mascot character */}
         <div className="self-center sm:self-auto shrink-0">
           <MascotPlaceholder />
         </div>
 
-        {/* Center: speech bubble stacked above star bar — same width, aligned */}
+        {/* Center: speech bubble (+ optional star bar for assessment) */}
         <div className="flex-1 min-w-0 flex flex-col gap-1.5 sm:gap-2 items-stretch sm:items-start">
 
           {/* Speech bubble (tail points bottom-left toward mascot) */}
@@ -413,40 +414,38 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
             <p className="text-[#2E7D1C] font-black text-[clamp(0.82rem,1.3vw,0.95rem)] leading-snug">{bubbleText}</p>
           </div>
 
-          {/* Star progress bar */}
-          <div className="relative self-stretch w-full h-8 flex items-center">
-            {/* Track */}
-            <div className="absolute inset-x-4 my-auto h-3 bg-[#E8C49A] rounded-full border-2 border-[#E8C49A]" />
-            {/* Fill */}
-            <div
-              className="absolute left-4 my-auto h-3 bg-[#33AA11] rounded-full transition-all duration-500"
-              style={{ width: `calc((100% - 2rem) * ${progressPct / 100})` }}
-            />
-            {/* Stars at 0%, 50%, 100% of the bar */}
-            {([0, 50, 100] as const).map((pct) => (
+          {showStarBar && (
+            <div className="relative self-stretch w-full h-8 flex items-center">
+              <div className="absolute inset-x-4 my-auto h-3 bg-[#E8C49A] rounded-full border-2 border-[#E8C49A]" />
               <div
-                key={pct}
-                className="absolute z-10"
-                style={{
-                  left:      pct === 0 ? '1rem' : pct === 100 ? 'calc(100% - 1rem)' : '50%',
-                  transform: 'translateX(-50%)',
-                }}
-              >
-                <span
-                  className={`text-[1.6rem] leading-none drop-shadow-sm ${
-                    progressPct >= pct ? 'text-yellow-400' : 'text-gray-300'
-                  }`}
+                className="absolute left-4 my-auto h-3 bg-[#33AA11] rounded-full transition-all duration-500"
+                style={{ width: `calc((100% - 2rem) * ${progressPct / 100})` }}
+              />
+              {([0, 50, 100] as const).map((pct) => (
+                <div
+                  key={pct}
+                  className="absolute z-10"
+                  style={{
+                    left: pct === 0 ? '1rem' : pct === 100 ? 'calc(100% - 1rem)' : '50%',
+                    transform: 'translateX(-50%)',
+                  }}
                 >
-                  ★
-                </span>
-              </div>
-            ))}
-          </div>
+                  <span
+                    className={`text-[1.6rem] leading-none drop-shadow-sm ${
+                      progressPct >= pct ? 'text-yellow-400' : 'text-gray-300'
+                    }`}
+                  >
+                    ★
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
         </div>
 
         {/* Right: Upload Video + Next buttons */}
-        <div className="w-full sm:w-auto sm:-translate-y-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2 flex-shrink-0">
+        <div className="w-full sm:w-auto sm:-translate-y-3 lg:-translate-y-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2 flex-shrink-0">
           <button
             onClick={handleUploadPrediction}
             disabled={isUploading}

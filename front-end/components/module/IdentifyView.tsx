@@ -17,7 +17,10 @@ interface Props {
   correctAnswer:  string;           // 'A' | 'B' | 'C' | 'D'
   questionIndex:  number;
   totalQuestions: number;
-  /** Called after the user confirms their answer; passes 1.0 if correct, 0.0 if wrong */
+  /**
+   * Called when advancing to the next question.
+   * Accuracy is 1.0 only when solved correctly on first try, otherwise 0.0.
+   */
   onNext: (accuracy: number) => void;
   /** Enables side-by-side layout used on Practice chapter pages */
   sideBySide?: boolean;
@@ -77,6 +80,7 @@ export default function IdentifyView({
 
   const [selected,  setSelected]  = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [hasWrongAttempt, setHasWrongAttempt] = useState(false);
   const sideBySideVideoRef = useRef<HTMLVideoElement>(null);
   const stackedVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -142,17 +146,30 @@ export default function IdentifyView({
   function handleConfirm() {
     if (!selected || confirmed) return;
 
+    const isCorrect = selected === correctAnswer;
+
     if (soundEffects) {
-      const isCorrect = selected === correctAnswer;
       playFeedbackTone(isCorrect);
+    }
+
+    if (!isCorrect) {
+      setHasWrongAttempt(true);
     }
 
     setConfirmed(true);
   }
 
-  function handleNext() {
-    onNext(selected === correctAnswer ? 1.0 : 0.0);
+  function handleRetry() {
+    setConfirmed(false);
+    setSelected(null);
   }
+
+  function handleNext() {
+    const solvedOnFirstTry = selected === correctAnswer && !hasWrongAttempt;
+    onNext(solvedOnFirstTry ? 1.0 : 0.0);
+  }
+
+  const isCorrectSelection = selected === correctAnswer;
 
   const feedbackText = selected === correctAnswer
     ? `✓ ${t('identifyView.correct')}`
@@ -193,6 +210,19 @@ export default function IdentifyView({
       style={{ fontFamily: 'var(--font-fredoka)' }}
     >
       {t('identifyView.confirm')}
+    </button>
+  ) : !isCorrectSelection ? (
+    <button
+      onClick={handleRetry}
+      className="
+        bg-[#FF9900] hover:bg-[#FFAD33] text-white font-black
+        px-10 py-3 rounded-full shadow-[0_5px_0_#b86a00]
+        active:translate-y-1 active:shadow-[0_1px_0_#b86a00]
+        transition-all
+      "
+      style={{ fontFamily: 'var(--font-fredoka)' }}
+    >
+      {t('module.tryAgain')}
     </button>
   ) : (
     <button
@@ -245,11 +275,10 @@ export default function IdentifyView({
             .replace('{{total}}', String(totalQuestions))}
         </p>
 
-        <div className="mx-auto w-full max-w-[1320px] grid min-h-0 flex-1 gap-4 xl:gap-5 xl:items-center xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
-          <div className="min-w-0 flex flex-col items-center xl:items-end gap-3">
+        <div className="mx-auto w-full max-w-[1320px] grid min-h-0 flex-1 gap-3 sm:gap-4 xl:grid-cols-2">
+          <div className="min-w-0 rounded-2xl border-2 border-transparent bg-transparent p-3 sm:p-4 shadow-none flex flex-col gap-3">
             <div
-              className="relative w-full max-w-full xl:max-w-[1280px] aspect-video rounded-[20px] sm:rounded-[24px] border-[4px] sm:border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A]"
-              style={{ width: 'min(100%, 80rem, calc((100dvh - 20rem) * 16 / 9))' }}
+              className="relative w-full rounded-[20px] sm:rounded-[24px] border-[4px] sm:border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A] h-[210px] sm:h-[250px] lg:h-[280px]"
             >
               {videoUrl ? (
                 <video
@@ -267,10 +296,10 @@ export default function IdentifyView({
                 </div>
               )}
             </div>
-            {customControls}
+            <div className="min-h-[3rem]">{customControls}</div>
           </div>
 
-            <div className="min-w-0 flex flex-col gap-4 xl:justify-center xl:justify-self-start xl:w-full xl:max-w-[560px]">
+          <div className="min-w-0 rounded-2xl border-2 border-transparent bg-transparent p-3 sm:p-4 shadow-none h-[210px] sm:h-[250px] lg:h-[280px] overflow-hidden flex flex-col gap-3">
             <p
               className="text-center xl:text-left font-bold text-[1.05rem] sm:text-[1.15rem] lg:text-[1.25rem] text-[#4A2C0A] px-1 break-words"
               style={{ fontFamily: 'var(--font-fredoka)' }}
@@ -310,9 +339,17 @@ export default function IdentifyView({
               >
                 {confirmed ? feedbackText : '\u00A0'}
               </p>
+              {confirmed && !isCorrectSelection && (
+                <p
+                  className="mt-1 text-center lg:text-left text-[0.75rem] font-semibold text-amber-700"
+                  style={{ fontFamily: 'var(--font-fredoka)' }}
+                >
+                  {t('identifyView.retryScoringNotice')}
+                </p>
+              )}
             </div>
 
-            <div className="flex justify-center xl:justify-end gap-3">
+            <div className="flex justify-center xl:justify-end gap-3 mt-auto">
               {actionButton}
             </div>
           </div>
@@ -366,6 +403,14 @@ export default function IdentifyView({
         >
           {confirmed ? feedbackText : '\u00A0'}
         </p>
+        {confirmed && !isCorrectSelection && (
+          <p
+            className="mt-1 text-center text-[0.75rem] font-semibold text-amber-700"
+            style={{ fontFamily: 'var(--font-fredoka)' }}
+          >
+            {t('identifyView.retryScoringNotice')}
+          </p>
+        )}
       </div>
 
       {/* ── Action buttons ────────────────────────────────────────── */}
