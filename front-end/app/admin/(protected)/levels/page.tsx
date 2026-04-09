@@ -40,6 +40,8 @@ interface Question {
   points: number
 }
 
+type QuestionDraft = Omit<Question, 'question_id'> & { question_id?: string; insertAt?: number }
+
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const FONT = 'var(--font-fredoka)'
@@ -97,10 +99,11 @@ const normalizeQuestion = (q: Partial<Question>): Question => ({
 })
 
 const normalizeQuestionDraft = (
-  q: Omit<Question, 'question_id'> & { question_id?: string }
-): Omit<Question, 'question_id'> & { question_id?: string } => ({
+  q: QuestionDraft
+): QuestionDraft => ({
   ...normalizeQuestion(q),
   question_id: q.question_id,
+  insertAt: q.insertAt,
 })
 
 // ── Shared styles ──────────────────────────────────────────────────────────────
@@ -291,16 +294,19 @@ function LessonForm({
 // ── Question Form ──────────────────────────────────────────────────────────────
 
 function QuestionForm({
-  question, mode, isNew, onSave, onCancel, onDelete,
+  question, mode, isNew, onSave, onCancel, onDelete, insertPosition, maxInsertPosition, onInsertPositionChange,
 }: {
-  question: Omit<Question, 'question_id'> & { question_id?: string }
+  question: QuestionDraft
   mode: 'practice' | 'assessment'
   isNew: boolean
-  onSave: (q: Omit<Question, 'question_id'> & { question_id?: string }) => Promise<void>
+  onSave: (q: QuestionDraft) => Promise<void>
   onCancel: () => void
   onDelete?: () => void
+  insertPosition?: number
+  maxInsertPosition?: number
+  onInsertPositionChange?: (position: number) => void
 }) {
-  const [form, setForm] = useState<Omit<Question, 'question_id'> & { question_id?: string }>(
+  const [form, setForm] = useState<QuestionDraft>(
     normalizeQuestionDraft(question)
   )
   const [saving, setSaving] = useState(false)
@@ -346,8 +352,13 @@ function QuestionForm({
       const signField = mode === 'practice' ? form.target_sign : form.correct_sign
       if (!signField.trim()) { setError(`${mode === 'practice' ? 'Target sign' : 'Correct sign'} is required.`); return }
     }
+
+    const payload = isNew && typeof insertPosition === 'number'
+      ? { ...form, insertAt: insertPosition }
+      : form
+
     setSaving(true); setError('')
-    try { await onSave(form) } catch (e: unknown) {
+    try { await onSave(payload) } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to save.')
     } finally { setSaving(false) }
   }
@@ -387,6 +398,25 @@ function QuestionForm({
           onBlur={e => (e.currentTarget.style.borderColor = INPUT_BORDER)}
         />
       </Field>
+
+      {isNew && typeof insertPosition === 'number' && typeof maxInsertPosition === 'number' && onInsertPositionChange && (
+        <Field label="Insert At Position">
+          <input
+            type="number"
+            value={insertPosition}
+            min={1}
+            max={maxInsertPosition}
+            style={{ ...inputStyle, width: '120px' }}
+            onChange={e => {
+              const raw = parseInt(e.target.value, 10)
+              const safe = Number.isFinite(raw)
+                ? Math.min(Math.max(raw, 1), maxInsertPosition)
+                : maxInsertPosition
+              onInsertPositionChange(safe)
+            }}
+          />
+        </Field>
+      )}
 
       {form.question_type === 'identify' ? (
         <>
@@ -595,6 +625,9 @@ export default function AdminLevelsPage() {
   const [loadingQuestions, setLoadingQuestions] = useState(false)
   const [selectedQIdx, setSelectedQIdx] = useState<number | null>(null)
   const [addingQuestion, setAddingQuestion] = useState(false)
+  const [newQuestionInsertAt, setNewQuestionInsertAt] = useState(1)
+  const [draggingQIdx, setDraggingQIdx] = useState<number | null>(null)
+  const [reorderingQuestions, setReorderingQuestions] = useState(false)
 
   // Toast
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
@@ -641,6 +674,9 @@ export default function AdminLevelsPage() {
 
   useEffect(() => { loadLessons() }, [loadLessons])
   useEffect(() => { loadQuestions() }, [loadQuestions])
+  useEffect(() => {
+    setNewQuestionInsertAt(prev => Math.min(Math.max(prev, 1), questions.length + 1))
+  }, [questions.length])
 
   // ── Lesson handlers ──────────────────────────────────────────────────────────
 
@@ -681,7 +717,7 @@ export default function AdminLevelsPage() {
 
   // ── Question handlers ────────────────────────────────────────────────────────
 
-  const handleSaveQuestion = async (form: Omit<Question, 'question_id'> & { question_id?: string }) => {
+  const handleSaveQuestion = async (form: QuestionDraft) => {
     const mode = activeTab as 'practice' | 'assessment'
     if (form.question_id) {
       const res = await adminFetch('/api/admin/questions', {
@@ -694,6 +730,11 @@ export default function AdminLevelsPage() {
       setQuestions(prev => prev.map(q => q.question_id === form.question_id ? normalizeQuestion({ ...q, ...form }) : q))
       showToast('Question updated.', true)
     } else {
+      const targetInsertIndex = Math.min(
+        Math.max((form.insertAt ?? questions.length + 1) - 1, 0),
+        questions.length
+      )
+
       const res = await fetch('/api/admin/questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -701,10 +742,56 @@ export default function AdminLevelsPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to create')
-      setQuestions(prev => [...prev, normalizeQuestion(data.question)])
+      setQuestions(prev => {
+        const next = [...prev]
+        next.splice(targetInsertIndex, 0, normalizeQuestion(data.question))
+        return next
+      })
       setAddingQuestion(false)
-      setSelectedQIdx(questions.length)
+      setSelectedQIdx(targetInsertIndex)
       showToast('Question added.', true)
+    }
+  }
+
+  const handleReorderQuestions = async (fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx || reorderingQuestions || !selectedLevelId) return
+
+    const nextQuestions = [...questions]
+    const [moved] = nextQuestions.splice(fromIdx, 1)
+    nextQuestions.splice(toIdx, 0, moved)
+
+    const previousQuestions = questions
+    const previousSelected = selectedQIdx
+    setQuestions(nextQuestions)
+
+    if (selectedQIdx !== null) {
+      if (selectedQIdx === fromIdx) {
+        setSelectedQIdx(toIdx)
+      } else if (fromIdx < selectedQIdx && toIdx >= selectedQIdx) {
+        setSelectedQIdx(selectedQIdx - 1)
+      } else if (fromIdx > selectedQIdx && toIdx <= selectedQIdx) {
+        setSelectedQIdx(selectedQIdx + 1)
+      }
+    }
+
+    setReorderingQuestions(true)
+    try {
+      const mode = activeTab as 'practice' | 'assessment'
+      const res = await fetch('/api/admin/questions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, levelId: selectedLevelId, reorderIds: nextQuestions.map(q => q.question_id) }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? 'Failed to reorder questions')
+      showToast('Questions reordered.', true)
+    } catch (e) {
+      setQuestions(previousQuestions)
+      setSelectedQIdx(previousSelected)
+      showToast(e instanceof Error ? e.message : 'Failed to reorder questions.', false)
+    } finally {
+      setReorderingQuestions(false)
+      setDraggingQIdx(null)
     }
   }
 
@@ -855,18 +942,41 @@ export default function AdminLevelsPage() {
                 <p style={{ fontFamily: FONT, color: GOLD, fontSize: '0.9rem', textAlign: 'center', marginTop: '20px' }}>No questions yet.</p>
               ) : (
                 <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
+                  <p style={{ fontFamily: FONT, color: GOLD, fontSize: '0.82rem', opacity: 0.75, marginBottom: '2px' }}>
+                    Drag a question to reorder it.
+                  </p>
                   {questions.map((q, i) => {
                     const isActive = !addingQuestion && selectedQIdx === i
                     const typeLabel = q.question_type === 'identify' ? '📺' : '✋'
+                    const isDragging = draggingQIdx === i
                     return (
                       <button
                         key={q.question_id}
+                        draggable
                         onClick={() => { setSelectedQIdx(i); setAddingQuestion(false) }}
+                        onDragStart={() => setDraggingQIdx(i)}
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={e => {
+                          e.preventDefault()
+                          if (draggingQIdx === null) return
+                          void handleReorderQuestions(draggingQIdx, i)
+                        }}
+                        onDragEnd={() => setDraggingQIdx(null)}
                         className="text-left w-full px-4 py-3 rounded-xl"
-                        style={{ fontFamily: FONT, color: GOLD, fontWeight: 600, fontSize: '0.95rem', backgroundColor: isActive ? '#F4E0A0' : 'transparent', border: 'none', cursor: 'pointer' }}
+                        style={{
+                          fontFamily: FONT,
+                          color: GOLD,
+                          fontWeight: 600,
+                          fontSize: '0.95rem',
+                          backgroundColor: isActive ? '#F4E0A0' : 'transparent',
+                          border: 'none',
+                          cursor: reorderingQuestions ? 'wait' : 'grab',
+                          opacity: isDragging ? 0.65 : 1,
+                        }}
                         onMouseEnter={e => { if (!isActive) (e.currentTarget).style.backgroundColor = '#FBF0CC' }}
                         onMouseLeave={e => { if (!isActive) (e.currentTarget).style.backgroundColor = 'transparent' }}
                       >
+                        <span style={{ marginRight: '8px', opacity: 0.6 }}>⋮⋮</span>
                         {typeLabel} Q{i + 1}: {q.question_text || <em style={{ opacity: 0.6 }}>No text</em>}
                       </button>
                     )
@@ -879,7 +989,11 @@ export default function AdminLevelsPage() {
             <button
               onClick={() => {
                 if (activeTab === 'lessons') { setAddingLesson(true); setSelectedLessonIdx(null) }
-                else { setAddingQuestion(true); setSelectedQIdx(null) }
+                else {
+                  setAddingQuestion(true)
+                  setSelectedQIdx(null)
+                  setNewQuestionInsertAt(questions.length + 1)
+                }
               }}
               className="mt-4 w-full py-2.5 rounded-xl font-bold"
               style={{ fontFamily: FONT, color: WHITE, backgroundColor: GREEN, border: 'none', cursor: 'pointer', fontSize: '0.95rem' }}
@@ -913,11 +1027,14 @@ export default function AdminLevelsPage() {
               editingQuestion ? (
                 <QuestionForm
                   key={addingQuestion ? 'new-q' : questions[selectedQIdx!]?.question_id}
-                  question={addingQuestion ? emptyQuestion() : { ...questions[selectedQIdx!] }}
+                  question={addingQuestion ? { ...emptyQuestion(), insertAt: newQuestionInsertAt } : { ...questions[selectedQIdx!] }}
                   mode={mode}
                   isNew={addingQuestion}
                   onSave={handleSaveQuestion}
                   onCancel={() => { setAddingQuestion(false); setSelectedQIdx(null) }}
+                  insertPosition={newQuestionInsertAt}
+                  maxInsertPosition={questions.length + (addingQuestion ? 1 : 0)}
+                  onInsertPositionChange={setNewQuestionInsertAt}
                   onDelete={!addingQuestion && selectedQIdx !== null
                     ? () => handleDeleteQuestion(questions[selectedQIdx!].question_id)
                     : undefined}

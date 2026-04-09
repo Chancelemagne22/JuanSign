@@ -4,8 +4,35 @@ import { getAuthorizedAdmin } from '@/lib/adminAuth'
 
 type Mode = 'practice' | 'assessment'
 
+const ORDER_COLUMN_CANDIDATES = ['question_order', 'sequence_order', 'display_order'] as const
+type OrderColumn = (typeof ORDER_COLUMN_CANDIDATES)[number]
+
 function getTable(mode: Mode) {
   return mode === 'practice' ? 'practice_questions' : 'assessment_questions'
+}
+
+function isMissingColumnError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const message = 'message' in error ? String(error.message).toLowerCase() : ''
+  return message.includes('column') && message.includes('does not exist')
+}
+
+async function detectOrderColumn(mode: Mode, levelId: string): Promise<OrderColumn | null> {
+  const table = getTable(mode)
+
+  for (const column of ORDER_COLUMN_CANDIDATES) {
+    const { error } = await supabaseAdmin
+      .from(table)
+      .select('question_id')
+      .eq('level_id', levelId)
+      .order(column, { ascending: true })
+      .limit(1)
+
+    if (!error) return column
+    if (!isMissingColumnError(error)) throw error
+  }
+
+  return null
 }
 
 const PRACTICE_COLS = 'question_id, question_type, question_text, video_url, option_a, option_b, option_c, option_d, correct_answer, target_sign, reference_data'
@@ -28,11 +55,17 @@ export async function GET(request: NextRequest) {
 
   try {
     const cols = mode === 'practice' ? PRACTICE_COLS : ASSESSMENT_COLS
-    const { data, error } = await supabaseAdmin
-      .from(getTable(mode))
+    const table = getTable(mode)
+    const orderColumn = await detectOrderColumn(mode, levelId)
+
+    const baseQuery = supabaseAdmin
+      .from(table)
       .select(cols)
       .eq('level_id', levelId)
-      .order('created_at', { ascending: true })
+
+    const { data, error } = orderColumn
+      ? await baseQuery.order(orderColumn, { ascending: true })
+      : await baseQuery.order('created_at', { ascending: true })
 
     if (error) throw error
 
@@ -60,6 +93,8 @@ export async function POST(request: NextRequest) {
   const { question_type, question_text, video_url, option_a, option_b, option_c, option_d, correct_answer } = body
 
   try {
+    const typedMode = mode as Mode
+    const table = getTable(typedMode)
     let insertData: Record<string, unknown> = {
       level_id: levelId,
       question_type: question_type ?? 'identify',
@@ -82,8 +117,40 @@ export async function POST(request: NextRequest) {
       insertData.points = body.points
     }
 
+    const orderColumn = await detectOrderColumn(typedMode, levelId)
+    const rawInsertAt = Number(body.insertAt)
+    const hasRequestedPosition = Number.isFinite(rawInsertAt)
+
+    if (orderColumn) {
+      const { data: existingQuestions, error: existingError } = await supabaseAdmin
+        .from(table)
+        .select('question_id')
+        .eq('level_id', levelId)
+        .order(orderColumn, { ascending: true })
+
+      if (existingError) throw existingError
+
+      const existing = existingQuestions ?? []
+      const targetPosition = Math.min(
+        Math.max(hasRequestedPosition ? rawInsertAt : existing.length + 1, 1),
+        existing.length + 1
+      )
+
+      for (let idx = targetPosition - 1; idx < existing.length; idx += 1) {
+        const q = existing[idx]
+        const { error: shiftError } = await supabaseAdmin
+          .from(table)
+          .update({ [orderColumn]: idx + 2 })
+          .eq('question_id', q.question_id)
+
+        if (shiftError) throw shiftError
+      }
+
+      insertData[orderColumn] = targetPosition
+    }
+
     const { data, error } = await supabaseAdmin
-      .from(getTable(mode as Mode))
+      .from(table)
       .insert(insertData)
       .select()
       .single()
@@ -106,6 +173,41 @@ export async function PUT(request: NextRequest) {
 
   const body = await request.json()
   const { mode, id, question_type, question_text, video_url, option_a, option_b, option_c, option_d, correct_answer } = body
+
+  if (Array.isArray(body.reorderIds)) {
+    if (!mode || !body.levelId) {
+      return NextResponse.json({ error: 'mode and levelId are required for reorder' }, { status: 400 })
+    }
+
+    try {
+      const typedMode = mode as Mode
+      const table = getTable(typedMode)
+      const orderColumn = await detectOrderColumn(typedMode, body.levelId)
+
+      if (!orderColumn) {
+        return NextResponse.json(
+          { error: 'Question ordering column not found. Add question_order column in database first.' },
+          { status: 400 }
+        )
+      }
+
+      for (let idx = 0; idx < body.reorderIds.length; idx += 1) {
+        const questionId = body.reorderIds[idx]
+        const { error } = await supabaseAdmin
+          .from(table)
+          .update({ [orderColumn]: idx + 1 })
+          .eq('question_id', questionId)
+          .eq('level_id', body.levelId)
+
+        if (error) throw error
+      }
+
+      return NextResponse.json({ success: true })
+    } catch (err) {
+      console.error('[admin/questions PUT reorder]', err)
+      return NextResponse.json({ error: 'Failed to reorder questions' }, { status: 500 })
+    }
+  }
 
   if (!mode || !id) {
     return NextResponse.json({ error: 'mode and id are required' }, { status: 400 })
