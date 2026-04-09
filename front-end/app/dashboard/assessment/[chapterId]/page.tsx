@@ -240,7 +240,7 @@ export default function AssessmentChapterPage() {
       </div>
 
       {/* ── Assessment view ───────────────────────────────────────── */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-visible">
         <AssessmentView
           levelNum={levelMeta.levelNum}
           levelLabel={levelMeta.label}
@@ -248,8 +248,6 @@ export default function AssessmentChapterPage() {
           questions={questions}
           showTimer={settings.showTimer}
           timerLabel={timerLabel}
-          confirmSubmit={settings.confirmSubmit}
-          reviewBeforeSubmit={settings.reviewBeforeSubmit}
           onFinish={handleAssessmentFinish}
         />
       </div>
