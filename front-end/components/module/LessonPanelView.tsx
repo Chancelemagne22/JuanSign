@@ -9,6 +9,50 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
 
+const TAGALOG_NOTES_BY_LETTER: Record<string, string> = {
+  A: 'Isara ang kamay na parang kamao na nakaharap sa harap, at nakataas ang hinlalaki sa gilid ng hintuturo.',
+  B: 'Ituwid at pagdikitin ang apat na daliri, tapos itupi ang hinlalaki papasok sa palad.',
+  C: 'Ibaluktot ang mga daliri at hinlalaki para maging hugis "C."',
+  D: 'Idikit ang hinlalaki sa gitna, palasingsingan, at kalingkingan habang nakaturo pataas ang hintuturo.',
+  E: 'Ibaluktot pababa ang apat na daliri hanggang dumikit ang dulo nito sa hinlalaki sa ilalim.',
+  F: 'Idikit ang hintuturo at hinlalaki. Panatilihing nakataas at magkakahiwalay ang tatlong natitirang daliri.',
+  G: 'Ituro sa gilid ang hintuturo. Ilagay ang hinlalaki sa tabi nito na may kaunting pagitan.',
+  H: 'Ituro sa gilid ang hintuturo at gitnang daliri at pagdikitin sila. Itupi pababa ang ibang daliri.',
+  I: 'Gumawa ng kamao at hayaang nakaturo pataas ang kalingkingan.',
+  J: 'Itaas ang kalingkingan, tapos igalaw ang kamay para gumuhit ng letrang J sa hangin.',
+  K: 'Itaas ang hintuturo at gitnang daliri na parang "V." Idikit ang hinlalaki sa gitnang bahagi ng gitnang daliri.',
+  L: 'Ituro pataas ang hintuturo at ilabas sa gilid ang hinlalaki para maging hugis "L."',
+  M: 'Itupi ang hinlalaki sa ilalim ng hintuturo, gitna, at palasingsingang daliri.',
+  N: 'Itupi ang hinlalaki sa ilalim lang ng hintuturo at gitnang daliri.',
+  'Ñ': 'Itupi ang hinlalaki sa ilalim ng hintuturo at gitnang daliri habang nakaturo ang dalawang ito pasulong, tapos igalaw ang kamay pakaliwa\'t pakanan nang maliit na alon, parang gumuguhit ng kurba sa hangin.',
+  NG: 'Itupi ang hinlalaki sa ilalim ng hintuturo at gitnang daliri, tapos mabilis na baguhin ang posisyon at ituro sa gilid ang hintuturo habang nasa tabi pa rin ang hinlalaki.',
+  O: 'Idikit ang lahat ng dulo ng daliri sa hinlalaki para makabuo ng bilog.',
+  P: 'Ituro pasulong ang hintuturo at pababa ang gitnang daliri. Idikit ang hinlalaki sa gitnang daliri.',
+  Q: 'Ituro pababa ang hintuturo at hinlalaki na may kaunting pagitan.',
+  R: 'Itaas ang hintuturo at gitnang daliri at ikrus ang gitnang daliri sa ibabaw ng hintuturo.',
+  S: 'Gumawa ng mahigpit na kamao at ilagay ang hinlalaki sa harap ng mga daliri.',
+  T: 'Gumawa ng kamao at ipasok ang hinlalaki sa pagitan ng hintuturo at gitnang daliri.',
+  U: 'Ituro pataas ang hintuturo at gitnang daliri at pagdikitin sila.',
+  V: 'Ituro pataas ang hintuturo at gitnang daliri at paghiwalayin sila.',
+  W: 'Ituro pataas ang hintuturo, gitna, at palasingsingang daliri at paghiwalayin sila.',
+  X: 'Ituro ang hintuturo at ibaluktot ito na parang kawit. Itupi pababa ang ibang daliri.',
+  Y: 'Iunat palabas ang hinlalaki at kalingkingan. Itupi pababa ang tatlong natitirang daliri.',
+  Z: 'Ituro ang hintuturo at gumuhit ng letrang "Z" sa hangin.',
+};
+
+function normalizeLetterKey(letter: string): string {
+  return letter.replace(/\s+/g, '').toUpperCase();
+}
+
+function resolveLessonNote(
+  letter: string,
+  contextText: string | null,
+  language: 'en' | 'tl'
+): string | null {
+  if (language !== 'tl') return contextText;
+  return TAGALOG_NOTES_BY_LETTER[normalizeLetterKey(letter)] ?? contextText;
+}
+
 interface Props {
   letter: string;
   videoUrl: string | null;
@@ -119,9 +163,10 @@ export default function LessonPanelView({
   showCaptions = true,
   nextLabel,
 }: Props) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoError, setVideoError] = useState(false);
+  const translatedContextText = resolveLessonNote(letter, contextText, language);
 
   useEffect(() => {
     if (!videoRef.current) return;
@@ -245,7 +290,7 @@ export default function LessonPanelView({
           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         <div className="flex-1 min-h-0 flex flex-col rounded-[12px] border-[3px] border-[#8B5E3C] bg-[#F5E6D3] p-3.5 sm:p-5 overflow-y-auto shadow-[0_4px_12px_rgba(0,0,0,0.08)] min-w-0 max-h-[34dvh] sm:max-h-[40dvh] xl:max-h-none xl:h-full">
           
-          {contextText ? (
+          {translatedContextText ? (
             <>
               {/* SECTION TITLE */}
               <h3 className="text-[#4A2C0A] font-black text-base lg:text-lg mb-3 sm:mb-4 flex-shrink-0">
@@ -254,14 +299,15 @@ export default function LessonPanelView({
 
               {/* INSTRUCTIONS CONTENT - Parsed steps with structure */}
               <div className="flex-1 min-h-0 overflow-y-auto mb-3 sm:mb-4 min-w-0">
-                <InstructionSteps text={contextText} />
+                <InstructionSteps text={translatedContextText} />
               </div>
 
               {/* TIPS/FOCUS CALLOUT */}
               <div className="mt-2 sm:mt-4 pt-3 sm:pt-4 border-t-2 border-[#D4C4B0] flex-shrink-0">
                 <p className="text-[#4A2C0A] font-medium text-sm leading-relaxed">
                   <span className="font-black text-base">💡 </span>
-                  <span className="font-black">Tip:</span> Watch carefully for hand positioning and movement
+                  <span className="font-black">{t('lessonView.tipLabel')}</span>{' '}
+                  {t('lessonView.tipBody')}
                 </p>
               </div>
             </>
@@ -273,7 +319,7 @@ export default function LessonPanelView({
                 {t('common.noContextAvailable')}
               </p>
               <p className="text-[#9B6F30] font-medium text-xs">
-                Step-by-step instructions coming soon
+                {t('lessonView.instructionsComingSoon')}
               </p>
             </div>
           )}
