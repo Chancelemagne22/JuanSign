@@ -45,39 +45,59 @@ export default function LessonPage() {
 
   useEffect(() => {
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.replace('/'); return; }
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { router.replace('/'); return; }
 
-      const [progressRes, levelRes, lessonsRes] = await Promise.all([
-        supabase
-          .from('user_progress')
-          .select('is_unlocked')
-          .eq('auth_user_id', user.id)
-          .eq('level_id', lessonId)
-          .single(),
-        supabase
-          .from('levels')
-          .select('level_name, level_order')
-          .eq('level_id', lessonId)
-          .single(),
-        supabase
-          .from('lessons')
-          .select('lesson_id, lesson_title, video_url, content_text, lesson_order')
-          .eq('level_id', lessonId)
-          .order('lesson_order'),
-      ]);
+        if (!lessonId) {
+          router.replace('/dashboard/lessons');
+          return;
+        }
 
-      if (!progressRes.data?.is_unlocked) {
+        const [progressRes, levelRes, lessonsRes] = await Promise.all([
+          supabase
+            .from('user_progress')
+            .select('is_unlocked')
+            .eq('auth_user_id', user.id)
+            .eq('level_id', lessonId)
+            .single(),
+          supabase
+            .from('levels')
+            .select('level_name, level_order')
+            .eq('level_id', lessonId)
+            .single(),
+          supabase
+            .from('lessons')
+            .select('lesson_id, lesson_title, video_url, content_text, lesson_order')
+            .eq('level_id', lessonId)
+            .order('lesson_order'),
+        ]);
+
+        if (progressRes.error || !progressRes.data?.is_unlocked) {
+          router.replace('/dashboard/lessons');
+          return;
+        }
+
+        if (levelRes.error || !levelRes.data) {
+          router.replace('/dashboard/lessons');
+          return;
+        }
+
+        if (lessonsRes.error || !lessonsRes.data || lessonsRes.data.length === 0) {
+          router.replace('/dashboard/lessons');
+          return;
+        }
+
+        setLetters((lessonsRes.data ?? []).map((r) => ({ label: r.lesson_title, videoUrl: r.video_url, contextText: r.content_text })));
+        setLevelMeta({
+          levelNum: levelRes.data?.level_order ?? 1,
+          label:    levelRes.data?.level_name ?? t('common.chapterLabel').replace('{{number}}', ''),
+        });
+        setLoading(false);
+      } catch (error) {
+        console.error('[lessons page] failed to load lesson data:', error);
         router.replace('/dashboard/lessons');
-        return;
       }
-
-      setLetters((lessonsRes.data ?? []).map((r) => ({ label: r.lesson_title, videoUrl: r.video_url, contextText: r.content_text })));
-      setLevelMeta({
-        levelNum: levelRes.data?.level_order ?? 1,
-        label:    levelRes.data?.level_name ?? t('common.chapterLabel').replace('{{number}}', ''),
-      });
-      setLoading(false);
     }
     init();
   }, [lessonId, router, t]);

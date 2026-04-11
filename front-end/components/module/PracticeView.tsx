@@ -270,7 +270,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       {/* ── Top row: Video left | Instructions right (same visual size) ───── */}
       <div className="shrink-0 grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 items-stretch min-w-0">
         {/* Left: Camera card */}
-        <div className="relative w-full rounded-[20px] sm:rounded-[24px] border-[4px] sm:border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A] h-[180px] sm:h-[220px] lg:h-[280px]">
+        <div className="relative w-full rounded-[20px] sm:rounded-[24px] border-[4px] sm:border-[6px] border-[#8B5E3C] overflow-hidden bg-[#D4956A] h-[340px] sm:h-[400px] lg:h-[520px]">
           {camError ? (
             <div className="absolute inset-0 flex items-center justify-center px-6">
               <p className="text-white font-semibold text-sm text-center">{camError}</p>
@@ -279,6 +279,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
             /* Mirror the feed so the user sees a selfie-style view */
             <video
               ref={videoRef}
+              autoPlay
               muted
               playsInline
               className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"
@@ -345,7 +346,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
         </div>
 
         {/* Right: Instructions card (same height as video card) */}
-        <div className="rounded-2xl border-2 border-[#BF7B45] bg-[#FFF7EA] px-4 sm:px-5 py-3 sm:py-4 shadow-[0_3px_10px_rgba(0,0,0,0.08)] h-[180px] sm:h-[220px] lg:h-[280px] overflow-y-auto">
+        <div className="rounded-2xl border-2 border-[#BF7B45] bg-[#FFF7EA] px-4 sm:px-5 py-3 sm:py-4 shadow-[0_3px_10px_rgba(0,0,0,0.08)] h-[340px] sm:h-[400px] lg:h-[520px] overflow-y-auto">
           <p className="text-[#5D3A1A] font-black text-base sm:text-lg mb-2" style={{ fontFamily: 'var(--font-fredoka)' }}>
             {t('module.practiceStepsTitle')}
           </p>

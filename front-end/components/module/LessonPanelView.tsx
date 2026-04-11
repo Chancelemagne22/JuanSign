@@ -198,18 +198,39 @@ export default function LessonPanelView({
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 sm:gap-5 min-w-0">
       {/* ═══════════════════════════════════════════════════════════════════════
+        LEVEL INFO HEADER: Progress circle and level details
+        ═══════════════════════════════════════════════════════════════════════ */}
+      {showCaptions && (
+        <div className="text-center shrink-0">
+          <div className="flex items-center justify-center gap-3 mb-3">
+            {/* Progress circle with checkmark */}
+            <div className="flex items-center justify-center gap-2">
+              {Array.from({ length: totalLessons }).map((_, idx) => (
+                <ProgressDot key={idx} isActive={idx === currentIndex} />
+              ))}
+            </div>
+          </div>
+          <div className="text-[#4A2C0A] text-sm sm:text-base lg:text-lg">
+            <span className="font-black">{t('lessonView.levelLabel').replace('{{number}}', String(levelNum))}</span>
+            <span className="hidden sm:inline"> • </span>
+            <span className="font-semibold block sm:inline">{levelLabel}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════
         MAIN LEARNING CARD: Video + Instructions as unified unit
         ═══════════════════════════════════════════════════════════════════════ */}
       <div className="flex-1 min-h-0 flex flex-col xl:grid xl:grid-cols-2 xl:items-stretch gap-3 sm:gap-5 min-w-0">
         
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          LEFT SECTION: VIDEO DISPLAY (unobstructed, controls below)
+          LEFT SECTION: VIDEO DISPLAY (equal height with instructions)
           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <div className="flex-1 min-h-0 flex flex-col gap-3 min-w-0">
+        <div className="flex-1 min-h-0 flex flex-col gap-0 min-w-0">
           
-          {/* VIDEO CONTAINER - Clean, unobstructed */}
+          {/* VIDEO CONTAINER - Clean, unobstructed, equal size to instructions */}
           <div
-            className="flex-1 min-h-[180px] sm:min-h-[260px] lg:min-h-[320px] w-full max-w-full xl:max-w-[54rem] mx-auto flex items-center justify-center bg-gradient-to-b from-[#D4956A] to-[#C8845E] rounded-[12px] border-[3px] border-[#8B5E3C] overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+            className="relative flex-1 min-h-0 w-full rounded-[12px] border-[3px] border-[#8B5E3C] overflow-hidden bg-gradient-to-b from-[#D4956A] to-[#C8845E] shadow-[0_4px_12px_rgba(0,0,0,0.08)] flex items-center justify-center"
           >
             {videoUrl && !videoError ? (
               <video
@@ -239,56 +260,28 @@ export default function LessonPanelView({
                 </p>
               </div>
             )}
-          </div>
 
-          {/* CONTROLS BAR - Below video (external, not overlay) */}
-          <div className="flex flex-wrap gap-2 sm:gap-3 justify-center shrink-0">
-            <ControlBtn onClick={play} ariaLabel={t('lessonView.play')}>
-              <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="currentColor" aria-hidden>
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </ControlBtn>
+            {/* CONTROLS OVERLAY - Positioned at bottom center, above video */}
+            <div className="absolute bottom-4 left-0 right-0 flex flex-wrap gap-2 sm:gap-3 justify-center px-4 z-20">
+              <ControlBtn onClick={play} ariaLabel={t('lessonView.play')}>
+                <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="currentColor" aria-hidden>
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </ControlBtn>
 
-            <ControlBtn onClick={pause} ariaLabel={t('lessonView.pause')}>
-              <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="currentColor" aria-hidden>
-                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-              </svg>
-            </ControlBtn>
-
-            <ControlBtn onClick={restart} ariaLabel={t('lessonView.restart')}>
-              <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="currentColor" aria-hidden>
-                <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
-              </svg>
-            </ControlBtn>
-
-            <ControlBtn onClick={stop} ariaLabel={t('lessonView.stop')}>
-              <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="currentColor" aria-hidden>
-                <path d="M6 6h12v12H6z" />
-              </svg>
-            </ControlBtn>
-          </div>
-
-          {/* PROGRESS INDICATORS - Below controls */}
-          <div className="flex gap-2 justify-center py-1 shrink-0 xl:-translate-y-1">
-            {Array.from({ length: totalLessons }).map((_, idx) => (
-              <ProgressDot key={idx} isActive={idx === currentIndex} />
-            ))}
-          </div>
-
-          {/* LEVEL INFO - Below progress dots */}
-          {showCaptions && (
-            <div className="text-[#4A2C0A] text-sm sm:text-base lg:text-lg text-center shrink-0">
-              <span className="font-black">{t('lessonView.levelLabel').replace('{{number}}', String(levelNum))}</span>
-              <span className="hidden sm:inline"> • </span>
-              <span className="font-semibold block sm:inline">{levelLabel}</span>
+              <ControlBtn onClick={restart} ariaLabel={t('lessonView.restart')}>
+                <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="currentColor" aria-hidden>
+                  <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
+                </svg>
+              </ControlBtn>
             </div>
-          )}
+          </div>
         </div>
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           RIGHT SECTION: INSTRUCTIONS (structured, readable)
           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <div className="flex-1 min-h-0 flex flex-col rounded-[12px] border-[3px] border-[#8B5E3C] bg-[#F6ECDD] p-4 sm:p-6 overflow-y-auto shadow-[0_6px_16px_rgba(0,0,0,0.12)] min-w-0 max-h-[34dvh] sm:max-h-[40dvh] xl:max-h-none xl:h-full">
+        <div className="flex-1 min-h-0 flex flex-col rounded-[12px] border-[3px] border-[#8B5E3C] bg-[#F6ECDD] p-4 sm:p-6 overflow-y-auto shadow-[0_6px_16px_rgba(0,0,0,0.12)] min-w-0">
           
           {translatedContextText ? (
             <>
