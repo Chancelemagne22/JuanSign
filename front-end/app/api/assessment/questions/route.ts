@@ -12,19 +12,59 @@ function isMissingColumnError(error: unknown): boolean {
   return message.includes('column') && message.includes('does not exist')
 }
 
+async function detectOrderColumn(levelId: string): Promise<string | null> {
+  const ORDER_COLUMNS = ['question_order', 'sequence_order', 'display_order'] as const
+
+  for (const column of ORDER_COLUMNS) {
+    const { error } = await supabaseAdmin
+      .from('assessment_questions')
+      .select('question_id')
+      .eq('level_id', levelId)
+      .order(column, { ascending: true })
+      .limit(1)
+
+    if (!error) return column
+    if (!isMissingColumnError(error)) throw error
+  }
+
+  return null
+}
+
 async function queryAssessmentQuestions(levelId: string, status: string) {
-  const baseQuery = () =>
-    supabaseAdmin
+  const orderColumn = await detectOrderColumn(levelId)
+
+  const buildQuery = (statusFilter?: string) => {
+    let query = supabaseAdmin
       .from('assessment_questions')
       .select(QUESTION_COLS)
       .eq('level_id', levelId)
-      .order('created_at', { ascending: true })
 
-  if (status === 'all') {
-    return { result: await baseQuery(), statusFilterApplied: 'none' as const }
+    if (statusFilter) {
+      query = query.eq('status', statusFilter)
+    }
+
+    return orderColumn
+      ? query.order(orderColumn, { ascending: true })
+      : query.order('created_at', { ascending: true })
   }
 
-  const byStatus = await baseQuery().eq('status', 'active')
+  const buildQueryWithIsActive = () => {
+    let query = supabaseAdmin
+      .from('assessment_questions')
+      .select(QUESTION_COLS)
+      .eq('level_id', levelId)
+      .eq('is_active', true)
+
+    return orderColumn
+      ? query.order(orderColumn, { ascending: true })
+      : query.order('created_at', { ascending: true })
+  }
+
+  if (status === 'all') {
+    return { result: await buildQuery(), statusFilterApplied: 'none' as const }
+  }
+
+  const byStatus = await buildQuery('active')
   if (!byStatus.error) {
     return { result: byStatus, statusFilterApplied: 'status' as const }
   }
@@ -33,7 +73,7 @@ async function queryAssessmentQuestions(levelId: string, status: string) {
     return { result: byStatus, statusFilterApplied: 'status' as const }
   }
 
-  const byIsActive = await baseQuery().eq('is_active', true)
+  const byIsActive = await buildQueryWithIsActive()
   if (!byIsActive.error) {
     return { result: byIsActive, statusFilterApplied: 'is_active' as const }
   }
@@ -42,7 +82,7 @@ async function queryAssessmentQuestions(levelId: string, status: string) {
     return { result: byIsActive, statusFilterApplied: 'is_active' as const }
   }
 
-  return { result: await baseQuery(), statusFilterApplied: 'none' as const }
+  return { result: await buildQuery(), statusFilterApplied: 'none' as const }
 }
 
 // GET /api/assessment/questions?levelId=xxx&status=active

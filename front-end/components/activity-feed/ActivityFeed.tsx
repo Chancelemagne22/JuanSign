@@ -29,7 +29,7 @@ export default function ActivityFeed() {
           `
           id,
           created_at,
-          user_id,
+          auth_user_id,
           target_sign,
           predicted_sign,
           confidence,

@@ -315,7 +315,7 @@ class JuanSignInference:
         
         # Ensure we are sending the exact column names from your Supabase screenshot
         supabase.table("practice_sessions").insert({
-            "user_id": user_id,              # Was auth_user_id in your screenshot
+            "auth_user_id": user_id,              # Now matches other tables
             "level_id": request.get("level_id"), # Make sure frontend sends this!
             "sign": sign,
             "target_sign": target,
@@ -444,7 +444,7 @@ def predict_sign_production_safe(video_b64: str, expected_sign: str = "", level_
 
             # Log to practice_sessions table
             supabase.table("practice_sessions").insert({
-                "user_id": user_id,
+                "auth_user_id": user_id,
                 "level_id": level_id,
                 "sign": predicted_sign,
                 "target_sign": expected_sign,

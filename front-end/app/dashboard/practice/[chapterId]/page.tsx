@@ -103,17 +103,40 @@ export default function PracticeChapterPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/'); return; }
 
-      const [levelRes, questionsRes] = await Promise.all([
+      // Detect which order column exists (question_order, sequence_order, or display_order)
+      let questionsRes = null;
+      const ORDER_COLUMNS = ['question_order', 'sequence_order', 'display_order'] as const;
+      let orderColumn: string | null = null;
+
+      for (const col of ORDER_COLUMNS) {
+        const { data, error } = await supabase
+          .from('practice_questions')
+          .select('question_id, question_type, question_text, video_url, option_a, option_b, option_c, option_d, correct_answer, target_sign')
+          .eq('level_id', chapterId)
+          .order(col, { ascending: true });
+
+        if (!error) {
+          questionsRes = { data, error };
+          orderColumn = col;
+          break;
+        }
+      }
+
+      // Fallback to created_at if no order column exists
+      if (!questionsRes) {
+        questionsRes = await supabase
+          .from('practice_questions')
+          .select('question_id, question_type, question_text, video_url, option_a, option_b, option_c, option_d, correct_answer, target_sign')
+          .eq('level_id', chapterId)
+          .order('created_at', { ascending: true });
+      }
+
+      const [levelRes] = await Promise.all([
         supabase
           .from('levels')
           .select('level_name, level_order')
           .eq('level_id', chapterId)
           .single(),
-        supabase
-          .from('practice_questions')
-          .select('question_id, question_type, question_text, video_url, option_a, option_b, option_c, option_d, correct_answer, target_sign')
-          .eq('level_id', chapterId)
-          .order('created_at'),
       ]);
 
       const fetchedQuestions = (questionsRes.data ?? []).map((r) => ({
