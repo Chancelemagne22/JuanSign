@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data, error } = await supabaseAdmin
       .from('lessons')
-      .select('lesson_id, lesson_title, video_url, content_text, lesson_order')
+      .select('lesson_id, lesson_title, video_url, content_text, lesson_order, lesson_title_tagalog, content_text_tagalog')
       .eq('level_id', levelId)
       .order('lesson_order', { ascending: true })
 
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { levelId, lesson_title, video_url, content_text, lesson_order } = await request.json()
+  const { levelId, lesson_title, video_url, content_text, lesson_order, lesson_title_tagalog, content_text_tagalog } = await request.json()
 
   if (!levelId || !lesson_title) {
     return NextResponse.json({ error: 'levelId and lesson_title are required' }, { status: 400 })
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
   try {
     const { data, error } = await supabaseAdmin
       .from('lessons')
-      .insert({ level_id: levelId, lesson_title, video_url, content_text, lesson_order })
+      .insert({ level_id: levelId, lesson_title, video_url, content_text, lesson_order, lesson_title_tagalog, content_text_tagalog })
       .select()
       .single()
 
@@ -127,7 +127,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { id, lesson_title, video_url, content_text, lesson_order } = await request.json()
+  const { id, lesson_title, video_url, content_text, lesson_order, lesson_title_tagalog, content_text_tagalog } = await request.json()
 
   if (!id) {
     return NextResponse.json({ error: 'id is required' }, { status: 400 })
@@ -136,7 +136,7 @@ export async function PUT(request: NextRequest) {
   try {
     const { data, error } = await supabaseAdmin
       .from('lessons')
-      .update({ lesson_title, video_url, content_text, lesson_order })
+      .update({ lesson_title, video_url, content_text, lesson_order, lesson_title_tagalog, content_text_tagalog })
       .eq('lesson_id', id)
       .select()
       .single()

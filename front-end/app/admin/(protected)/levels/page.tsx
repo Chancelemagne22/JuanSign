@@ -18,6 +18,8 @@ interface Lesson {
   video_url: string
   content_text: string
   lesson_order: number
+  lesson_title_tagalog?: string
+  content_text_tagalog?: string
 }
 
 interface Question {
@@ -264,6 +266,24 @@ function LessonForm({
         <textarea
           value={form.content_text} rows={4} style={{ ...inputStyle, resize: 'vertical' }}
           onChange={e => set('content_text', e.target.value)}
+          onFocus={e => (e.currentTarget.style.borderColor = '#B5621E')}
+          onBlur={e => (e.currentTarget.style.borderColor = INPUT_BORDER)}
+        />
+      </Field>
+
+      <Field label="Lesson Title (Tagalog)">
+        <input
+          type="text" value={form.lesson_title_tagalog || ''} style={inputStyle}
+          onChange={e => set('lesson_title_tagalog', e.target.value)}
+          onFocus={e => (e.currentTarget.style.borderColor = '#B5621E')}
+          onBlur={e => (e.currentTarget.style.borderColor = INPUT_BORDER)}
+        />
+      </Field>
+
+      <Field label="Context Text (Tagalog)">
+        <textarea
+          value={form.content_text_tagalog || ''} rows={4} style={{ ...inputStyle, resize: 'vertical' }}
+          onChange={e => set('content_text_tagalog', e.target.value)}
           onFocus={e => (e.currentTarget.style.borderColor = '#B5621E')}
           onBlur={e => (e.currentTarget.style.borderColor = INPUT_BORDER)}
         />
