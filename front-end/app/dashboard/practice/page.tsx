@@ -178,7 +178,7 @@ export default function PracticePage() {
   }
 
   return (
-    <div className="h-screen bg-white px-4 sm:px-6 pt-4 pb-3 overflow-hidden flex flex-col">
+    <div className="min-h-dvh bg-white px-4 sm:px-6 pt-4 pb-3 overflow-y-auto overflow-x-hidden flex flex-col" style={{ WebkitOverflowScrolling: 'touch' }}>
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-3 sm:mb-4">

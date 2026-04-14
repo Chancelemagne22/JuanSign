@@ -135,7 +135,7 @@ export default function AssessmentChapterPage() {
 
   if (loading) {
     return (
-      <div className="h-[100dvh] overflow-hidden flex items-center justify-center bg-white">
+      <div className="min-h-dvh overflow-y-auto overflow-x-hidden flex items-center justify-center bg-white" style={{ WebkitOverflowScrolling: 'touch' }}>
         <p className="text-[#7B3F00] font-bold text-lg animate-pulse">{t('common.loading')}</p>
       </div>
     );
@@ -151,7 +151,7 @@ export default function AssessmentChapterPage() {
 
   if (loadError) {
     return (
-      <div className="h-[100dvh] overflow-hidden flex flex-col items-center justify-center bg-white px-6 gap-4">
+      <div className="min-h-dvh overflow-y-auto overflow-x-hidden flex flex-col items-center justify-center bg-white px-6 gap-4" style={{ WebkitOverflowScrolling: 'touch' }}>
         <p className="text-[#B91C1C] font-bold text-center">{loadError}</p>
         <button
           onClick={() => router.replace('/dashboard/assessment')}
@@ -165,7 +165,7 @@ export default function AssessmentChapterPage() {
 
   if (questions.length === 0) {
     return (
-      <div className="h-[100dvh] overflow-hidden flex flex-col items-center justify-center bg-white px-6 gap-4">
+      <div className="min-h-dvh overflow-y-auto overflow-x-hidden flex flex-col items-center justify-center bg-white px-6 gap-4" style={{ WebkitOverflowScrolling: 'touch' }}>
         <div className="w-20 h-20 rounded-full bg-amber-100 border-4 border-amber-400 flex items-center justify-center text-4xl">
           🚧
         </div>
@@ -184,7 +184,7 @@ export default function AssessmentChapterPage() {
   }
 
   return (
-    <div className="min-h-dvh overflow-x-hidden overflow-y-auto xl:h-dvh xl:overflow-hidden bg-white px-4 sm:px-6 pt-2 sm:pt-3 pb-3 sm:pb-4 flex flex-col">
+    <div className="min-h-dvh overflow-x-hidden overflow-y-auto bg-white px-4 sm:px-6 pt-2 sm:pt-3 pb-3 sm:pb-4 flex flex-col" style={{ WebkitOverflowScrolling: 'touch' }}>
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-2 sm:mb-3 shrink-0">

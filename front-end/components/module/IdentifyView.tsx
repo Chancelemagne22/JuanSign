@@ -268,7 +268,7 @@ export default function IdentifyView({
 
   if (sideBySide) {
     return (
-      <div className="h-full min-h-0 flex flex-col gap-3 overflow-y-auto overflow-x-hidden pb-2 min-w-0">
+      <div className="h-full min-h-0 flex flex-col gap-3 overflow-y-auto overflow-x-hidden pb-2 min-w-0" style={{ WebkitOverflowScrolling: 'touch' }}>
         <p className="text-center text-[#7B3F00] font-black text-base sm:text-lg">
           {t('identifyView.questionLabel')
             .replace('{{current}}', String(questionIndex + 1))
@@ -359,7 +359,7 @@ export default function IdentifyView({
   }
 
   return (
-    <div className="flex flex-col gap-4 h-full overflow-y-auto overflow-x-hidden pb-4 min-w-0">
+    <div className="flex flex-col gap-4 h-full overflow-y-auto overflow-x-hidden pb-4 min-w-0" style={{ WebkitOverflowScrolling: 'touch' }}>
 
       {/* ── Progress ──────────────────────────────────────────────── */}
       <p className="text-center text-[#7B3F00] font-black text-base sm:text-lg">

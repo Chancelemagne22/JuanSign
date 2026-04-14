@@ -70,8 +70,8 @@ export async function middleware(request: NextRequest) {
       console.log('[Middleware] Auth user:', user?.id, 'Error:', userError?.message)
       
       if (!user || userError) {
-        console.log('[Middleware] No user found, redirecting to /auth/login')
-        return NextResponse.redirect(new URL('/auth/login', request.url))
+        console.log('[Middleware] No user found, redirecting to /admin/login')
+        return NextResponse.redirect(new URL('/admin/login', request.url))
       }
 
       // Check user role in profiles table

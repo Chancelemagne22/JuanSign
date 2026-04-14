@@ -232,7 +232,7 @@ export default function PracticeChapterPage() {
 
   return (
     <>
-    <div className="min-h-dvh overflow-x-hidden overflow-y-auto bg-white px-4 sm:px-6 pt-4 sm:pt-5 pb-4 sm:pb-5 flex flex-col">
+    <div className="min-h-dvh overflow-x-hidden overflow-y-auto bg-white px-4 sm:px-6 pt-4 sm:pt-5 pb-4 sm:pb-5 flex flex-col" style={{ WebkitOverflowScrolling: 'touch' }}>
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <div className="relative z-20 flex items-center justify-start mb-3 sm:mb-4 shrink-0">

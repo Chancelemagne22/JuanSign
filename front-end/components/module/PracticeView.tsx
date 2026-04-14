@@ -154,8 +154,8 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
     setFeedback(null);
     setRecordingElapsed(0);
 
-    // Auto-stop after 5 seconds
-    const duration = 5000;
+    // Auto-stop after 7 seconds
+    const duration = 7000;
     autoStopTimerRef.current = setTimeout(() => {
       if (mediaRef.current && mediaRef.current.state !== 'inactive') {
         mediaRef.current.stop();
@@ -295,7 +295,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       : `${t('module.showSignFor')} "${letter}"!`;
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto overflow-x-hidden lg:overflow-hidden flex flex-col gap-2 sm:gap-3 min-w-0">
+    <div className="h-full min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-2 sm:gap-3 min-w-0" style={{ WebkitOverflowScrolling: 'touch' }}>
 
       {/* ── Top row: Video left | Instructions right (same visual size) ───── */}
       <div className="shrink-0 grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 items-stretch min-w-0">
@@ -321,7 +321,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
             <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/50 rounded-full px-3 py-1.5 z-10">
               <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
               <span className="text-white text-xs font-bold tracking-wide">
-                {t('module.rec')} {Math.ceil((5000 - recordingElapsed) / 1000)}s
+                {t('module.rec')} {Math.ceil((7000 - recordingElapsed) / 1000)}s
               </span>
             </div>
           )}
@@ -379,25 +379,15 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
 
         {/* Right: Letter + Instructions card (same height as video card) */}
         <div className="rounded-2xl border-2 border-[#BF7B45] bg-[#FFF7EA] px-4 sm:px-5 py-3 sm:py-4 shadow-[0_3px_10px_rgba(0,0,0,0.08)] h-[340px] sm:h-[400px] lg:h-[520px] overflow-y-auto flex flex-col gap-4">
-          {/* Letter to sign container */}
+          {/* Question container */}
           <div className="flex-shrink-0 rounded-2xl border-2 border-[#BF7B45] bg-white p-4 flex items-center justify-center min-h-[100px]">
-            <p className="text-[#5D3A1A] font-black text-6xl sm:text-7xl lg:text-8xl" style={{ fontFamily: 'var(--font-fredoka)' }}>
-              {letter}
+            <p className="text-[#5D3A1A] font-semibold text-sm sm:text-base lg:text-lg leading-relaxed text-center" style={{ fontFamily: 'var(--font-fredoka)' }}>
+              {questionText}
             </p>
           </div>
 
           {/* Instructions container */}
           <div className="flex-1 overflow-y-auto">
-            {questionText && (
-              <>
-                <p className="text-[#5D3A1A] font-black text-base sm:text-lg mb-3" style={{ fontFamily: 'var(--font-fredoka)' }}>
-                  {t('module.question')}
-                </p>
-                <p className="text-[#4A2C0A] font-semibold text-[0.92rem] sm:text-[1rem] leading-relaxed mb-4" style={{ fontFamily: 'var(--font-fredoka)' }}>
-                  {questionText}
-                </p>
-              </>
-            )}
             <p className="text-[#5D3A1A] font-black text-base sm:text-lg mb-3" style={{ fontFamily: 'var(--font-fredoka)' }}>
               {t('module.practiceStepsTitle')}
             </p>

@@ -56,6 +56,12 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-fredoka), Arial, Helvetica, sans-serif;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+html {
+  height: 100%;
 }
 
 /* Keyboard-only focus ring to improve accessibility without changing pointer UI */
