@@ -111,42 +111,43 @@ const normalizeQuestionDraft = (
 // ── Shared styles ──────────────────────────────────────────────────────────────
 
 const inputStyle: React.CSSProperties = {
-  fontFamily: FONT, color: BROWN, fontSize: '0.95rem',
+  fontFamily: FONT, color: BROWN, fontSize: 'clamp(0.8rem, 1.5vw, 0.95rem)',
   backgroundColor: WHITE, border: `1.5px solid ${INPUT_BORDER}`,
-  borderRadius: '8px', padding: '8px 12px', outline: 'none', width: '100%',
+  borderRadius: '6px', padding: 'clamp(6px, 1vw, 8px) clamp(8px, 1.5vw, 12px)', outline: 'none', width: '100%',
 }
 
 const selectStyle: React.CSSProperties = {
   ...inputStyle,
-  padding: '8px 32px 8px 12px', appearance: 'none', WebkitAppearance: 'none',
+  padding: 'clamp(6px, 1vw, 8px) clamp(24px, 3vw, 32px) clamp(6px, 1vw, 8px) clamp(8px, 1.5vw, 12px)', appearance: 'none', WebkitAppearance: 'none',
   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235D3A1A' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`,
-  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', cursor: 'pointer',
+  backgroundRepeat: 'no-repeat', backgroundPosition: 'right clamp(6px, 1vw, 10px) center', cursor: 'pointer',
 }
 
 const labelSt: React.CSSProperties = {
   fontFamily: FONT, color: BROWN, fontWeight: 700,
-  fontSize: '0.9rem', marginBottom: '5px', display: 'block',
+  fontSize: 'clamp(0.75rem, 1.3vw, 0.9rem)', marginBottom: 'clamp(3px, 0.5vw, 5px)', display: 'block',
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: '14px' }}>
+    <div style={{ marginBottom: 'clamp(10px, 1.5vw, 14px)' }}>
       <label style={labelSt}>{label}</label>
       {children}
     </div>
   )
 }
 
-function BtnPrimary({ children, onClick, disabled }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean }) {
+function BtnPrimary({ children, onClick, disabled, style }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; style?: React.CSSProperties }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       style={{
-        fontFamily: FONT, color: WHITE, fontSize: '0.95rem', fontWeight: 700,
+        fontFamily: FONT, color: WHITE, fontSize: 'clamp(0.8rem, 1.3vw, 0.95rem)', fontWeight: 700,
         backgroundColor: disabled ? GREEN_HOVER : GREEN, border: 'none',
-        borderRadius: '10px', padding: '8px 20px', cursor: disabled ? 'not-allowed' : 'pointer',
+        borderRadius: 'clamp(6px, 1vw, 10px)', padding: 'clamp(6px, 0.8vw, 8px) clamp(12px, 1.8vw, 20px)', cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.8 : 1,
+        ...style,
       }}
     >
       {children}
@@ -154,14 +155,15 @@ function BtnPrimary({ children, onClick, disabled }: { children: React.ReactNode
   )
 }
 
-function BtnSecondary({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
+function BtnSecondary({ children, onClick, style }: { children: React.ReactNode; onClick?: () => void; style?: React.CSSProperties }) {
   return (
     <button
       onClick={onClick}
       style={{
-        fontFamily: FONT, color: BROWN, fontSize: '0.95rem', fontWeight: 600,
+        fontFamily: FONT, color: BROWN, fontSize: 'clamp(0.8rem, 1.3vw, 0.95rem)', fontWeight: 600,
         backgroundColor: WHITE, border: `1.5px solid ${INPUT_BORDER}`,
-        borderRadius: '10px', padding: '8px 20px', cursor: 'pointer',
+        borderRadius: 'clamp(6px, 1vw, 10px)', padding: 'clamp(6px, 0.8vw, 8px) clamp(12px, 1.8vw, 20px)', cursor: 'pointer',
+        ...style,
       }}
     >
       {children}
@@ -238,7 +240,7 @@ function LessonForm({
 
       <Field label="Video URL">
         {loadingVideos ? (
-          <div style={{ fontFamily: FONT, color: '#999', fontSize: '0.9rem', padding: '8px' }}>
+          <div style={{ fontFamily: FONT, color: '#999', fontSize: 'clamp(0.8rem, 1.3vw, 0.9rem)', padding: '8px' }}>
             Loading videos...
           </div>
         ) : (
@@ -254,8 +256,8 @@ function LessonForm({
               style={inputStyle}
             />
             {videos.length === 0 && !loadingVideos && (
-              <p style={{ fontFamily: FONT, color: '#999', fontSize: '0.85rem', marginTop: '5px' }}>
-                No videos found in storage. Please upload videos to the lessons-videos bucket first.
+              <p style={{ fontFamily: FONT, color: '#999', fontSize: 'clamp(0.75rem, 1.3vw, 0.85rem)', marginTop: '4px' }}>
+                No videos found in storage. Upload to lessons-videos bucket first.
               </p>
             )}
           </>
@@ -264,7 +266,7 @@ function LessonForm({
 
       <Field label="Content / Notes">
         <textarea
-          value={form.content_text} rows={4} style={{ ...inputStyle, resize: 'vertical' }}
+          value={form.content_text} rows={3} style={{ ...inputStyle, resize: 'vertical', minHeight: 'clamp(60px, 8vw, 100px)' }}
           onChange={e => set('content_text', e.target.value)}
           onFocus={e => (e.currentTarget.style.borderColor = '#B5621E')}
           onBlur={e => (e.currentTarget.style.borderColor = INPUT_BORDER)}
@@ -282,7 +284,7 @@ function LessonForm({
 
       <Field label="Context Text (Tagalog)">
         <textarea
-          value={form.content_text_tagalog || ''} rows={4} style={{ ...inputStyle, resize: 'vertical' }}
+          value={form.content_text_tagalog || ''} rows={3} style={{ ...inputStyle, resize: 'vertical', minHeight: 'clamp(60px, 8vw, 100px)' }}
           onChange={e => set('content_text_tagalog', e.target.value)}
           onFocus={e => (e.currentTarget.style.borderColor = '#B5621E')}
           onBlur={e => (e.currentTarget.style.borderColor = INPUT_BORDER)}
@@ -291,18 +293,18 @@ function LessonForm({
 
       <Field label="Lesson Order">
         <input
-          type="number" value={form.lesson_order} min={1} style={{ ...inputStyle, width: '80px' }}
+          type="number" value={form.lesson_order} min={1} style={{ ...inputStyle, width: 'clamp(60px, 15vw, 80px)' }}
           onChange={e => set('lesson_order', parseInt(e.target.value) || 1)}
         />
       </Field>
 
-      {error && <p style={{ fontFamily: FONT, color: ERROR_RED, fontSize: '0.88rem', marginBottom: '10px' }}>{error}</p>}
+      {error && <p style={{ fontFamily: FONT, color: ERROR_RED, fontSize: 'clamp(0.75rem, 1.3vw, 0.88rem)', marginBottom: '10px' }}>{error}</p>}
 
-      <div className="flex items-center justify-between mt-auto">
+      <div className="flex items-center justify-between mt-auto gap-2">
         {!isNew && onDelete
-          ? <button onClick={onDelete} style={{ fontFamily: FONT, color: ERROR_RED, fontSize: '0.88rem', background: 'none', border: 'none', cursor: 'pointer' }}>Delete lesson</button>
+          ? <button onClick={onDelete} style={{ fontFamily: FONT, color: ERROR_RED, fontSize: 'clamp(0.75rem, 1.3vw, 0.88rem)', background: 'none', border: 'none', cursor: 'pointer' }}>Delete lesson</button>
           : <span />}
-        <div className="flex gap-3">
+        <div className="flex gap-2 shrink-0">
           <BtnSecondary onClick={onCancel}>Cancel</BtnSecondary>
           <BtnPrimary onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save Lesson'}</BtnPrimary>
         </div>
@@ -391,20 +393,21 @@ function QuestionForm({
 
       {/* Question Type Toggle */}
       <Field label="Question Type">
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 sm:gap-2 flex-wrap">
           {(['identify', 'perform'] as QuestionType[]).map(t => (
             <button
               key={t}
               onClick={() => set('question_type', t)}
               style={{
-                fontFamily: FONT, fontSize: '0.9rem', fontWeight: 600,
-                padding: '6px 18px', borderRadius: '8px', cursor: 'pointer',
+                fontFamily: FONT, fontSize: 'clamp(0.8rem, 1.3vw, 0.9rem)', fontWeight: 600,
+                padding: 'clamp(4px, 0.7vw, 6px) clamp(10px, 1.5vw, 18px)', borderRadius: 'clamp(6px, 1vw, 8px)', cursor: 'pointer',
                 border: `1.5px solid ${form.question_type === t ? GREEN : INPUT_BORDER}`,
                 backgroundColor: form.question_type === t ? GREEN_LIGHT_BG : WHITE,
                 color: form.question_type === t ? GREEN : BROWN,
+                whiteSpace: 'nowrap',
               }}
             >
-              {t === 'identify' ? 'Identify (watch → pick)' : 'Perform (letter → sign)'}
+              {t === 'identify' ? 'Watch & pick' : 'Sign letter'}
             </button>
           ))}
         </div>
@@ -426,7 +429,7 @@ function QuestionForm({
             value={insertPosition}
             min={1}
             max={maxInsertPosition}
-            style={{ ...inputStyle, width: '120px' }}
+            style={{ ...inputStyle, width: 'clamp(80px, 20vw, 120px)' }}
             onChange={e => {
               const raw = parseInt(e.target.value, 10)
               const safe = Number.isFinite(raw)
@@ -442,7 +445,7 @@ function QuestionForm({
         <>
           <Field label="Video URL (sign being shown)">
             {loadingVideos ? (
-              <div style={{ fontFamily: FONT, color: DISABLED_GRAY, fontSize: '0.9rem', padding: '8px' }}>
+              <div style={{ fontFamily: FONT, color: DISABLED_GRAY, fontSize: 'clamp(0.8rem, 1.3vw, 0.9rem)', padding: '8px' }}>
                 Loading videos...
               </div>
             ) : (
@@ -458,20 +461,20 @@ function QuestionForm({
                   style={inputStyle}
                 />
                 {videos.length === 0 && !loadingVideos && (
-                  <p style={{ fontFamily: FONT, color: DISABLED_GRAY, fontSize: '0.85rem', marginTop: '5px' }}>
-                    No videos found in storage. Please upload videos to the lessons-videos bucket first.
+                  <p style={{ fontFamily: FONT, color: DISABLED_GRAY, fontSize: 'clamp(0.75rem, 1.3vw, 0.85rem)', marginTop: '4px' }}>
+                    No videos found. Upload to lessons-videos bucket.
                   </p>
                 )}
               </>
             )}
           </Field>
 
-          <div style={{ marginBottom: '14px' }}>
+          <div style={{ marginBottom: 'clamp(10px, 1.5vw, 14px)' }}>
             <label style={labelSt}>Answer Options</label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-1.5 sm:gap-3">
               {OPTION_KEYS.map((opt, idx) => (
                 <div key={opt}>
-                  <label style={{ ...labelSt, fontWeight: 500, fontSize: '0.85rem' }}>Choice {idx + 1}</label>
+                  <label style={{ ...labelSt, fontWeight: 500, fontSize: 'clamp(0.7rem, 1.3vw, 0.85rem)' }}>Choice {idx + 1}</label>
                   <select
                     value={form[`option_${opt.toLowerCase()}` as keyof typeof form] as string}
                     onChange={e => set(`option_${opt.toLowerCase()}`, e.target.value)}
@@ -486,7 +489,7 @@ function QuestionForm({
           </div>
 
           <Field label="Correct Answer">
-            <div style={{ width: '50%' }}>
+            <div style={{ width: 'clamp(100px, 40vw, 50%)' }}>
               <select value={form.correct_answer} onChange={e => set('correct_answer', e.target.value)} style={selectStyle}>
                 {OPTION_KEYS.map((opt, idx) => (
                   <option key={opt} value={opt}>
@@ -500,16 +503,16 @@ function QuestionForm({
       ) : (
         <>
           {mode === 'practice' ? (
-            <Field label="Target Sign (letter the user must sign)">
+            <Field label="Target Sign (letter)">
               <input
-                type="text" value={form.target_sign} placeholder="e.g. A" style={{ ...inputStyle, width: '120px' }}
+                type="text" value={form.target_sign} placeholder="e.g. A" style={{ ...inputStyle, width: 'clamp(60px, 20vw, 120px)' }}
                 onChange={e => set('target_sign', e.target.value.toUpperCase())}
               />
             </Field>
           ) : (
-            <Field label="Correct Sign (letter the user must sign)">
+            <Field label="Correct Sign (letter)">
               <input
-                type="text" value={form.correct_sign} placeholder="e.g. A" style={{ ...inputStyle, width: '120px' }}
+                type="text" value={form.correct_sign} placeholder="e.g. A" style={{ ...inputStyle, width: 'clamp(60px, 20vw, 120px)' }}
                 onChange={e => set('correct_sign', e.target.value.toUpperCase())}
               />
             </Field>
@@ -520,19 +523,19 @@ function QuestionForm({
       {mode === 'assessment' && (
         <Field label="Points">
           <input
-            type="number" value={form.points} min={1} style={{ ...inputStyle, width: '80px' }}
+            type="number" value={form.points} min={1} style={{ ...inputStyle, width: 'clamp(60px, 15vw, 80px)' }}
             onChange={e => set('points', parseInt(e.target.value) || 1)}
           />
         </Field>
       )}
 
-      {error && <p style={{ fontFamily: FONT, color: '#B91C1C', fontSize: '0.88rem', marginBottom: '10px' }}>{error}</p>}
+      {error && <p style={{ fontFamily: FONT, color: '#B91C1C', fontSize: 'clamp(0.75rem, 1.3vw, 0.88rem)', marginBottom: '10px' }}>{error}</p>}
 
-      <div className="flex items-center justify-between mt-auto">
+      <div className="flex items-center justify-between mt-auto gap-2">
         {!isNew && onDelete
-          ? <button onClick={onDelete} style={{ fontFamily: FONT, color: ERROR_RED, fontSize: '0.88rem', background: 'none', border: 'none', cursor: 'pointer' }}>Delete question</button>
+          ? <button onClick={onDelete} style={{ fontFamily: FONT, color: ERROR_RED, fontSize: 'clamp(0.75rem, 1.3vw, 0.88rem)', background: 'none', border: 'none', cursor: 'pointer' }}>Delete question</button>
           : <span />}
-        <div className="flex gap-3">
+        <div className="flex gap-2 shrink-0">
           <BtnSecondary onClick={onCancel}>Cancel</BtnSecondary>
           <BtnPrimary onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save Question'}</BtnPrimary>
         </div>
@@ -575,8 +578,8 @@ function NewLevelModal({ onCreated, onClose }: { onCreated: (level: Level) => vo
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.45)', backdropFilter: 'blur(1px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="rounded-2xl p-6 w-full max-w-sm" style={{ backgroundColor: WHITE }}>
-        <h2 style={{ fontFamily: FONT, color: BROWN, fontSize: '1.2rem', fontWeight: 700, marginBottom: '20px' }}>
+      <div className="rounded-lg sm:rounded-2xl p-3 sm:p-4 md:p-5 lg:p-6 w-full max-w-sm max-h-screen" style={{ backgroundColor: WHITE }}>
+        <h2 style={{ fontFamily: FONT, color: BROWN, fontSize: 'clamp(1rem, 2vw, 1.2rem)', fontWeight: 700, marginBottom: 'clamp(14px, 2vw, 20px)' }}>
           Create New Level
         </h2>
 
@@ -593,13 +596,13 @@ function NewLevelModal({ onCreated, onClose }: { onCreated: (level: Level) => vo
           />
         </Field>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-2 sm:gap-4">
           <Field label="Order / Sequence">
             <input
               type="number"
               value={order}
               min={1}
-              style={inputStyle}
+              style={{ ...inputStyle, fontSize: 'clamp(0.8rem, 1.3vw, 0.95rem)' }}
               onChange={e => setOrder(parseInt(e.target.value) || 1)}
             />
           </Field>
@@ -609,15 +612,15 @@ function NewLevelModal({ onCreated, onClose }: { onCreated: (level: Level) => vo
               value={passingScore}
               min={1}
               max={100}
-              style={inputStyle}
+              style={{ ...inputStyle, fontSize: 'clamp(0.8rem, 1.3vw, 0.95rem)' }}
               onChange={e => setPassingScore(parseInt(e.target.value) || 75)}
             />
           </Field>
         </div>
 
-        {error && <p style={{ fontFamily: FONT, color: ERROR_RED, fontSize: '0.88rem', marginBottom: '10px' }}>{error}</p>}
+        {error && <p style={{ fontFamily: FONT, color: ERROR_RED, fontSize: 'clamp(0.75rem, 1.3vw, 0.88rem)', marginBottom: '10px' }}>{error}</p>}
 
-        <div className="flex justify-end gap-3 mt-2">
+        <div className="flex justify-end gap-2 sm:gap-3 mt-2">
           <BtnSecondary onClick={onClose}>Cancel</BtnSecondary>
           <BtnPrimary onClick={handleCreate} disabled={saving}>{saving ? 'Creating…' : 'Create Level'}</BtnPrimary>
         </div>
@@ -837,7 +840,7 @@ export default function AdminLevelsPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-5 h-full min-h-0 overflow-y-auto lg:overflow-hidden">
+    <div className="flex flex-col gap-2 sm:gap-3 md:gap-4 lg:gap-5 h-screen min-h-[100dvh] max-h-[100dvh] overflow-hidden">
 
       {/* Toast */}
       {toast && (
@@ -863,11 +866,11 @@ export default function AdminLevelsPage() {
       )}
 
       {/* ── Top bar: level selector + create button ──────────────────────── */}
-      <div className="rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-end gap-4 shrink-0" style={{ backgroundColor: CREAM }}>
-        <div style={{ flex: 1 }}>
-          <label style={{ ...labelSt, marginBottom: '8px' }}>Select Level</label>
+      <div className="rounded-xl sm:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-5 flex flex-col sm:flex-row sm:items-end gap-2 sm:gap-3 md:gap-4 shrink-0 overflow-y-auto" style={{ backgroundColor: CREAM }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <label style={{ ...labelSt, marginBottom: '4px', fontSize: 'clamp(0.75rem, 1.5vw, 0.9rem)' }}>Select Level</label>
           {levels.length === 0 ? (
-            <p style={{ fontFamily: FONT, color: GOLD, fontSize: '0.95rem' }}>No levels yet. Create one →</p>
+            <p style={{ fontFamily: FONT, color: GOLD, fontSize: 'clamp(0.8rem, 1.3vw, 0.95rem)' }}>No levels yet. Create one →</p>
           ) : (
             <select
               value={selectedLevelId}
@@ -878,7 +881,7 @@ export default function AdminLevelsPage() {
                 setAddingLesson(false)
                 setAddingQuestion(false)
               }}
-              style={{ ...selectStyle, maxWidth: '360px' }}
+              style={{ ...selectStyle, maxWidth: '100%', fontSize: 'clamp(0.8rem, 1.5vw, 0.95rem)' }}
             >
               {levels.map(l => (
                 <option key={l.level_id} value={l.level_id}>{l.level_name}</option>
@@ -886,11 +889,11 @@ export default function AdminLevelsPage() {
             </select>
           )}
         </div>
-        <BtnPrimary onClick={() => setShowNewLevel(true)}>+ New Level</BtnPrimary>
+        <BtnPrimary onClick={() => setShowNewLevel(true)} style={{ fontSize: 'clamp(0.8rem, 1.5vw, 0.95rem)', padding: 'clamp(6px, 1vw, 8px) clamp(12px, 2vw, 20px)' }}>+ New Level</BtnPrimary>
       </div>
 
       {/* ── Tabs ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-1 rounded-xl p-1 shrink-0" style={{ backgroundColor: DIVIDER, width: 'fit-content' }}>
+      <div className="flex flex-wrap gap-0.5 sm:gap-1 rounded-lg sm:rounded-xl p-0.5 sm:p-1 shrink-0 overflow-x-auto" style={{ backgroundColor: DIVIDER, width: 'auto', minWidth: '100%' }}>
         {tabs.map(t => (
           <button
             key={t.key}
@@ -902,11 +905,12 @@ export default function AdminLevelsPage() {
               setAddingQuestion(false)
             }}
             style={{
-              fontFamily: FONT, fontSize: '0.95rem', fontWeight: 600,
-              padding: '7px 20px', borderRadius: '9px', border: 'none', cursor: 'pointer',
+              fontFamily: FONT, fontSize: 'clamp(0.75rem, 1.3vw, 0.95rem)', fontWeight: 600,
+              padding: 'clamp(5px, 0.8vw, 7px) clamp(12px, 2vw, 20px)', borderRadius: '6px', border: 'none', cursor: 'pointer',
               backgroundColor: activeTab === t.key ? WHITE : 'transparent',
               color: activeTab === t.key ? BROWN : GOLD,
               boxShadow: activeTab === t.key ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+              whiteSpace: 'nowrap',
             }}
           >
             {t.label}
@@ -916,38 +920,38 @@ export default function AdminLevelsPage() {
 
       {/* ── Content: two-panel (list + form) ─────────────────────────────── */}
       {!selectedLevelId ? (
-        <div className="flex-1 flex items-center justify-center">
-          <p style={{ fontFamily: FONT, color: GOLD }}>Create or select a level above to get started.</p>
+        <div className="flex-1 flex items-center justify-center min-h-0">
+          <p style={{ fontFamily: FONT, color: GOLD, fontSize: 'clamp(0.85rem, 1.5vw, 0.95rem)' }}>Create or select a level above to get started.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5 flex-1 min-h-0">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3 md:gap-4 lg:gap-5 flex-1 min-h-0 overflow-hidden">
 
           {/* Left panel — list */}
-          <div className="rounded-2xl p-4 sm:p-5 flex flex-col min-h-[22rem] xl:min-h-0 xl:h-full overflow-y-auto" style={{ backgroundColor: CREAM }}>
+          <div className="rounded-lg sm:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-5 flex flex-col min-h-0 h-full overflow-y-auto" style={{ backgroundColor: CREAM }}>
             {activeTab === 'lessons' && (
-              <h2 style={{ fontFamily: FONT, color: GOLD, fontSize: '1.1rem', fontWeight: 700, textAlign: 'center', marginBottom: '14px' }}>
+              <h2 style={{ fontFamily: FONT, color: GOLD, fontSize: 'clamp(0.95rem, 1.8vw, 1.1rem)', fontWeight: 700, textAlign: 'center', marginBottom: 'clamp(8px, 1.5vw, 14px)' }}>
                 Lesson List
               </h2>
             )}
 
             {/* List items */}
             {(activeTab === 'lessons' ? loadingLessons : loadingQuestions) ? (
-              <div className="flex-1 flex items-center justify-center">
-                <p style={{ fontFamily: FONT, color: GOLD }}>Loading…</p>
+              <div className="flex-1 flex items-center justify-center min-h-0">
+                <p style={{ fontFamily: FONT, color: GOLD, fontSize: 'clamp(0.8rem, 1.5vw, 0.9rem)' }}>Loading…</p>
               </div>
             ) : activeTab === 'lessons' ? (
               lessons.length === 0 ? (
-                <p style={{ fontFamily: FONT, color: GOLD, fontSize: '0.9rem', textAlign: 'center', marginTop: '20px' }}>No lessons yet.</p>
+                <p style={{ fontFamily: FONT, color: GOLD, fontSize: 'clamp(0.8rem, 1.5vw, 0.9rem)', textAlign: 'center', marginTop: 'clamp(12px, 2vw, 20px)' }}>No lessons yet.</p>
               ) : (
-                <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
+                <div className="flex flex-col gap-1 sm:gap-2 flex-1 overflow-y-auto min-h-0">
                   {lessons.map((l, i) => {
                     const isActive = !addingLesson && selectedLessonIdx === i
                     return (
                       <button
                         key={l.lesson_id}
                         onClick={() => { setSelectedLessonIdx(i); setAddingLesson(false) }}
-                        className="text-left w-full px-4 py-3 rounded-xl"
-                        style={{ fontFamily: FONT, color: GOLD, fontWeight: 600, fontSize: '0.95rem', backgroundColor: isActive ? '#F4E0A0' : 'transparent', border: 'none', cursor: 'pointer' }}
+                        className="text-left w-full px-2 sm:px-4 py-1.5 sm:py-3 rounded-lg sm:rounded-xl"
+                        style={{ fontFamily: FONT, color: GOLD, fontWeight: 600, fontSize: 'clamp(0.8rem, 1.3vw, 0.95rem)', backgroundColor: isActive ? '#F4E0A0' : 'transparent', border: 'none', cursor: 'pointer' }}
                         onMouseEnter={e => { if (!isActive) (e.currentTarget).style.backgroundColor = '#FBF0CC' }}
                         onMouseLeave={e => { if (!isActive) (e.currentTarget).style.backgroundColor = 'transparent' }}
                       >
@@ -959,11 +963,11 @@ export default function AdminLevelsPage() {
               )
             ) : (
               questions.length === 0 ? (
-                <p style={{ fontFamily: FONT, color: GOLD, fontSize: '0.9rem', textAlign: 'center', marginTop: '20px' }}>No questions yet.</p>
+                <p style={{ fontFamily: FONT, color: GOLD, fontSize: 'clamp(0.8rem, 1.5vw, 0.9rem)', textAlign: 'center', marginTop: 'clamp(12px, 2vw, 20px)' }}>No questions yet.</p>
               ) : (
-                <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
-                  <p style={{ fontFamily: FONT, color: GOLD, fontSize: '0.82rem', opacity: 0.75, marginBottom: '2px' }}>
-                    Drag a question to reorder it.
+                <div className="flex flex-col gap-1 sm:gap-2 flex-1 overflow-y-auto min-h-0">
+                  <p style={{ fontFamily: FONT, color: GOLD, fontSize: 'clamp(0.7rem, 1.3vw, 0.82rem)', opacity: 0.75, marginBottom: 'clamp(1px, 0.5vw, 2px)' }}>
+                    Drag to reorder.
                   </p>
                   {questions.map((q, i) => {
                     const isActive = !addingQuestion && selectedQIdx === i
@@ -982,12 +986,12 @@ export default function AdminLevelsPage() {
                           void handleReorderQuestions(draggingQIdx, i)
                         }}
                         onDragEnd={() => setDraggingQIdx(null)}
-                        className="text-left w-full px-4 py-3 rounded-xl"
+                        className="text-left w-full px-2 sm:px-4 py-1.5 sm:py-3 rounded-lg sm:rounded-xl"
                         style={{
                           fontFamily: FONT,
                           color: GOLD,
                           fontWeight: 600,
-                          fontSize: '0.95rem',
+                          fontSize: 'clamp(0.8rem, 1.3vw, 0.95rem)',
                           backgroundColor: isActive ? '#F4E0A0' : 'transparent',
                           border: 'none',
                           cursor: reorderingQuestions ? 'wait' : 'grab',
@@ -996,7 +1000,7 @@ export default function AdminLevelsPage() {
                         onMouseEnter={e => { if (!isActive) (e.currentTarget).style.backgroundColor = '#FBF0CC' }}
                         onMouseLeave={e => { if (!isActive) (e.currentTarget).style.backgroundColor = 'transparent' }}
                       >
-                        <span style={{ marginRight: '8px', opacity: 0.6 }}>⋮⋮</span>
+                        <span style={{ marginRight: 'clamp(4px, 0.8vw, 8px)', opacity: 0.6, fontSize: 'clamp(0.7rem, 1.3vw, 0.9rem)' }}>⋮⋮</span>
                         {typeLabel} Q{i + 1}: {q.question_text || <em style={{ opacity: 0.6 }}>No text</em>}
                       </button>
                     )
@@ -1015,15 +1019,15 @@ export default function AdminLevelsPage() {
                   setNewQuestionInsertAt(questions.length + 1)
                 }
               }}
-              className="mt-4 w-full py-2.5 rounded-xl font-bold"
-              style={{ fontFamily: FONT, color: WHITE, backgroundColor: GREEN, border: 'none', cursor: 'pointer', fontSize: '0.95rem' }}
+              className="mt-auto w-full py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl font-bold mt-2 shrink-0"
+              style={{ fontFamily: FONT, color: WHITE, backgroundColor: GREEN, border: 'none', cursor: 'pointer', fontSize: 'clamp(0.8rem, 1.3vw, 0.95rem)' }}
             >
               + Add {activeTab === 'lessons' ? 'Lesson' : 'Question'}
             </button>
           </div>
 
           {/* Right panel — edit form */}
-          <div className="rounded-2xl p-4 sm:p-5 flex flex-col min-h-[22rem] xl:min-h-0 xl:h-full" style={{ backgroundColor: CREAM }}>
+          <div className="rounded-lg sm:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-5 flex flex-col min-h-0 h-full overflow-y-auto" style={{ backgroundColor: CREAM }}>
             {activeTab === 'lessons' ? (
               editingLesson ? (
                 <LessonForm
@@ -1037,8 +1041,8 @@ export default function AdminLevelsPage() {
                     : undefined}
                 />
               ) : (
-                <div className="flex-1 flex items-center justify-center">
-                  <p style={{ fontFamily: FONT, color: GOLD, fontSize: '0.95rem', textAlign: 'center' }}>
+                <div className="flex-1 flex items-center justify-center min-h-0">
+                  <p style={{ fontFamily: FONT, color: GOLD, fontSize: 'clamp(0.85rem, 1.5vw, 0.95rem)', textAlign: 'center' }}>
                     Select a lesson or add a new one.
                   </p>
                 </div>
@@ -1060,8 +1064,8 @@ export default function AdminLevelsPage() {
                     : undefined}
                 />
               ) : (
-                <div className="flex-1 flex items-center justify-center">
-                  <p style={{ fontFamily: FONT, color: GOLD, fontSize: '0.95rem', textAlign: 'center' }}>
+                <div className="flex-1 flex items-center justify-center min-h-0">
+                  <p style={{ fontFamily: FONT, color: GOLD, fontSize: 'clamp(0.85rem, 1.5vw, 0.95rem)', textAlign: 'center' }}>
                     Select a question or add a new one.
                   </p>
                 </div>

@@ -142,6 +142,7 @@ export default function AssessmentView({
               performAccuracyRef.current = accuracy
             }}
             onNext={() => handleNext(performAccuracyRef.current ?? 0)}
+            questionText={current.questionText}
           />
         ) : (
           <IdentifyView

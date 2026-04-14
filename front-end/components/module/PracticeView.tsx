@@ -21,6 +21,8 @@ interface Props {
   onResult?:    (accuracy: number) => void;
   /** Show lesson-style star progress bar (used by assessment only) */
   showStarBar?: boolean;
+  /** Optional context question text to display in instructions */
+  questionText?: string;
 }
 
 type RecordState = 'idle' | 'recording' | 'done';
@@ -75,7 +77,7 @@ function MascotPlaceholder() {
     />
   );
 }
-export default function PracticeView({ letter, letterIndex, totalLetters, levelId, onNext, onResult, showStarBar = false }: Props) {
+export default function PracticeView({ letter, letterIndex, totalLetters, levelId, onNext, onResult, showStarBar = false, questionText }: Props) {
   const { t } = useLanguage();
   const videoRef   = useRef<HTMLVideoElement>(null);
   const mediaRef   = useRef<MediaRecorder | null>(null);
@@ -89,6 +91,8 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
   const [camError,         setCamError]         = useState<string | null>(null);
   const [isUploading,      setIsUploading]      = useState(false);
   const [predictionResult, setPredictionResult] = useState<PredictionResult | null>(null);
+  const [recordingElapsed, setRecordingElapsed] = useState(0);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   /* ── Start webcam on mount, stop tracks on unmount ────────────────────── */
   useEffect(() => {
@@ -117,6 +121,10 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       if (autoStopTimerRef.current) {
         clearTimeout(autoStopTimerRef.current);
       }
+      // Clean up recording interval on unmount
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
     };
   }, [t]);
 
@@ -144,14 +152,30 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
     recorder.start();
     setRecordState('recording');
     setFeedback(null);
+    setRecordingElapsed(0);
 
-    // Auto-stop after 4-5 seconds (random between 4000-5000ms)
-    const duration = 4000 + Math.random() * 1000;
+    // Auto-stop after 5 seconds
+    const duration = 5000;
     autoStopTimerRef.current = setTimeout(() => {
       if (mediaRef.current && mediaRef.current.state !== 'inactive') {
         mediaRef.current.stop();
       }
     }, duration);
+
+    // Update countdown timer every 100ms
+    recordingIntervalRef.current = setInterval(() => {
+      setRecordingElapsed((prev) => {
+        const next = prev + 100;
+        if (next >= duration) {
+          if (recordingIntervalRef.current) {
+            clearInterval(recordingIntervalRef.current);
+            recordingIntervalRef.current = null;
+          }
+          return duration;
+        }
+        return next;
+      });
+    }, 100);
   }
 
 
@@ -162,6 +186,11 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       clearTimeout(autoStopTimerRef.current);
       autoStopTimerRef.current = null;
     }
+    // Clear recording interval
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
     if (mediaRef.current && mediaRef.current.state !== 'inactive') {
       mediaRef.current.stop();
     }
@@ -170,6 +199,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
     setPredictionResult(null);
     setFeedback(null);
     setRecordState('idle');
+    setRecordingElapsed(0);
   }
 
   /* ── ML Prediction Upload ────────────────────────────────────────────────
@@ -286,11 +316,13 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
             />
           )}
 
-          {/* Recording indicator */}
+          {/* Recording indicator with countdown timer */}
           {isRecording && (
             <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/50 rounded-full px-3 py-1.5 z-10">
               <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-white text-xs font-bold tracking-wide">{t('module.rec')}</span>
+              <span className="text-white text-xs font-bold tracking-wide">
+                {t('module.rec')} {Math.ceil((5000 - recordingElapsed) / 1000)}s
+              </span>
             </div>
           )}
 
@@ -345,37 +377,52 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
           </div>
         </div>
 
-        {/* Right: Instructions card (same height as video card) */}
-        <div className="rounded-2xl border-2 border-[#BF7B45] bg-[#FFF7EA] px-4 sm:px-5 py-3 sm:py-4 shadow-[0_3px_10px_rgba(0,0,0,0.08)] h-[340px] sm:h-[400px] lg:h-[520px] overflow-y-auto">
-          <p className="text-[#5D3A1A] font-black text-base sm:text-lg mb-2" style={{ fontFamily: 'var(--font-fredoka)' }}>
-            {t('module.practiceStepsTitle')}
-          </p>
-          <ol className="list-decimal pl-5 space-y-2 text-[#4A2C0A] font-semibold text-[0.92rem] sm:text-[1rem] leading-relaxed" style={{ fontFamily: 'var(--font-fredoka)' }}>
-            <li>{t('module.practiceStep1')}</li>
-            <li>{t('module.practiceStep2')}</li>
-            <li>{t('module.practiceStep3')}</li>
-          </ol>
+        {/* Right: Letter + Instructions card (same height as video card) */}
+        <div className="rounded-2xl border-2 border-[#BF7B45] bg-[#FFF7EA] px-4 sm:px-5 py-3 sm:py-4 shadow-[0_3px_10px_rgba(0,0,0,0.08)] h-[340px] sm:h-[400px] lg:h-[520px] overflow-y-auto flex flex-col gap-4">
+          {/* Letter to sign container */}
+          <div className="flex-shrink-0 rounded-2xl border-2 border-[#BF7B45] bg-white p-4 flex items-center justify-center min-h-[100px]">
+            <p className="text-[#5D3A1A] font-black text-6xl sm:text-7xl lg:text-8xl" style={{ fontFamily: 'var(--font-fredoka)' }}>
+              {letter}
+            </p>
+          </div>
+
+          {/* Instructions container */}
+          <div className="flex-1 overflow-y-auto">
+            {questionText && (
+              <>
+                <p className="text-[#5D3A1A] font-black text-base sm:text-lg mb-3" style={{ fontFamily: 'var(--font-fredoka)' }}>
+                  {t('module.question')}
+                </p>
+                <p className="text-[#4A2C0A] font-semibold text-[0.92rem] sm:text-[1rem] leading-relaxed mb-4" style={{ fontFamily: 'var(--font-fredoka)' }}>
+                  {questionText}
+                </p>
+              </>
+            )}
+            <p className="text-[#5D3A1A] font-black text-base sm:text-lg mb-3" style={{ fontFamily: 'var(--font-fredoka)' }}>
+              {t('module.practiceStepsTitle')}
+            </p>
+            <ol className="list-decimal pl-5 space-y-2 text-[#4A2C0A] font-semibold text-[0.92rem] sm:text-[1rem] leading-relaxed" style={{ fontFamily: 'var(--font-fredoka)' }}>
+              <li>{t('module.practiceStep1')}</li>
+              <li>{t('module.practiceStep2')}</li>
+              <li>{t('module.practiceStep3')}</li>
+            </ol>
+          </div>
         </div>
       </div>
 
-      {/* ── Below box: mascot | speech bubble | buttons ────────────────────── */}
-      <div className="shrink-0 flex flex-col sm:flex-row sm:items-end gap-1.5 sm:gap-2.5 px-1 min-w-0">
+      {/* ── Below box: speech bubble and buttons ────────────────────────────── */}
+      <div className="shrink-0 flex flex-col gap-2 sm:gap-3 min-w-0">
 
-        {/* Left: mascot character */}
-        <div className="self-center sm:self-auto shrink-0">
-          <MascotPlaceholder />
-        </div>
+        {/* Speech bubble (+ optional star bar for assessment) */}
+        <div className="flex flex-col gap-1.5 sm:gap-2 items-stretch">
 
-        {/* Center: speech bubble (+ optional star bar for assessment) */}
-        <div className="flex-1 min-w-0 flex flex-col gap-1.5 sm:gap-2 items-stretch sm:items-start">
-
-          {/* Speech bubble (tail points bottom-left toward mascot) */}
-          <div className="self-stretch sm:self-start inline-flex w-full sm:w-fit max-w-full sm:max-w-[min(58vw,30rem)] bg-[#F8F8F8] border border-[#D9D9D9] rounded-[18px] rounded-bl-[8px] px-3.5 sm:px-4 py-2 sm:py-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
+          {/* Speech bubble */}
+          <div className="inline-flex w-full bg-[#F8F8F8] border border-[#D9D9D9] rounded-[18px] px-3.5 sm:px-4 py-2 sm:py-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
             <p className="text-[#2E7D1C] font-black text-[clamp(0.82rem,1.3vw,0.95rem)] leading-snug">{bubbleText}</p>
           </div>
 
           {showStarBar && (
-            <div className="relative self-stretch w-full h-8 flex items-center">
+            <div className="relative w-full h-8 flex items-center">
               <div className="absolute inset-x-4 my-auto h-3 bg-[#E8C49A] rounded-full border-2 border-[#E8C49A]" />
               <div
                 className="absolute left-4 my-auto h-3 bg-[#33AA11] rounded-full transition-all duration-500"
@@ -404,13 +451,12 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
 
         </div>
 
-        {/* Right: Next button only (Upload is automatic) */}
-        <div className="w-full sm:w-auto sm:-translate-y-3 lg:-translate-y-4 flex-shrink-0">
+        {/* Next button */}
+        <div className="w-full flex justify-end">
           <button
             onClick={onNext}
             disabled={!predictionResult}
             className="
-              w-full sm:w-auto
               bg-[#33AA11] border-[3px] border-[#33AA11] text-white
               font-black text-sm px-5 py-2 rounded-full
               shadow-[0_4px_0_#165c00]

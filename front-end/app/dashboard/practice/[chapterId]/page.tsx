@@ -311,6 +311,7 @@ export default function PracticeChapterPage() {
             levelId={chapterId}
             onNext={() => handleNext()}
             onResult={handleResult}
+            questionText={current.questionText}
           />
         ) : (
           <IdentifyView
