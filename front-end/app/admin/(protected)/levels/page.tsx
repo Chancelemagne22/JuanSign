@@ -924,10 +924,10 @@ export default function AdminLevelsPage() {
           <p style={{ fontFamily: FONT, color: GOLD, fontSize: 'clamp(0.85rem, 1.5vw, 0.95rem)' }}>Create or select a level above to get started.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3 md:gap-4 lg:gap-5 flex-1 min-h-0 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3 md:gap-4 lg:gap-5 flex-1 min-h-0 overflow-y-auto">
 
           {/* Left panel — list */}
-          <div className="rounded-lg sm:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-5 flex flex-col min-h-0 h-full overflow-y-auto" style={{ backgroundColor: CREAM }}>
+          <div className="rounded-lg sm:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-5 flex flex-col min-h-0 h-full" style={{ backgroundColor: CREAM }}>
             {activeTab === 'lessons' && (
               <h2 style={{ fontFamily: FONT, color: GOLD, fontSize: 'clamp(0.95rem, 1.8vw, 1.1rem)', fontWeight: 700, textAlign: 'center', marginBottom: 'clamp(8px, 1.5vw, 14px)' }}>
                 Lesson List
@@ -1027,7 +1027,7 @@ export default function AdminLevelsPage() {
           </div>
 
           {/* Right panel — edit form */}
-          <div className="rounded-lg sm:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-5 flex flex-col min-h-0 h-full overflow-y-auto" style={{ backgroundColor: CREAM }}>
+          <div className="rounded-lg sm:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-5 flex flex-col min-h-0 h-full" style={{ backgroundColor: CREAM }}>
             {activeTab === 'lessons' ? (
               editingLesson ? (
                 <LessonForm

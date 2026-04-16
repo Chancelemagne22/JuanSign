@@ -79,7 +79,7 @@ export default function AdminProtectedLayout({ children }: { children: React.Rea
         </header>
 
         {/* Page content */}
-        <main className="flex-1 min-h-0 px-4 sm:px-5 lg:px-6 pb-4 sm:pb-5 lg:pb-6 pt-0 overflow-y-auto lg:overflow-hidden">
+        <main className="flex-1 min-h-0 px-4 sm:px-5 lg:px-6 pb-4 sm:pb-5 lg:pb-6 pt-0 overflow-y-auto lg:overflow-y-auto">
           <div className="h-full min-h-0">{children}</div>
         </main>
       </div>

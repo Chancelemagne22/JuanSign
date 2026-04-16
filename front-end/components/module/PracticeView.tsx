@@ -91,6 +91,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
   const [camError,         setCamError]         = useState<string | null>(null);
   const [isUploading,      setIsUploading]      = useState(false);
   const [predictionResult, setPredictionResult] = useState<PredictionResult | null>(null);
+  const [showResultOverlay, setShowResultOverlay] = useState(false);
   const [recordingElapsed, setRecordingElapsed] = useState(0);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -197,6 +198,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
     chunksRef.current = [];
     setRecordedBlob(null);
     setPredictionResult(null);
+    setShowResultOverlay(false);
     setFeedback(null);
     setRecordState('idle');
     setRecordingElapsed(0);
@@ -215,6 +217,8 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
     setPredictionResult(null);
 
     try {
+      setShowResultOverlay(false);
+
       // 1. JWT
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -254,6 +258,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
 
       // 4. Show result + notify parent
       setPredictionResult(result);
+      setShowResultOverlay(true);
       setFeedback(
         result.is_correct
           ? `${t('module.niceJobSigned')} "${result.sign}" ${t('module.correctly')}`
@@ -335,7 +340,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
           )}
 
           {/* Prediction result overlay */}
-          {predictionResult && !isUploading && (
+          {predictionResult && showResultOverlay && !isUploading && (
             <div
               className={`absolute inset-0 flex flex-col items-center justify-center gap-2 z-20
                 ${predictionResult.is_correct ? 'bg-green-600/80' : 'bg-red-600/80'}`}
@@ -344,12 +349,11 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
               <p className="text-white font-black text-lg">
                 {predictionResult.is_correct ? t('module.correct') : t('module.tryAgain')}
               </p>
-              <p className="text-white/90 font-semibold text-sm">
-                {t('module.aiSaw')} <span className="font-black">{predictionResult.sign}</span>
-                {'  '}({Math.round((predictionResult.confidence ?? 0) * 100)}%)
+              <p className="text-white/90 font-semibold text-lg">
+                <span className="font-black">{predictionResult.sign}</span> - {Math.round((predictionResult.confidence ?? 0) * 100)}%
               </p>
               <button
-                onClick={() => setPredictionResult(null)}
+                onClick={() => setShowResultOverlay(false)}
                 className="mt-2 bg-white/20 hover:bg-white/30 text-white font-bold text-xs px-4 py-1.5 rounded-full transition-colors"
               >
                 {t('module.dismiss')}
