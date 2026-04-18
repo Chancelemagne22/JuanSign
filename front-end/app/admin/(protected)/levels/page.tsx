@@ -10,7 +10,7 @@ import { listLessonVideos, getLessonVideoUrl } from '@/lib/storage'
 type QuestionType = 'identify' | 'perform'
 type Tab = 'lessons' | 'practice' | 'assessment'
 
-interface Level { level_id: string; level_name: string; sequence_order?: number }
+interface Level { level_id: string; level_name: string; sequence_order?: number; level_order?: number }
 
 interface Lesson {
   lesson_id: string
@@ -155,14 +155,16 @@ function BtnPrimary({ children, onClick, disabled, style }: { children: React.Re
   )
 }
 
-function BtnSecondary({ children, onClick, style }: { children: React.ReactNode; onClick?: () => void; style?: React.CSSProperties }) {
+function BtnSecondary({ children, onClick, style, disabled }: { children: React.ReactNode; onClick?: () => void; style?: React.CSSProperties; disabled?: boolean }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         fontFamily: FONT, color: BROWN, fontSize: 'clamp(0.8rem, 1.3vw, 0.95rem)', fontWeight: 600,
         backgroundColor: WHITE, border: `1.5px solid ${INPUT_BORDER}`,
-        borderRadius: 'clamp(6px, 1vw, 10px)', padding: 'clamp(6px, 0.8vw, 8px) clamp(12px, 1.8vw, 20px)', cursor: 'pointer',
+        borderRadius: 'clamp(6px, 1vw, 10px)', padding: 'clamp(6px, 0.8vw, 8px) clamp(12px, 1.8vw, 20px)',
+        cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1,
         ...style,
       }}
     >
@@ -188,7 +190,19 @@ function LessonForm({
   const [videos, setVideos] = useState<string[]>([])
   const [loadingVideos, setLoadingVideos] = useState(true)
 
-  useEffect(() => setForm(lesson), [lesson])
+  useEffect(() => {
+    console.log('[LessonForm] Received lesson prop:', { isNew, lesson_id: lesson.lesson_id, lesson_title: lesson.lesson_title, lesson_order: lesson.lesson_order, orderType: typeof lesson.lesson_order })
+    setForm(lesson)
+  }, [
+    lesson.lesson_id,
+    lesson.lesson_title,
+    lesson.video_url,
+    lesson.content_text,
+    lesson.lesson_order,
+    lesson.lesson_title_tagalog,
+    lesson.content_text_tagalog,
+    isNew,
+  ])
 
   useEffect(() => {
     const loadVideos = async () => {
@@ -676,7 +690,7 @@ function EditLevelModal({ name, onNameChange, order, onOrderChange, onSave, onCl
 
         <div className="flex justify-end gap-2 sm:gap-3 mt-2">
           <BtnSecondary onClick={onClose}>Cancel</BtnSecondary>
-          <BtnPrimary onClick={onSave} disabled={saving}>{saving ? 'Saving…' : 'Save Level'}</BtnPrimary>
+          <BtnPrimary onClick={onSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</BtnPrimary>
         </div>
       </div>
     </div>
@@ -722,8 +736,9 @@ export default function AdminLevelsPage() {
     const current = levels.find(l => l.level_id === selectedLevelId)
     if (!current) return
 
+    const currentOrder = current.sequence_order ?? current.level_order ?? 1
     setEditLevelName(current.level_name)
-    setEditLevelOrder(current.sequence_order ?? 1)
+    setEditLevelOrder(currentOrder)
     setShowEditLevel(true)
   }
 
@@ -737,8 +752,9 @@ export default function AdminLevelsPage() {
       return
     }
 
+    const currentOrder = current.sequence_order ?? current.level_order ?? 1
     const nameChanged = trimmed !== current.level_name
-    const orderChanged = editLevelOrder !== (current.sequence_order ?? 1)
+    const orderChanged = editLevelOrder !== currentOrder
 
     if (!nameChanged && !orderChanged) {
       setShowEditLevel(false)
@@ -758,7 +774,7 @@ export default function AdminLevelsPage() {
         return
       }
 
-      setLevels(prev => prev.map(l => l.level_id === current.level_id ? { ...l, level_name: trimmed, sequence_order: editLevelOrder } : l))
+      setLevels(prev => prev.map(l => l.level_id === current.level_id ? { ...l, level_name: trimmed, sequence_order: editLevelOrder, level_order: editLevelOrder } : l))
       setShowEditLevel(false)
       showToast('Level title updated.', true)
     } finally {
@@ -807,7 +823,20 @@ export default function AdminLevelsPage() {
     setAddingLesson(false)
     adminFetch(`/api/admin/lessons?levelId=${selectedLevelId}`)
       .then(r => r.json())
-      .then(d => setLessons(sortLessons(d.lessons ?? [])))
+      .then(d => {
+        console.log('[loadLessons] Raw data from API:', d.lessons?.map((l: any) => ({ id: l.lesson_id, title: l.lesson_title, order: l.lesson_order, orderType: typeof l.lesson_order })))
+        const normalizedLessons = (d.lessons ?? []).map((lesson: Partial<Lesson>) => ({
+          ...lesson,
+          lesson_order: typeof lesson.lesson_order === 'number'
+            ? lesson.lesson_order
+            : parseInt(String(lesson.lesson_order ?? ''), 10) || 0,
+        })) as Lesson[]
+        console.log('[loadLessons] After normalization:', normalizedLessons.map(l => ({ id: l.lesson_id, title: l.lesson_title, order: l.lesson_order })))
+        const sorted = sortLessons(normalizedLessons)
+        console.log('[loadLessons] After sorting:', sorted.map(l => ({ id: l.lesson_id, title: l.lesson_title, order: l.lesson_order })))
+        setLessons(sorted)
+      })
+      .catch(e => console.error('[loadLessons] Error:', e))
       .finally(() => setLoadingLessons(false))
   }, [selectedLevelId, activeTab])
 
@@ -834,6 +863,7 @@ export default function AdminLevelsPage() {
   // ── Lesson handlers ──────────────────────────────────────────────────────────
 
   const handleSaveLesson = async (form: Omit<Lesson, 'lesson_id'> & { lesson_id?: string }) => {
+    console.log('[handleSaveLesson] Saving lesson:', { isEdit: !!form.lesson_id, lesson_id: form.lesson_id, lesson_title: form.lesson_title, lesson_order: form.lesson_order })
     if (form.lesson_id) {
       const res = await adminFetch('/api/admin/lessons', {
         method: 'PUT',
@@ -841,10 +871,12 @@ export default function AdminLevelsPage() {
         body: JSON.stringify({ id: form.lesson_id, ...form }),
       })
       const data = await res.json()
+      console.log('[handleSaveLesson] PUT response:', { ok: res.ok, returned_lesson: data.lesson ? { id: data.lesson.lesson_id, order: data.lesson.lesson_order } : 'error', error: data.error })
       if (!res.ok) throw new Error(data.error ?? 'Failed to update')
       setLessons(prev => {
         const nextLessons = sortLessons(prev.map(l => l.lesson_id === form.lesson_id ? { ...l, ...form } as Lesson : l))
         const updatedIdx = nextLessons.findIndex(l => l.lesson_id === form.lesson_id)
+        console.log('[handleSaveLesson] Updated lesson in array:', { newOrder: nextLessons[updatedIdx]?.lesson_order, newIdx: updatedIdx })
         if (updatedIdx !== -1) setSelectedLessonIdx(updatedIdx)
         return nextLessons
       })
@@ -856,6 +888,7 @@ export default function AdminLevelsPage() {
         body: JSON.stringify({ levelId: selectedLevelId, ...form }),
       })
       const data = await res.json()
+      console.log('[handleSaveLesson] POST response:', { ok: res.ok, returned_lesson: data.lesson ? { id: data.lesson.lesson_id, order: data.lesson.lesson_order } : 'error', error: data.error })
       if (!res.ok) throw new Error(data.error ?? 'Failed to create')
       setAddingLesson(false)
       await loadLessons()

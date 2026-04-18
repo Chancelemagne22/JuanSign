@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
       .order('lesson_order', { ascending: true })
 
     if (error) throw error
+    
+    console.log('[admin/lessons GET] Loaded', data?.length, 'lessons for level', levelId, data?.map((l: any) => ({ id: l.lesson_id, title: l.lesson_title, order: l.lesson_order })))
 
     return NextResponse.json({ lessons: data ?? [] })
   } catch (err) {
@@ -177,6 +179,8 @@ export async function POST(request: NextRequest) {
   const order = typeof lesson_order === 'number' && lesson_order > 0 ? lesson_order : undefined
 
   try {
+    console.log('[admin/lessons POST] Creating lesson:', { levelId, lesson_title, order, received_lesson_order: lesson_order })
+    
     if (order != null) {
       await shiftLessonOrdersForInsert(levelId, order)
     }
@@ -198,6 +202,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) throw error
+    
+    console.log('[admin/lessons POST] Created lesson:', { lesson_id: data.lesson_id, lesson_order: data.lesson_order })
 
     return NextResponse.json({ lesson: data })
   } catch (err) {
@@ -230,9 +236,12 @@ export async function PUT(request: NextRequest) {
     if (!existing) {
       return NextResponse.json({ error: 'Lesson not found' }, { status: 404 })
     }
+    
+    console.log('[admin/lessons PUT] Updating lesson:', { id, received_lesson_order: lesson_order, existing_order: existing.lesson_order })
 
     const newOrder = typeof lesson_order === 'number' ? lesson_order : existing.lesson_order
     if (typeof newOrder === 'number' && typeof existing.lesson_order === 'number' && newOrder !== existing.lesson_order) {
+      console.log('[admin/lessons PUT] Order changing from', existing.lesson_order, 'to', newOrder)
       await shiftLessonOrdersForUpdate(existing.level_id, existing.lesson_order, newOrder, id)
     }
 
@@ -253,6 +262,8 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (error) throw error
+    
+    console.log('[admin/lessons PUT] Updated lesson:', { lesson_id: data.lesson_id, lesson_order: data.lesson_order })
 
     return NextResponse.json({ lesson: data })
   } catch (err) {
