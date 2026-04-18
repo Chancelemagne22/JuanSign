@@ -69,8 +69,8 @@ const FSL_LETTERS = [
 
 const OPTION_KEYS = ['A', 'B', 'C', 'D'] as const
 
-const emptyLesson = (): Omit<Lesson, 'lesson_id'> => ({
-  lesson_title: '', video_url: '', content_text: '', lesson_order: 1,
+const emptyLesson = (defaultOrder = 1): Omit<Lesson, 'lesson_id'> => ({
+  lesson_title: '', video_url: '', content_text: '', lesson_order: defaultOrder,
 })
 
 const emptyQuestion = (): Omit<Question, 'question_id'> => ({
@@ -807,7 +807,7 @@ export default function AdminLevelsPage() {
     setAddingLesson(false)
     adminFetch(`/api/admin/lessons?levelId=${selectedLevelId}`)
       .then(r => r.json())
-      .then(d => setLessons(d.lessons ?? []))
+      .then(d => setLessons(sortLessons(d.lessons ?? [])))
       .finally(() => setLoadingLessons(false))
   }, [selectedLevelId, activeTab])
 
@@ -822,6 +822,8 @@ export default function AdminLevelsPage() {
       .then(d => setQuestions((d.questions ?? []).map((q: Partial<Question>) => normalizeQuestion(q))))
       .finally(() => setLoadingQuestions(false))
   }, [selectedLevelId, activeTab])
+
+  const sortLessons = (items: Lesson[]) => [...items].sort((a, b) => (a.lesson_order ?? 0) - (b.lesson_order ?? 0))
 
   useEffect(() => { loadLessons() }, [loadLessons])
   useEffect(() => { loadQuestions() }, [loadQuestions])
@@ -840,7 +842,12 @@ export default function AdminLevelsPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to update')
-      setLessons(prev => prev.map(l => l.lesson_id === form.lesson_id ? { ...l, ...form } as Lesson : l))
+      setLessons(prev => {
+        const nextLessons = sortLessons(prev.map(l => l.lesson_id === form.lesson_id ? { ...l, ...form } as Lesson : l))
+        const updatedIdx = nextLessons.findIndex(l => l.lesson_id === form.lesson_id)
+        if (updatedIdx !== -1) setSelectedLessonIdx(updatedIdx)
+        return nextLessons
+      })
       showToast('Lesson updated.', true)
     } else {
       const res = await adminFetch('/api/admin/lessons', {
@@ -850,9 +857,9 @@ export default function AdminLevelsPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to create')
-      setLessons(prev => [...prev, data.lesson])
       setAddingLesson(false)
-      setSelectedLessonIdx(lessons.length)
+      await loadLessons()
+      setSelectedLessonIdx(null)
       showToast('Lesson added.', true)
     }
   }
@@ -957,7 +964,16 @@ export default function AdminLevelsPage() {
 
   // ── Derived values ───────────────────────────────────────────────────────────
 
-  const editingLesson = addingLesson ? emptyLesson() : selectedLessonIdx !== null ? lessons[selectedLessonIdx] : null
+  const nextLessonOrder = (() => {
+    const existing = [...new Set(lessons.map(l => l.lesson_order ?? 0).filter(n => n > 0))].sort((a, b) => a - b)
+    let next = 1
+    for (const order of existing) {
+      if (order !== next) break
+      next += 1
+    }
+    return next
+  })()
+  const editingLesson = addingLesson ? emptyLesson(nextLessonOrder) : selectedLessonIdx !== null ? lessons[selectedLessonIdx] : null
   const editingQuestion = addingQuestion ? emptyQuestion() : selectedQIdx !== null ? questions[selectedQIdx] : null
   const mode = activeTab as 'practice' | 'assessment'
 
@@ -1106,7 +1122,7 @@ export default function AdminLevelsPage() {
                         onMouseEnter={e => { if (!isActive) (e.currentTarget).style.backgroundColor = '#FBF0CC' }}
                         onMouseLeave={e => { if (!isActive) (e.currentTarget).style.backgroundColor = 'transparent' }}
                       >
-                        {i + 1}. {l.lesson_title || <em style={{ opacity: 0.6 }}>Untitled</em>}
+                        {(l.lesson_order ?? i + 1)}. {l.lesson_title || <em style={{ opacity: 0.6 }}>Untitled</em>}
                       </button>
                     )
                   })}
@@ -1183,7 +1199,7 @@ export default function AdminLevelsPage() {
               editingLesson ? (
                 <LessonForm
                   key={addingLesson ? 'new-lesson' : lessons[selectedLessonIdx!]?.lesson_id}
-                  lesson={addingLesson ? emptyLesson() : { ...lessons[selectedLessonIdx!] }}
+                  lesson={addingLesson ? emptyLesson(nextLessonOrder) : { ...lessons[selectedLessonIdx!] }}
                   isNew={addingLesson}
                   onSave={handleSaveLesson}
                   onCancel={() => { setAddingLesson(false); setSelectedLessonIdx(null) }}

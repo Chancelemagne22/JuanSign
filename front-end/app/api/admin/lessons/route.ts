@@ -91,6 +91,76 @@ async function handleListVideos() {
   }
 }
 
+async function shiftLessonOrdersForInsert(levelId: string, order: number) {
+  const { data, error } = await supabaseAdmin
+    .from('lessons')
+    .select('lesson_id, lesson_order')
+    .eq('level_id', levelId)
+    .gte('lesson_order', order)
+    .order('lesson_order', { ascending: true })
+
+  if (error) throw error
+
+  let nextOrder = order
+  for (const lesson of data ?? []) {
+    const currentOrder = lesson.lesson_order ?? 0
+    if (currentOrder < nextOrder) continue
+    if (currentOrder > nextOrder) break
+
+    const { error: updateError } = await supabaseAdmin
+      .from('lessons')
+      .update({ lesson_order: nextOrder + 1 })
+      .eq('lesson_id', lesson.lesson_id)
+    if (updateError) throw updateError
+
+    nextOrder += 1
+  }
+}
+
+async function shiftLessonOrdersForUpdate(levelId: string, currentOrder: number, newOrder: number, lessonId: string) {
+  if (newOrder === currentOrder) return
+
+  if (newOrder < currentOrder) {
+    const { data, error } = await supabaseAdmin
+      .from('lessons')
+      .select('lesson_id, lesson_order')
+      .eq('level_id', levelId)
+      .gte('lesson_order', newOrder)
+      .lt('lesson_order', currentOrder)
+      .order('lesson_order', { ascending: false })
+
+    if (error) throw error
+
+    for (const lesson of data ?? []) {
+      const nextOrder = (lesson.lesson_order ?? 0) + 1
+      const { error: updateError } = await supabaseAdmin
+        .from('lessons')
+        .update({ lesson_order: nextOrder })
+        .eq('lesson_id', lesson.lesson_id)
+      if (updateError) throw updateError
+    }
+  } else {
+    const { data, error } = await supabaseAdmin
+      .from('lessons')
+      .select('lesson_id, lesson_order')
+      .eq('level_id', levelId)
+      .gt('lesson_order', currentOrder)
+      .lte('lesson_order', newOrder)
+      .order('lesson_order', { ascending: true })
+
+    if (error) throw error
+
+    for (const lesson of data ?? []) {
+      const nextOrder = (lesson.lesson_order ?? 0) - 1
+      const { error: updateError } = await supabaseAdmin
+        .from('lessons')
+        .update({ lesson_order: nextOrder })
+        .eq('lesson_id', lesson.lesson_id)
+      if (updateError) throw updateError
+    }
+  }
+}
+
 // POST /api/admin/lessons — create lesson
 export async function POST(request: NextRequest) {
   const adminUser = await getAuthorizedAdmin(request)
@@ -104,10 +174,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'levelId and lesson_title are required' }, { status: 400 })
   }
 
+  const order = typeof lesson_order === 'number' && lesson_order > 0 ? lesson_order : undefined
+
   try {
+    if (order != null) {
+      await shiftLessonOrdersForInsert(levelId, order)
+    }
+
+    const insertData: Record<string, unknown> = {
+      level_id: levelId,
+      lesson_title,
+      video_url,
+      content_text,
+      lesson_title_tagalog,
+      content_text_tagalog,
+    }
+    if (order != null) insertData.lesson_order = order
+
     const { data, error } = await supabaseAdmin
       .from('lessons')
-      .insert({ level_id: levelId, lesson_title, video_url, content_text, lesson_order, lesson_title_tagalog, content_text_tagalog })
+      .insert(insertData)
       .select()
       .single()
 
@@ -134,9 +220,34 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('lessons')
+      .select('lesson_id, level_id, lesson_order')
+      .eq('lesson_id', id)
+      .single()
+
+    if (existingError) throw existingError
+    if (!existing) {
+      return NextResponse.json({ error: 'Lesson not found' }, { status: 404 })
+    }
+
+    const newOrder = typeof lesson_order === 'number' ? lesson_order : existing.lesson_order
+    if (typeof newOrder === 'number' && typeof existing.lesson_order === 'number' && newOrder !== existing.lesson_order) {
+      await shiftLessonOrdersForUpdate(existing.level_id, existing.lesson_order, newOrder, id)
+    }
+
+    const updateData: Record<string, unknown> = {
+      lesson_title,
+      video_url,
+      content_text,
+      lesson_title_tagalog,
+      content_text_tagalog,
+    }
+    if (typeof lesson_order === 'number') updateData.lesson_order = lesson_order
+
     const { data, error } = await supabaseAdmin
       .from('lessons')
-      .update({ lesson_title, video_url, content_text, lesson_order, lesson_title_tagalog, content_text_tagalog })
+      .update(updateData)
       .eq('lesson_id', id)
       .select()
       .single()
