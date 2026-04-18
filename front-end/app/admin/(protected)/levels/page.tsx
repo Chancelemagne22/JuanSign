@@ -10,7 +10,7 @@ import { listLessonVideos, getLessonVideoUrl } from '@/lib/storage'
 type QuestionType = 'identify' | 'perform'
 type Tab = 'lessons' | 'practice' | 'assessment'
 
-interface Level { level_id: string; level_name: string }
+interface Level { level_id: string; level_name: string; sequence_order?: number }
 
 interface Lesson {
   lesson_id: string
@@ -629,6 +629,60 @@ function NewLevelModal({ onCreated, onClose }: { onCreated: (level: Level) => vo
   )
 }
 
+function EditLevelModal({ name, onNameChange, order, onOrderChange, onSave, onClose, saving }: {
+  name: string
+  onNameChange: (value: string) => void
+  order: number
+  onOrderChange: (value: number) => void
+  onSave: () => void
+  onClose: () => void
+  saving: boolean
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.45)', backdropFilter: 'blur(1px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="rounded-lg sm:rounded-2xl p-3 sm:p-4 md:p-5 lg:p-6 w-full max-w-sm max-h-screen" style={{ backgroundColor: WHITE }}>
+        <h2 style={{ fontFamily: FONT, color: BROWN, fontSize: 'clamp(1rem, 2vw, 1.2rem)', fontWeight: 700, marginBottom: 'clamp(14px, 2vw, 20px)' }}>
+          Edit Level Title
+        </h2>
+
+        <Field label="Level Name">
+          <input
+            type="text"
+            value={name}
+            placeholder="e.g. Level 1 — Alphabet Basics"
+            style={inputStyle}
+            autoFocus
+            onChange={e => onNameChange(e.target.value)}
+            onFocus={e => (e.currentTarget.style.borderColor = MEDIUM_BROWN)}
+            onBlur={e => (e.currentTarget.style.borderColor = INPUT_BORDER)}
+          />
+        </Field>
+
+        <Field label="Order / Sequence">
+          <input
+            type="number"
+            value={order}
+            min={1}
+            style={{ ...inputStyle, fontSize: 'clamp(0.8rem, 1.3vw, 0.95rem)' }}
+            onChange={e => onOrderChange(parseInt(e.target.value) || 1)}
+            onFocus={e => (e.currentTarget.style.borderColor = MEDIUM_BROWN)}
+            onBlur={e => (e.currentTarget.style.borderColor = INPUT_BORDER)}
+          />
+        </Field>
+
+        <div className="flex justify-end gap-2 sm:gap-3 mt-2">
+          <BtnSecondary onClick={onClose}>Cancel</BtnSecondary>
+          <BtnPrimary onClick={onSave} disabled={saving}>{saving ? 'Saving…' : 'Save Level'}</BtnPrimary>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function AdminLevelsPage() {
@@ -636,6 +690,10 @@ export default function AdminLevelsPage() {
   const [selectedLevelId, setSelectedLevelId] = useState<string>('')
   const [activeTab, setActiveTab] = useState<Tab>('lessons')
   const [showNewLevel, setShowNewLevel] = useState(false)
+  const [showEditLevel, setShowEditLevel] = useState(false)
+  const [editLevelName, setEditLevelName] = useState('')
+  const [editLevelOrder, setEditLevelOrder] = useState(1)
+  const [editingLevelSaving, setEditingLevelSaving] = useState(false)
 
   // Lessons state
   const [lessons, setLessons] = useState<Lesson[]>([])
@@ -658,6 +716,76 @@ export default function AdminLevelsPage() {
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok })
     setTimeout(() => setToast(null), 3000)
+  }
+
+  const handleEditLevel = () => {
+    const current = levels.find(l => l.level_id === selectedLevelId)
+    if (!current) return
+
+    setEditLevelName(current.level_name)
+    setEditLevelOrder(current.sequence_order ?? 1)
+    setShowEditLevel(true)
+  }
+
+  const saveEditedLevel = async () => {
+    const current = levels.find(l => l.level_id === selectedLevelId)
+    if (!current) return
+
+    const trimmed = editLevelName.trim()
+    if (!trimmed) {
+      showToast('Level title cannot be empty.', false)
+      return
+    }
+
+    const nameChanged = trimmed !== current.level_name
+    const orderChanged = editLevelOrder !== (current.sequence_order ?? 1)
+
+    if (!nameChanged && !orderChanged) {
+      setShowEditLevel(false)
+      return
+    }
+
+    setEditingLevelSaving(true)
+    try {
+      const res = await adminFetch('/api/admin/levels', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level_id: current.level_id, level_name: trimmed, sequence_order: editLevelOrder }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        showToast(data.error ?? 'Failed to update level.', false)
+        return
+      }
+
+      setLevels(prev => prev.map(l => l.level_id === current.level_id ? { ...l, level_name: trimmed, sequence_order: editLevelOrder } : l))
+      setShowEditLevel(false)
+      showToast('Level title updated.', true)
+    } finally {
+      setEditingLevelSaving(false)
+    }
+  }
+
+  const handleDeleteLevel = async () => {
+    const current = levels.find(l => l.level_id === selectedLevelId)
+    if (!current) return
+    if (!window.confirm(`Delete "${current.level_name}"? This cannot be undone.`)) return
+
+    const res = await adminFetch('/api/admin/levels', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ level_id: current.level_id }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      showToast(data.error ?? 'Failed to delete level.', false)
+      return
+    }
+
+    const nextLevels = levels.filter(l => l.level_id !== current.level_id)
+    setLevels(nextLevels)
+    setSelectedLevelId(nextLevels[0]?.level_id ?? '')
+    showToast('Level deleted.', true)
   }
 
   // Load levels
@@ -865,8 +993,20 @@ export default function AdminLevelsPage() {
         />
       )}
 
+      {showEditLevel && (
+        <EditLevelModal
+          name={editLevelName}
+          onNameChange={setEditLevelName}
+          order={editLevelOrder}
+          onOrderChange={setEditLevelOrder}
+          onSave={saveEditedLevel}
+          onClose={() => setShowEditLevel(false)}
+          saving={editingLevelSaving}
+        />
+      )}
+
       {/* ── Top bar: level selector + create button ──────────────────────── */}
-      <div className="rounded-xl sm:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-5 flex flex-col sm:flex-row sm:items-end gap-2 sm:gap-3 md:gap-4 shrink-0 overflow-y-auto" style={{ backgroundColor: CREAM }}>
+      <div className="rounded-xl sm:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-5 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 sm:gap-3 md:gap-4 shrink-0 overflow-y-auto" style={{ backgroundColor: CREAM }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <label style={{ ...labelSt, marginBottom: '4px', fontSize: 'clamp(0.75rem, 1.5vw, 0.9rem)' }}>Select Level</label>
           {levels.length === 0 ? (
@@ -881,7 +1021,7 @@ export default function AdminLevelsPage() {
                 setAddingLesson(false)
                 setAddingQuestion(false)
               }}
-              style={{ ...selectStyle, maxWidth: '100%', fontSize: 'clamp(0.8rem, 1.5vw, 0.95rem)' }}
+              style={{ ...selectStyle, width: '100%', maxWidth: '100%', fontSize: 'clamp(0.8rem, 1.5vw, 0.95rem)' }}
             >
               {levels.map(l => (
                 <option key={l.level_id} value={l.level_id}>{l.level_name}</option>
@@ -889,7 +1029,18 @@ export default function AdminLevelsPage() {
             </select>
           )}
         </div>
-        <BtnPrimary onClick={() => setShowNewLevel(true)} style={{ fontSize: 'clamp(0.8rem, 1.5vw, 0.95rem)', padding: 'clamp(6px, 1vw, 8px) clamp(12px, 2vw, 20px)' }}>+ New Level</BtnPrimary>
+
+        <div className="flex flex-wrap gap-2 items-end justify-end">
+          <BtnSecondary onClick={handleEditLevel} disabled={!selectedLevelId} style={{ fontSize: 'clamp(0.8rem, 1.5vw, 0.95rem)', padding: 'clamp(6px, 1vw, 8px) clamp(12px, 2vw, 20px)' }}>
+            Edit
+          </BtnSecondary>
+          <BtnSecondary onClick={handleDeleteLevel} disabled={!selectedLevelId} style={{ fontSize: 'clamp(0.8rem, 1.5vw, 0.95rem)', padding: 'clamp(6px, 1vw, 8px) clamp(12px, 2vw, 20px)' }}>
+            Delete
+          </BtnSecondary>
+          <BtnPrimary onClick={() => setShowNewLevel(true)} style={{ fontSize: 'clamp(0.8rem, 1.5vw, 0.95rem)', padding: 'clamp(6px, 1vw, 8px) clamp(12px, 2vw, 20px)' }}>
+            + New Level
+          </BtnPrimary>
+        </div>
       </div>
 
       {/* ── Tabs ─────────────────────────────────────────────────────────── */}
