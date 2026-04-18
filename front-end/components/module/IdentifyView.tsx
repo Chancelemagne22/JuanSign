@@ -299,7 +299,7 @@ export default function IdentifyView({
             <div className="min-h-[3rem]">{customControls}</div>
           </div>
 
-          <div className="min-w-0 rounded-2xl border-2 border-transparent bg-transparent p-3 sm:p-4 shadow-none h-auto lg:h-[280px] overflow-visible lg:overflow-hidden flex flex-col gap-3">
+          <div className="min-w-0 rounded-2xl border-2 border-transparent bg-transparent p-3 sm:p-4 shadow-none h-auto lg:min-h-[280px] overflow-visible flex flex-col gap-3">
             <p
               className="text-center xl:text-left font-bold text-[1.05rem] sm:text-[1.15rem] lg:text-[1.25rem] text-[#4A2C0A] px-1 break-words"
               style={{ fontFamily: 'var(--font-fredoka)' }}

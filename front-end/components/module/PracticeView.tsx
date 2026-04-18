@@ -79,6 +79,31 @@ function MascotPlaceholder() {
 }
 export default function PracticeView({ letter, letterIndex, totalLetters, levelId, onNext, onResult, showStarBar = false, questionText }: Props) {
   const { t } = useLanguage();
+  const normalizedLetter = (() => {
+    const trimmedLetter = letter.trim();
+    const match = trimmedLetter.match(/^Sign\s+Letter\s+(.+)$/i);
+    return match ? match[1] : trimmedLetter;
+  })();
+
+  const questionDisplayText = (() => {
+    const trimmedQuestion = questionText?.trim() ?? '';
+    const genericPatterns = [
+      /^Sign\s+Letter\s+(.+)$/i,
+      /^Show\s+the\s+sign\s+for\s+(.+?)\.?$/i,
+      /^Show\s+how\s+(.+?)\s+is\s+signed\.?$/i,
+    ];
+
+    const matched = genericPatterns
+      .map((pattern) => trimmedQuestion.match(pattern))
+      .find(Boolean);
+
+    if (!trimmedQuestion || matched) {
+      return `${t('module.showSignFor')} "${normalizedLetter}"!`;
+    }
+
+    return trimmedQuestion;
+  })();
+
   const videoRef   = useRef<HTMLVideoElement>(null);
   const mediaRef   = useRef<MediaRecorder | null>(null);
   const chunksRef  = useRef<Blob[]>([]);
@@ -262,7 +287,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       setFeedback(
         result.is_correct
           ? `${t('module.niceJobSigned')} "${result.sign}" ${t('module.correctly')}`
-          : `${t('module.notQuiteModelSaw')} "${result.sign}")`,
+          : `${t('module.notQuiteModelSaw')} "${result.sign}"`,
       );
       onResult?.(result.accuracy);
 
@@ -300,7 +325,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       : `${t('module.showSignFor')} "${letter}"!`;
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-2 sm:gap-3 min-w-0" style={{ WebkitOverflowScrolling: 'touch' }}>
+    <div className="h-full min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-2 sm:gap-3 min-w-0 pb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
 
       {/* ── Top row: Video left | Instructions right (same visual size) ───── */}
       <div className="shrink-0 grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 items-stretch min-w-0">
@@ -382,11 +407,11 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
         </div>
 
         {/* Right: Letter + Instructions card (same height as video card) */}
-        <div className="rounded-2xl border-2 border-[#BF7B45] bg-[#FFF7EA] px-4 sm:px-5 py-3 sm:py-4 shadow-[0_3px_10px_rgba(0,0,0,0.08)] h-[340px] sm:h-[400px] lg:h-[520px] overflow-y-auto flex flex-col gap-4">
+        <div className="rounded-2xl border-2 border-[#BF7B45] bg-[#FFF7EA] px-4 sm:px-5 py-3 sm:py-4 shadow-[0_3px_10px_rgba(0,0,0,0.08)] min-h-[340px] sm:min-h-[400px] lg:min-h-[520px] overflow-y-auto flex flex-col gap-4">
           {/* Question container */}
           <div className="flex-shrink-0 rounded-2xl border-2 border-[#BF7B45] bg-white p-4 flex items-center justify-center min-h-[100px]">
             <p className="text-[#5D3A1A] font-semibold text-sm sm:text-base lg:text-lg leading-relaxed text-center" style={{ fontFamily: 'var(--font-fredoka)' }}>
-              {questionText}
+              {questionDisplayText}
             </p>
           </div>
 
@@ -405,7 +430,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       </div>
 
       {/* ── Below box: speech bubble and buttons ────────────────────────────── */}
-      <div className="shrink-0 flex flex-col gap-2 sm:gap-3 min-w-0">
+      <div className="shrink-0 flex flex-col gap-2 sm:gap-3 min-w-0 pb-4">
 
         {/* Speech bubble (+ optional star bar for assessment) */}
         <div className="flex flex-col gap-1.5 sm:gap-2 items-stretch">
