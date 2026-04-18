@@ -130,14 +130,7 @@ export default function PracticePage() {
       const progressMap = new Map(progress.map((p) => [p.level_id, p.lessons_completed ?? 0]));
 
       const chapters: ChapterItem[] = levels.map((lvl, i) => {
-        let isUnlocked = false;
-
-        if (i === 0) {
-          isUnlocked = (progressMap.get(lvl.level_id) ?? 0) > 0;
-        } else {
-          const prevLevelId = levels[i - 1].level_id;
-          isUnlocked = doneSessions.has(prevLevelId);
-        }
+        let isUnlocked = true;
 
         return {
           id:         lvl.level_id,

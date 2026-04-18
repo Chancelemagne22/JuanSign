@@ -288,6 +288,7 @@ export default function IdentifyView({
                   preload="metadata"
                   disablePictureInPicture
                   controlsList="nodownload nofullscreen noremoteplayback noplaybackrate"
+                  muted
                   className="absolute inset-0 w-full h-full object-contain"
                 />
               ) : (
@@ -377,6 +378,7 @@ export default function IdentifyView({
               preload="metadata"
               disablePictureInPicture
               controlsList="nodownload nofullscreen noremoteplayback noplaybackrate"
+              muted
               className="w-full h-full object-contain"
             />
           </div>

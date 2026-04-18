@@ -110,6 +110,7 @@ export default function LessonView({
               src={videoUrl}
               playsInline
               preload="auto"
+              muted
               className="absolute inset-0 w-full h-full object-contain"
               onError={() => setVideoError(true)}
               onLoadedData={() => console.log('[LessonView] video loaded:', videoUrl)}

@@ -73,10 +73,7 @@ export default function LessonPage() {
             .order('lesson_order'),
         ]);
 
-        if (progressRes.error || !progressRes.data?.is_unlocked) {
-          router.replace('/dashboard/lessons');
-          return;
-        }
+        // Removed unlock check to allow access to all lessons
 
         if (levelRes.error || !levelRes.data) {
           router.replace('/dashboard/lessons');

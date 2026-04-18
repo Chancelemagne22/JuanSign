@@ -113,7 +113,7 @@ export default function LessonsPage() {
           id:         lvl.level_id,
           chapterNum: i + 1,
           title:      lvl.level_name,
-          isUnlocked: unlockedIds.has(lvl.level_id),
+          isUnlocked: true,
         }))
       );
       setLoading(false);

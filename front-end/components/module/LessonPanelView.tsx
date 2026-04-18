@@ -239,6 +239,7 @@ export default function LessonPanelView({
                 playsInline
                 controls={false}
                 preload="auto"
+                muted
                 className="w-full h-full object-contain"
                 onError={() => setVideoError(true)}
                 onLoadedData={() => console.log('[LessonPanelView] video loaded:', videoUrl)}

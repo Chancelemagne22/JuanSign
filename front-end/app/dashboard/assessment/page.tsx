@@ -122,7 +122,7 @@ export default function AssessmentPage() {
           id:         lvl.level_id,
           chapterNum: i + 1,
           title:      lvl.level_name,
-          isUnlocked: practiceDone.has(lvl.level_id),
+          isUnlocked: true,
           hasContent: levelsWithContent.has(lvl.level_id),
         }))
       );

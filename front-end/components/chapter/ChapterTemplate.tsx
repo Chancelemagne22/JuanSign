@@ -75,6 +75,7 @@ export default function ChapterTemplate({
           <video
             src={lesson.video_url}
             controls
+            muted
             className="w-full h-full object-contain"
           />
         ) : (
