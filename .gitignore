@@ -34,4 +34,4 @@ new_sample
 juansignmodel
 MDS
 supabase
-./ml-model/category_model
+./ml-model/category_model*.pth
