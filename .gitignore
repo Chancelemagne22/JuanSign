@@ -34,3 +34,4 @@ new_sample
 juansignmodel
 MDS
 supabase
+./ml-model/category_model
