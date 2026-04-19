@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data: levels, error } = await supabaseAdmin
       .from('levels')
-      .select('level_id, level_name, sequence_order, level_order')
+      .select('level_id, level_name, sequence_order, level_order, category')
       .order('sequence_order', { ascending: true })
 
     if (error) throw error

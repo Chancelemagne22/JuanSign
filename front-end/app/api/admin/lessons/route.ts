@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   
   // Check if this is a request for listing videos
   if (url.pathname.includes('/api/admin/lessons') && url.searchParams.has('action') && url.searchParams.get('action') === 'list-videos') {
-    return handleListVideos()
+    return handleListVideos(request)
   }
 
   // Otherwise, handle as normal lessons GET
@@ -42,12 +42,12 @@ export async function GET(request: NextRequest) {
 }
 
 // Helper function to list videos from storage
-async function handleListVideos() {
+async function handleListVideos(request: NextRequest) {
   try {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       console.error('[list-videos] Missing Supabase configuration')
       return NextResponse.json(
-        { videos: [] },
+        { videos: [], total: 0, page: 1, limit: 20, hasMore: false },
         { status: 200 }
       )
     }
@@ -57,25 +57,32 @@ async function handleListVideos() {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     )
 
-    console.log('[list-videos] Listing videos from lessons-videos bucket...')
+    const url = new URL(request.url)
+    const page = parseInt(url.searchParams.get('page') || '1')
+    const limit = parseInt(url.searchParams.get('limit') || '20')
+    const search = url.searchParams.get('search') || ''
 
-    const { data, error } = await supabase.storage
+    console.log('[list-videos] Listing videos from lessons-videos bucket...', { page, limit, search })
+
+    // First, get all files to calculate total (we need to filter and count)
+    const { data: allData, error: listError } = await supabase.storage
       .from('lessons-videos')
-      .list('', { limit: 100, sortBy: { column: 'name', order: 'asc' } })
+      .list('', { limit: 1000, sortBy: { column: 'name', order: 'asc' } }) // Get more to handle search and pagination
 
-    if (error) {
-      console.error('[list-videos] Error:', error)
-      return NextResponse.json({ videos: [] })
+    if (listError) {
+      console.error('[list-videos] Error:', listError)
+      return NextResponse.json({ videos: [], total: 0, page, limit, hasMore: false })
     }
 
-    if (!data) {
+    if (!allData) {
       console.log('[list-videos] No data returned')
-      return NextResponse.json({ videos: [] })
+      return NextResponse.json({ videos: [], total: 0, page, limit, hasMore: false })
     }
 
-    console.log('[list-videos] Got', data.length, 'items from bucket')
+    console.log('[list-videos] Got', allData.length, 'items from bucket')
 
-    const videos = data
+    // Filter video files
+    const videoFiles = allData
       .filter(file => {
         const name = file.name.toLowerCase()
         return name.endsWith('.mp4') || name.endsWith('.mp44') || 
@@ -83,13 +90,35 @@ async function handleListVideos() {
                name.endsWith('.avi') || name.endsWith('.mkv')
       })
       .map(file => file.name.replace(/\.(mp4|mp44|mov|webm|avi|mkv)$/i, ''))
-      .sort()
 
-    console.log('[list-videos] Returning', videos.length, 'videos')
-    return NextResponse.json({ videos })
+    // Apply search filter
+    let filteredVideos = videoFiles
+    if (search) {
+      filteredVideos = videoFiles.filter(video =>
+        video.toLowerCase().includes(search.toLowerCase())
+      )
+    }
+
+    // Sort alphabetically
+    filteredVideos.sort()
+
+    const total = filteredVideos.length
+    const startIndex = (page - 1) * limit
+    const endIndex = startIndex + limit
+    const paginatedVideos = filteredVideos.slice(startIndex, endIndex)
+    const hasMore = endIndex < total
+
+    console.log('[list-videos] Filtered to', total, 'videos, returning page', page, 'with', paginatedVideos.length, 'videos, hasMore:', hasMore)
+    return NextResponse.json({
+      videos: paginatedVideos,
+      total,
+      page,
+      limit,
+      hasMore
+    })
   } catch (err) {
     console.error('[list-videos] Error:', err)
-    return NextResponse.json({ videos: [] })
+    return NextResponse.json({ videos: [], total: 0, page: 1, limit: 20, hasMore: false })
   }
 }
 

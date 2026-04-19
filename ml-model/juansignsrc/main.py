@@ -1,13 +1,13 @@
 # ml-model/main.py
 #
-# JuanSign V2.2 — Production Inference Endpoint
+# JuanSign V2.3 — Production Inference Endpoint
 # Backbone: ResNet50 | Data: Dual-Hand Relative Landmarks
 #
 # Changes:
-#   - FIXED: Landmark MLP first layer size (256) to match trained checkpoint.
-#   - ADDED: Relative Landmark Normalization (Wrist-subtraction).
-#   - ADDED: Forward Fill (Heal) logic for missing hand frames.
-#   - UPDATED: RESNET_OUT = 2048 for ResNet50.
+#   - FIXED: MODEL_REGISTRY paths now use full /model-weights/model/ prefix
+#   - FIXED: _resolve_checkpoint_path updated to match correct volume mount
+#   - FIXED: model_volume.reload() ensured before any model load
+#   - REMOVED: predict_sign_production_safe standalone function (redundant)
 
 import io
 import os
@@ -47,15 +47,15 @@ image = (
         "uvicorn",
         "ffmpeg-python",
     )
-    .apt_install(["curl", "libgl1", "libglib2.0-0", "ffmpeg","libegl1-mesa", "libgles2-mesa",])
+    .apt_install(["curl", "libgl1", "libglib2.0-0", "ffmpeg", "libegl1-mesa", "libgles2-mesa"])
     .run_commands(
         "curl -fsSL -o /hand_landmarker.task https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
         "curl -fsSL -o /face_detector.tflite https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
     )
-    .env({                                      # ← ADD THIS BLOCK
-        "EGL_PLATFORM": "surfaceless",          # No display server needed
-        "NVIDIA_DRIVER_CAPABILITIES": "compute,utility",  # Only compute, no display
-        "MEDIAPIPE_DISABLE_GPU": "1",           # MediaPipe uses CPU (YOUR T4 still runs PyTorch)
+    .env({
+        "EGL_PLATFORM": "surfaceless",
+        "NVIDIA_DRIVER_CAPABILITIES": "compute,utility",
+        "MEDIAPIPE_DISABLE_GPU": "1",
     })
 )
 
@@ -68,7 +68,7 @@ HAND_PADDING     = 40
 FLOW_NORM_SCALE  = 30.0
 
 LANDMARK_FEATURE = 126  # 2 hands
-LANDMARK_HIDDEN  = 128  
+LANDMARK_HIDDEN  = 128
 RESNET_OUT       = 2048 # ResNet50 output dimension
 LSTM_HIDDEN      = 256
 LSTM_LAYERS      = 2
@@ -78,7 +78,18 @@ IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 IMAGENET_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
 CONFIDENCE_THRESHOLD = 0.70
-MODEL_PATH = "/model-weights/model/juansign_model_v2_2.pth"
+
+# ── FIX: Full absolute paths matching the volume mount at /model-weights ──────
+MODEL_REGISTRY = {
+    "alphabets":              "/model-weights/model/alphabets.pth",
+    "numbers":                "/model-weights/model/numbers.pth",
+    "conversational_phrases": "/model-weights/model/conversational_phrases.pth",
+    "five_ws":                "/model-weights/model/five_ws.pth",
+    "greetings":              "/model-weights/model/greetings.pth",
+    "days_of_week":           "/model-weights/model/days_of_week.pth",
+    "adjectives_verbs":       "/model-weights/model/adjectives_verbs.pth",
+}
+
 HAND_MODEL = "/hand_landmarker.task"
 FACE_MODEL = "/face_detector.tflite"
 
@@ -105,7 +116,6 @@ class VisualEncoder(nn.Module):
 class LandmarkEncoder(nn.Module):
     def __init__(self):
         super().__init__()
-        # FIXED: layer size 256 to match the size mismatch error in logs
         self.mlp = nn.Sequential(
             nn.Linear(LANDMARK_FEATURE, 256),
             nn.BatchNorm1d(256),
@@ -130,7 +140,7 @@ class ResNetLSTM(nn.Module):
         super().__init__()
         self.visual_encoder = VisualEncoder()
         self.landmark_encoder = LandmarkEncoder()
-        self.bilstm = nn.LSTM(RESNET_OUT + LANDMARK_HIDDEN, LSTM_HIDDEN, LSTM_LAYERS, 
+        self.bilstm = nn.LSTM(RESNET_OUT + LANDMARK_HIDDEN, LSTM_HIDDEN, LSTM_LAYERS,
                               batch_first=True, bidirectional=True, dropout=0.5)
         self.dropout = nn.Dropout(p=0.7)
         self.fc = nn.Linear(LSTM_TOTAL_OUT, num_classes)
@@ -158,13 +168,13 @@ def _build_mediapipe():
     import mediapipe as mp
     from mediapipe.tasks import python as mp_python
     from mediapipe.tasks.python import vision as mp_vision
-    
+
     hand_opts = mp_vision.HandLandmarkerOptions(
-        base_options=mp_python.BaseOptions(model_asset_path=HAND_MODEL, delegate=mp_python.BaseOptions.Delegate.CPU ),
+        base_options=mp_python.BaseOptions(model_asset_path=HAND_MODEL, delegate=mp_python.BaseOptions.Delegate.CPU),
         num_hands=2, min_hand_detection_confidence=0.3
     )
     face_opts = mp_vision.FaceDetectorOptions(
-        base_options=mp_python.BaseOptions(model_asset_path=FACE_MODEL, delegate=mp_python.BaseOptions.Delegate.CPU ),
+        base_options=mp_python.BaseOptions(model_asset_path=FACE_MODEL, delegate=mp_python.BaseOptions.Delegate.CPU),
         min_detection_confidence=0.4
     )
     return mp_vision.FaceDetector.create_from_options(face_opts), mp_vision.HandLandmarker.create_from_options(hand_opts)
@@ -183,22 +193,21 @@ def _decode_base64_to_mp4(video_b64):
     tmp_output = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
     tmp_input.write(video_bytes)
     tmp_input.close()
-    
-    # FFmpeg converts any browser format (WebM/QuickTime) to standardized H.264
-    subprocess.run(["ffmpeg", "-i", tmp_input.name, "-c:v", "libx264", "-preset", "ultrafast", "-y", tmp_output.name], 
-                   capture_output=True)
+
+    subprocess.run(
+        ["ffmpeg", "-i", tmp_input.name, "-c:v", "libx264", "-preset", "ultrafast", "-y", tmp_output.name],
+        capture_output=True
+    )
     os.unlink(tmp_input.name)
     return tmp_output.name
 
 def _extract_frames(video_path, face_detector, hand_detector):
     cap = cv2.VideoCapture(video_path)
     indices = np.linspace(0, int(cap.get(cv2.CAP_PROP_FRAME_COUNT))-1, TARGET_FRAMES, dtype=int)
-    
-    # HEAL Logic variables
+
     last_valid_frame, last_valid_lm = None, None
     extracted_bgr, landmarks_list = [], []
-    
-    # Pre-scan for face anchor
+
     ret, first_frame = cap.read()
     face_center = [0.5, 0.5, 0.0]
     if ret:
@@ -208,20 +217,18 @@ def _extract_frames(video_path, face_detector, hand_detector):
         if res.detections:
             bb = res.detections[0].bounding_box
             face_center = [bb.origin_x + bb.width/2, bb.origin_y + bb.height/2, 0.0]
-    
+
     for idx in indices:
         cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
         ret, frame = cap.read()
-        
+
         if ret:
-            # Face blur
             frame = cv2.GaussianBlur(frame, (51, 51), 0)
-            
-            # Hand detection
+
             import mediapipe as mp
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             res = hand_detector.detect(mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb))
-            
+
             if res.hand_landmarks:
                 xs, ys, coords = [], [], []
                 for i in range(2):
@@ -230,9 +237,9 @@ def _extract_frames(video_path, face_detector, hand_detector):
                             xs.append(int(lm.x * frame.shape[1]))
                             ys.append(int(lm.y * frame.shape[0]))
                             coords.extend([lm.x, lm.y, lm.z])
-                    else: coords.extend(face_center * 21)
-                
-                # Crop and Fill
+                    else:
+                        coords.extend(face_center * 21)
+
                 x1, y1 = max(0, min(xs)-HAND_PADDING), max(0, min(ys)-HAND_PADDING)
                 x2, y2 = min(frame.shape[1], max(xs)+HAND_PADDING), min(frame.shape[0], max(ys)+HAND_PADDING)
                 crop = frame[y1:y2, x1:x2]
@@ -240,24 +247,36 @@ def _extract_frames(video_path, face_detector, hand_detector):
                     last_valid_frame = cv2.resize(crop, (TARGET_SIZE, TARGET_SIZE))
                     last_valid_lm = np.array(coords, dtype=np.float32)
 
-        # Forward fill logic
         extracted_bgr.append(last_valid_frame if last_valid_frame is not None else np.zeros((TARGET_SIZE, TARGET_SIZE, 3), dtype=np.uint8))
         landmarks_list.append(last_valid_lm if last_valid_lm is not None else np.tile(face_center, 42))
 
     cap.release()
     flow = _compute_optical_flow(extracted_bgr)
-    
-    # Build final Tensors
+
     frame_tensors = []
     for i, bgr in enumerate(extracted_bgr):
-        rgb = (cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB).astype(np.float32)/255.0 - IMAGENET_MEAN)/IMAGENET_STD
+        rgb = (cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB).astype(np.float32)/255.0 - IMAGENET_MEAN) / IMAGENET_STD
         f_chan = torch.from_numpy(flow[i]).float() / FLOW_NORM_SCALE
         frame_tensors.append(torch.cat([torch.from_numpy(rgb).permute(2,0,1), torch.clamp(f_chan, -1.0, 1.0)], dim=0))
-    
+
     lms_raw = torch.from_numpy(np.array(landmarks_list)).float().unsqueeze(0)
     return torch.stack(frame_tensors).unsqueeze(0), _normalize_landmarks_relative(lms_raw)
 
 def _build_model(checkpoint_path, device):
+    """Load model from absolute path — no path guessing needed since MODEL_REGISTRY uses full paths."""
+    logger = logging.getLogger(__name__)
+
+    if not os.path.exists(checkpoint_path):
+        # List what's actually in the directory to help debug
+        model_dir = os.path.dirname(checkpoint_path)
+        if os.path.exists(model_dir):
+            files = os.listdir(model_dir)
+            logger.error(f"[checkpoint] File not found: {checkpoint_path}. Files in {model_dir}: {files}")
+        else:
+            logger.error(f"[checkpoint] Directory does not exist: {model_dir}")
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+
+    logger.info(f"[checkpoint] Loading model from {checkpoint_path}")
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     num_classes = checkpoint["num_classes"]
     class_names = checkpoint["class_names"]
@@ -270,238 +289,124 @@ def _build_model(checkpoint_path, device):
 # MODAL ENDPOINT CLASS
 # ══════════════════════════════════════════════════════════════════════════════
 
-@app.cls(image=image, gpu="T4", volumes={"/model-weights": model_volume}, 
-         secrets=[modal.Secret.from_name("juansign-secret")], timeout=180)
+@app.cls(
+    image=image,
+    gpu="T4",
+    volumes={"/model-weights": model_volume},
+    secrets=[modal.Secret.from_name("juansign-secret")],
+    timeout=180,
+    # Removed min_containers=1 so container scales to zero when idle (saves credits)
+)
 class JuanSignInference:
 
     @modal.enter()
     def load(self):
+        # ── FIX: Always reload volume before accessing files ──────────────────
         model_volume.reload()
+
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+        logger = logging.getLogger(__name__)
+
         self.device = torch.device("cuda")
-        self.model, self.class_names = _build_model(MODEL_PATH, self.device)
+        self.models = {}             # Lazy-loaded model cache per category
+        self.class_names_cache = {}  # Class names cache per category
         self.face_detector, self.hand_detector = _build_mediapipe()
+
+        logger.info("JuanSignInference container ready. Models will be lazy-loaded per category.")
+
+        # Optional: Pre-warm alphabets since it's the most common category
+        # Uncomment if you want faster first prediction for alphabets:
+        # try:
+        #     self.models["alphabets"], self.class_names_cache["alphabets"] = _build_model(MODEL_REGISTRY["alphabets"], self.device)
+        #     logger.info("Pre-warmed alphabets model")
+        # except Exception as e:
+        #     logger.warning(f"Could not pre-warm alphabets model: {e}")
 
     @modal.fastapi_endpoint(method="POST", label="predict")
     def predict(self, request: dict):
         from supabase import create_client
         from starlette.responses import JSONResponse
 
-        try:    
+        logger = logging.getLogger(__name__)
+
+        try:
             # 1. Auth
             supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
             try:
                 user_id = supabase.auth.get_user(request["token"]).user.id
-            except: return JSONResponse({"error": "Auth failed"}, status_code=401)
+            except Exception as auth_err:
+                logger.error(f"Auth failed: {auth_err}")
+                return JSONResponse({"error": "Auth failed"}, status_code=401)
 
-            # 2. Process Video
-            mp4_path = _decode_base64_to_mp4(request.get("video_b64") or request.get("video"))
+            # 2. Get category from level_id
+            level_id = request.get("level_id")
+            if not level_id:
+                return JSONResponse({"error": "level_id is required"}, status_code=400)
+
+            level_res = supabase.table("levels").select("category").eq("level_id", level_id).execute()
+            if not level_res.data or not level_res.data[0].get("category"):
+                return JSONResponse({"error": "Invalid level_id or level has no category"}, status_code=400)
+
+            category = level_res.data[0]["category"]
+            if category not in MODEL_REGISTRY:
+                return JSONResponse({"error": f"Unknown category '{category}'"}, status_code=400)
+
+            # 3. Lazy-load model for this category
+            if category not in self.models:
+                logger.info(f"Loading model for category: {category}")
+                # ── FIX: Reload volume before loading a new model ─────────────
+                model_volume.reload()
+                self.models[category], self.class_names_cache[category] = _build_model(
+                    MODEL_REGISTRY[category], self.device
+                )
+                logger.info(f"Model loaded for category: {category}")
+            else:
+                logger.info(f"Using cached model for category: {category}")
+
+            # 4. Process Video
+            video_b64 = request.get("video_b64") or request.get("video")
+            if not video_b64:
+                return JSONResponse({"error": "video_b64 is required"}, status_code=400)
+
+            mp4_path = _decode_base64_to_mp4(video_b64)
             frames_t, lms_t = _extract_frames(mp4_path, self.face_detector, self.hand_detector)
             os.unlink(mp4_path)
 
-            # 3. Predict
+            # 5. Predict
             with torch.no_grad():
-                logits = self.model(frames_t.to(self.device), lms_t.to(self.device))
+                logits = self.models[category](frames_t.to(self.device), lms_t.to(self.device))
                 probs = torch.softmax(logits, dim=1)[0]
                 conf, idx = torch.max(probs, dim=0)
-                sign = self.class_names[idx.item()]
-        except Exception as e:
-            logging.error(f"Prediction failed: {e}")
-            return JSONResponse({"error": str(e)}, status_code=500)
-        
-        # 4. DB Log
-        target = request.get("expected_sign", "")
-        sign = self.class_names[idx.item()]
-        is_correct = sign.upper() == target.upper()
-        
-        # Ensure we are sending the exact column names from your Supabase screenshot
-        supabase.table("practice_sessions").insert({
-            "auth_user_id": user_id,              # Now matches other tables
-            "level_id": request.get("level_id"), # Make sure frontend sends this!
-            "sign": sign,
-            "target_sign": target,
-            "confidence": round(conf.item(), 4), # We renamed average_accuracy to this
-            "is_correct": is_correct
-        }).execute()
-
-        # 5. Return prediction result to frontend
-        return JSONResponse({
-            "sign": sign,
-            "confidence": round(conf.item(), 4),
-            "is_correct": is_correct,
-            "accuracy": round(conf.item(), 4)  # Same as confidence for now
-        })
-
-# ══════════════════════════════════════════════════════════════════════════════
-# PRODUCTION-SAFE MODAL FUNCTION WITH ERROR HANDLING
-# ══════════════════════════════════════════════════════════════════════════════
-
-@app.function(
-    image=image,
-    gpu="T4",
-    volumes={"/model-weights": model_volume},
-    secrets=[modal.Secret.from_name("juansign-secret")],
-    # Retry configuration: max 3 retries with exponential backoff
-    retries=modal.Retries(
-        max_retries=3,
-        initial_delay=1.0,      # Start with 1 second delay
-        backoff_coefficient=2.0, # Double the delay each retry
-        max_delay=60.0          # Cap delay at 60 seconds
-    ),
-    # Timeout: Kill function if it runs longer than 5 minutes
-    timeout=300,
-    # Concurrency limit: Prevent more than 5 containers from running simultaneously
-    max_containers=5
-)
-def predict_sign_production_safe(video_b64: str, expected_sign: str = "", level_id: str = "", token: str = ""):
-    """
-    Production-safe JuanSign prediction function with comprehensive error handling.
-
-    This function includes:
-    - Retry logic with exponential backoff (max 3 retries)
-    - Timeout protection (300 seconds max execution time)
-    - Concurrency limiting (max 5 simultaneous containers)
-    - Comprehensive error logging and graceful failure handling
-    - Automatic resource cleanup
-
-    Args:
-        video_b64: Base64-encoded video data
-        expected_sign: Expected sign for accuracy calculation
-        level_id: Level identifier for database logging
-        token: Authentication token
-
-    Returns:
-        dict: Prediction results with sign, confidence, and accuracy
-
-    Raises:
-        Exception: Re-raises caught exceptions after logging to stop execution
-    """
-    start_time = time.time()
-
-    try:
-        # Initialize logging for production monitoring
-        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-        logger = logging.getLogger(__name__)
-
-        logger.info(f"Starting prediction for level_id: {level_id}")
-
-        # Validate input parameters
-        if not video_b64:
-            raise ValueError("video_b64 parameter is required and cannot be empty")
-
-        if not token:
-            raise ValueError("token parameter is required for authentication")
-
-        # Step 1: Authentication
-        logger.info("Authenticating user...")
-        from supabase import create_client
-        supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
-
-        try:
-            user = supabase.auth.get_user(token)
-            user_id = user.user.id
-            logger.info(f"Authenticated user: {user_id}")
-        except Exception as auth_error:
-            logger.error(f"Authentication failed: {str(auth_error)}")
-            raise ValueError(f"Authentication failed: {str(auth_error)}")
-
-        # Step 2: Load model and detectors (cached in container)
-        logger.info("Loading model and detectors...")
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model, class_names = _build_model(MODEL_PATH, device)
-        face_detector, hand_detector = _build_mediapipe()
-        logger.info("Model and detectors loaded successfully")
-
-        # Step 3: Process video
-        logger.info("Processing video input...")
-        try:
-            mp4_path = _decode_base64_to_mp4(video_b64)
-            frames_t, lms_t = _extract_frames(mp4_path, face_detector, hand_detector)
-            os.unlink(mp4_path)  # Clean up temporary file
-            logger.info(f"Video processed successfully: {frames_t.shape[0]} frames extracted")
-        except Exception as video_error:
-            logger.error(f"Video processing failed: {str(video_error)}")
-            raise RuntimeError(f"Failed to process video: {str(video_error)}")
-
-        # Step 4: Run inference
-        logger.info("Running model inference...")
-        try:
-            with torch.no_grad():
-                logits = model(frames_t.to(device), lms_t.to(device))
-                probs = torch.softmax(logits, dim=1)[0]
-                conf, idx = torch.max(probs, dim=0)
-                predicted_sign = class_names[idx.item()]
+                sign = self.class_names_cache[category][idx.item()]
                 confidence = round(conf.item(), 4)
 
-            logger.info(f"Inference completed: predicted '{predicted_sign}' with confidence {confidence}")
-        except Exception as inference_error:
-            logger.error(f"Model inference failed: {str(inference_error)}")
-            raise RuntimeError(f"Model inference failed: {str(inference_error)}")
+            # 6. DB Log
+            target = request.get("expected_sign", "")
+            is_correct = sign.upper() == target.upper()
 
-        # Step 5: Calculate accuracy and log to database
-        logger.info("Logging results to database...")
-        try:
-            is_correct = predicted_sign.upper() == expected_sign.upper()
-
-            # Log to practice_sessions table
-            supabase.table("practice_sessions").insert({
-                "auth_user_id": user_id,
-                "level_id": level_id,
-                "sign": predicted_sign,
-                "target_sign": expected_sign,
-                "confidence": confidence,
-                "is_correct": is_correct
-            }).execute()
-
-            logger.info(f"Database logging completed. Correct: {is_correct}")
-        except Exception as db_error:
-            logger.error(f"Database logging failed: {str(db_error)}")
-            # Don't fail the entire function for database errors, but log them
-            logger.warning("Continuing despite database logging failure")
-
-        # Step 6: Prepare and return response
-        execution_time = time.time() - start_time
-        logger.info(f"Prediction completed successfully in {execution_time:.2f} seconds")
-
-        result = {
-            "sign": predicted_sign,
-            "confidence": confidence,
-            "is_correct": is_correct if 'is_correct' in locals() else False,
-            "accuracy": confidence,  # Same as confidence for now
-            "execution_time": round(execution_time, 2)
-        }
-
-        return result
-
-    except ValueError as ve:
-        # Input validation errors - don't retry
-        logger.error(f"Input validation error: {str(ve)}")
-        raise ve
-
-    except RuntimeError as re:
-        # Processing errors - may be retried
-        logger.error(f"Runtime error: {str(re)}")
-        raise re
-
-    except Exception as e:
-        # Catch-all for unexpected errors
-        execution_time = time.time() - start_time
-        logger.error(f"Unexpected error after {execution_time:.2f} seconds: {str(e)}")
-        logger.error(f"Error type: {type(e).__name__}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
-
-        # Re-raise to trigger retry mechanism or fail gracefully
-        raise RuntimeError(f"Prediction failed: {str(e)}")
-
-    finally:
-        # Cleanup: Ensure GPU memory is freed
-        if 'device' in locals() and device.type == 'cuda':
             try:
-                torch.cuda.empty_cache()
-                logger.debug("GPU cache cleared")
-            except Exception as cleanup_error:
-                logger.warning(f"GPU cleanup failed: {str(cleanup_error)}")
+                supabase.table("practice_sessions").insert({
+                    "auth_user_id": user_id,
+                    "level_id": level_id,
+                    "sign": sign,
+                    "target_sign": target,
+                    "confidence": confidence,
+                    "is_correct": is_correct
+                }).execute()
+            except Exception as db_err:
+                logger.error(f"DB log failed (non-fatal): {db_err}")
 
-        # Log completion regardless of success/failure
-        total_time = time.time() - start_time
-        logger.info(f"Function execution completed in {total_time:.2f} seconds")
+            # 7. Return result
+            return JSONResponse({
+                "sign": sign,
+                "confidence": confidence,
+                "is_correct": is_correct,
+                "accuracy": confidence,
+                "category": category
+            })
+
+        except Exception as e:
+            logger.error(f"Prediction failed: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return JSONResponse({"error": str(e)}, status_code=500)

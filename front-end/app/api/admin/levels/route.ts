@@ -41,11 +41,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { level_name, sequence_order, passing_score } = await request.json()
+  const { level_name, sequence_order, passing_score, category } = await request.json()
 
-  if (!level_name || sequence_order == null || passing_score == null) {
+  if (!level_name || sequence_order == null || passing_score == null || !category) {
     return NextResponse.json(
-      { error: 'level_name, sequence_order, and passing_score are required' },
+      { error: 'level_name, sequence_order, passing_score, and category are required' },
       { status: 400 }
     )
   }
@@ -58,8 +58,9 @@ export async function POST(request: NextRequest) {
         sequence_order,
         level_order: sequence_order,
         passing_score,
+        category,
       })
-      .select('level_id, level_name')
+      .select('level_id, level_name, category')
       .single()
 
     if (error) throw error
@@ -78,7 +79,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { level_id, level_name, sequence_order } = await request.json()
+  const { level_id, level_name, sequence_order, category } = await request.json()
   if (!level_id) {
     return NextResponse.json({ error: 'level_id is required' }, { status: 400 })
   }
@@ -89,6 +90,7 @@ export async function PUT(request: NextRequest) {
     updateData.sequence_order = sequence_order
     updateData.level_order = sequence_order
   }
+  if (category) updateData.category = category
 
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: 'At least one field to update is required' }, { status: 400 })

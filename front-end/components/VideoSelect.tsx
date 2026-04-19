@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { useVideoList } from '@/hooks/useVideoList'
 
 interface VideoSelectProps {
   value: string
   onChange: (value: string) => void
-  videos: string[]
   placeholder?: string
   style?: React.CSSProperties
 }
@@ -17,7 +17,6 @@ const INPUT_BORDER = '#D4B483'
 export function VideoSelect({
   value,
   onChange,
-  videos,
   placeholder = 'Search or select video...',
   style: customStyle,
 }: VideoSelectProps) {
@@ -26,10 +25,55 @@ export function VideoSelect({
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const [videoState, videoActions] = useVideoList()
 
   const formatLabel = (video: string) => `Sign ${video}`
 
-  const filtered = videos.filter(video =>
+  // Load videos when dropdown opens
+  useEffect(() => {
+    if (isOpen && videoState.videos.length === 0 && !videoState.loading) {
+      videoActions.loadVideos({ page: 1 })
+    }
+  }, [isOpen, videoState.videos.length, videoState.loading, videoActions])
+
+  const searchTimeoutRef = useRef<NodeJS.Timeout>()
+
+  // Handle search input changes
+  const handleSearchChange = useCallback((searchTerm: string) => {
+    setSearch(searchTerm)
+    setHighlightedIndex(-1)
+    videoActions.setSearch(searchTerm)
+    
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+    
+    // Debounce search to avoid too many API calls
+    searchTimeoutRef.current = setTimeout(() => {
+      videoActions.loadVideos({ page: 1, search: searchTerm })
+    }, 300)
+  }, [videoActions])
+
+  // Infinite scroll handler
+  useEffect(() => {
+    if (!dropdownRef.current) return
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = dropdownRef.current!
+      if (scrollTop + clientHeight >= scrollHeight - 50 && videoState.hasMore && !videoState.loading) {
+        videoActions.loadNextPage()
+      }
+    }
+
+    const dropdown = dropdownRef.current
+    dropdown.addEventListener('scroll', handleScroll)
+    return () => dropdown.removeEventListener('scroll', handleScroll)
+  }, [videoState.hasMore, videoState.loading, videoActions])
+
+  const filtered = videoState.videos.filter(video =>
     video.toLowerCase().includes(search.toLowerCase()) ||
     formatLabel(video).toLowerCase().includes(search.toLowerCase())
   )
@@ -116,7 +160,7 @@ export function VideoSelect({
           type="text"
           value={search}
           placeholder={placeholder}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => handleSearchChange(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={e => (e.currentTarget.style.borderColor = '#B5621E')}
           onBlur={e => (e.currentTarget.style.borderColor = INPUT_BORDER)}
@@ -149,6 +193,7 @@ export function VideoSelect({
 
       {isOpen && (
         <div
+          ref={dropdownRef}
           style={{
             position: 'absolute',
             top: '100%',
@@ -164,31 +209,107 @@ export function VideoSelect({
             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
           }}
         >
-          {filtered.length > 0 ? (
-            filtered.map((video, index) => (
-              <div
-                key={video}
-                onClick={() => {
-                  onChange(video)
-                  setIsOpen(false)
-                  setSearch('')
-                }}
-                onMouseEnter={() => setHighlightedIndex(index)}
-                style={{
-                  padding: '8px 12px',
-                  cursor: 'pointer',
-                  backgroundColor:
-                    highlightedIndex === index ? '#E8D8A0' : '#FFF',
-                  color: BROWN,
-                  fontFamily: FONT,
-                  fontSize: '0.95rem',
-                  borderBottom: `1px solid ${INPUT_BORDER}`,
-                  transition: 'background-color 0.2s',
-                }}
-              >
-                {formatLabel(video)}
-              </div>
-            ))
+          {/* Refresh button */}
+          <div
+            style={{
+              padding: '8px 12px',
+              borderBottom: `1px solid ${INPUT_BORDER}`,
+              backgroundColor: '#F9F6F0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <span
+              style={{
+                fontFamily: FONT,
+                fontSize: '0.85rem',
+                color: '#666',
+              }}
+            >
+              {videoState.total > 0 ? `${videoState.total} videos` : 'No videos loaded'}
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                videoActions.refresh()
+              }}
+              disabled={videoState.loading}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: videoState.loading ? 'not-allowed' : 'pointer',
+                color: '#666',
+                fontSize: '0.8rem',
+                padding: '2px 6px',
+                borderRadius: '3px',
+                fontFamily: FONT,
+              }}
+              onMouseEnter={(e) => {
+                if (!videoState.loading) e.currentTarget.style.backgroundColor = '#E8D8A0'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent'
+              }}
+            >
+              {videoState.loading ? '⟳' : '↻'}
+            </button>
+          </div>
+
+          {/* Video list */}
+          {videoState.loading && videoState.videos.length === 0 ? (
+            <div
+              style={{
+                padding: '20px',
+                textAlign: 'center',
+                color: '#999',
+                fontFamily: FONT,
+                fontSize: '0.9rem',
+              }}
+            >
+              Loading videos...
+            </div>
+          ) : filtered.length > 0 ? (
+            <>
+              {filtered.map((video, index) => (
+                <div
+                  key={video}
+                  onClick={() => {
+                    onChange(video)
+                    setIsOpen(false)
+                    setSearch('')
+                  }}
+                  onMouseEnter={() => setHighlightedIndex(index)}
+                  style={{
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    backgroundColor:
+                      highlightedIndex === index ? '#E8D8A0' : '#FFF',
+                    color: BROWN,
+                    fontFamily: FONT,
+                    fontSize: '0.95rem',
+                    borderBottom: index === filtered.length - 1 ? 'none' : `1px solid ${INPUT_BORDER}`,
+                    transition: 'background-color 0.2s',
+                  }}
+                >
+                  {formatLabel(video)}
+                </div>
+              ))}
+              {videoState.loading && videoState.videos.length > 0 && (
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    textAlign: 'center',
+                    color: '#999',
+                    fontFamily: FONT,
+                    fontSize: '0.85rem',
+                    borderTop: `1px solid ${INPUT_BORDER}`,
+                  }}
+                >
+                  Loading more...
+                </div>
+              )}
+            </>
           ) : (
             <div
               style={{
@@ -199,7 +320,7 @@ export function VideoSelect({
                 fontSize: '0.9rem',
               }}
             >
-              No videos found
+              {search ? 'No videos match your search' : 'No videos found'}
             </div>
           )}
         </div>

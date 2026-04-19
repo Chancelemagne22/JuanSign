@@ -3,14 +3,14 @@
 import { useEffect, useState, useCallback } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
 import { VideoSelect } from '@/components/VideoSelect'
-import { listLessonVideos, getLessonVideoUrl } from '@/lib/storage'
+import { getLessonVideoUrl } from '@/lib/storage'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type QuestionType = 'identify' | 'perform'
 type Tab = 'lessons' | 'practice' | 'assessment'
 
-interface Level { level_id: string; level_name: string; sequence_order?: number; level_order?: number }
+interface Level { level_id: string; level_name: string; sequence_order?: number; level_order?: number; category?: string }
 
 interface Lesson {
   lesson_id: string
@@ -68,6 +68,16 @@ const FSL_LETTERS = [
 ]
 
 const OPTION_KEYS = ['A', 'B', 'C', 'D'] as const
+
+const LEVEL_CATEGORIES = [
+  { value: 'alphabets', label: 'Alphabets' },
+  { value: 'numbers', label: 'Numbers' },
+  { value: 'conversational_phrases', label: 'Conversational Phrases' },
+  { value: 'five_ws', label: '5 Ws (Who, What, When, Where, Why)' },
+  { value: 'greetings', label: 'Greetings' },
+  { value: 'days_of_week', label: 'Days of the Week' },
+  { value: 'adjectives_verbs', label: 'Adjectives/Verbs' },
+] as const
 
 const emptyLesson = (defaultOrder = 1): Omit<Lesson, 'lesson_id'> => ({
   lesson_title: '', video_url: '', content_text: '', lesson_order: defaultOrder,
@@ -187,8 +197,6 @@ function LessonForm({
   const [form, setForm] = useState(lesson)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [videos, setVideos] = useState<string[]>([])
-  const [loadingVideos, setLoadingVideos] = useState(true)
 
   useEffect(() => {
     console.log('[LessonForm] Received lesson prop:', { isNew, lesson_id: lesson.lesson_id, lesson_title: lesson.lesson_title, lesson_order: lesson.lesson_order, orderType: typeof lesson.lesson_order })
@@ -203,24 +211,6 @@ function LessonForm({
     lesson.content_text_tagalog,
     isNew,
   ])
-
-  useEffect(() => {
-    const loadVideos = async () => {
-      setLoadingVideos(true)
-      try {
-        console.log('[LessonForm] Loading videos...')
-        const videoList = await listLessonVideos()
-        console.log('[LessonForm] Got video list:', videoList)
-        setVideos(videoList)
-      } catch (err) {
-        console.error('[LessonForm] Failed to load videos:', err)
-        setVideos([])
-      } finally {
-        setLoadingVideos(false)
-      }
-    }
-    loadVideos()
-  }, [])
 
   const set = (k: string, v: string | number) => setForm(prev => ({ ...prev, [k]: v }))
 
@@ -253,29 +243,15 @@ function LessonForm({
       </Field>
 
       <Field label="Video URL">
-        {loadingVideos ? (
-          <div style={{ fontFamily: FONT, color: '#999', fontSize: 'clamp(0.8rem, 1.3vw, 0.9rem)', padding: '8px' }}>
-            Loading videos...
-          </div>
-        ) : (
-          <>
-            <VideoSelect
-              value={
-                form.video_url
-                  ? form.video_url.split('/').pop()?.replace(/\.(mp4|mp44|mov|webm|avi|mkv)$/i, '') || ''
-                  : ''
-              }
-              onChange={handleVideoSelect}
-              videos={videos}
-              style={inputStyle}
-            />
-            {videos.length === 0 && !loadingVideos && (
-              <p style={{ fontFamily: FONT, color: '#999', fontSize: 'clamp(0.75rem, 1.3vw, 0.85rem)', marginTop: '4px' }}>
-                No videos found in storage. Upload to lessons-videos bucket first.
-              </p>
-            )}
-          </>
-        )}
+        <VideoSelect
+          value={
+            form.video_url
+              ? form.video_url.split('/').pop()?.replace(/\.(mp4|mp44|mov|webm|avi|mkv)$/i, '') || ''
+              : ''
+          }
+          onChange={handleVideoSelect}
+          style={inputStyle}
+        />
       </Field>
 
       <Field label="Content / Notes">
@@ -347,28 +323,8 @@ function QuestionForm({
   )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [videos, setVideos] = useState<string[]>([])
-  const [loadingVideos, setLoadingVideos] = useState(true)
 
   useEffect(() => setForm(normalizeQuestionDraft(question)), [question])
-
-  useEffect(() => {
-    const loadVideos = async () => {
-      setLoadingVideos(true)
-      try {
-        console.log('[QuestionForm] Loading videos...')
-        const videoList = await listLessonVideos()
-        console.log('[QuestionForm] Got video list:', videoList)
-        setVideos(videoList)
-      } catch (err) {
-        console.error('[QuestionForm] Failed to load videos:', err)
-        setVideos([])
-      } finally {
-        setLoadingVideos(false)
-      }
-    }
-    loadVideos()
-  }, [])
 
   const set = (k: string, v: string | number) => setForm(prev => ({ ...prev, [k]: v }))
 
@@ -458,29 +414,15 @@ function QuestionForm({
       {form.question_type === 'identify' ? (
         <>
           <Field label="Video URL (sign being shown)">
-            {loadingVideos ? (
-              <div style={{ fontFamily: FONT, color: DISABLED_GRAY, fontSize: 'clamp(0.8rem, 1.3vw, 0.9rem)', padding: '8px' }}>
-                Loading videos...
-              </div>
-            ) : (
-              <>
-                <VideoSelect
-                  value={
-                    form.video_url
-                      ? form.video_url.split('/').pop()?.replace(/\.(mp4|mp44|mov|webm|avi|mkv)$/i, '') || ''
-                      : ''
-                  }
-                  onChange={handleVideoSelect}
-                  videos={videos}
-                  style={inputStyle}
-                />
-                {videos.length === 0 && !loadingVideos && (
-                  <p style={{ fontFamily: FONT, color: DISABLED_GRAY, fontSize: 'clamp(0.75rem, 1.3vw, 0.85rem)', marginTop: '4px' }}>
-                    No videos found. Upload to lessons-videos bucket.
-                  </p>
-                )}
-              </>
-            )}
+            <VideoSelect
+              value={
+                form.video_url
+                  ? form.video_url.split('/').pop()?.replace(/\.(mp4|mp44|mov|webm|avi|mkv)$/i, '') || ''
+                  : ''
+              }
+              onChange={handleVideoSelect}
+              style={inputStyle}
+            />
           </Field>
 
           <div style={{ marginBottom: 'clamp(10px, 1.5vw, 14px)' }}>
@@ -562,18 +504,20 @@ function NewLevelModal({ onCreated, onClose }: { onCreated: (level: Level) => vo
   const [name, setName] = useState('')
   const [order, setOrder] = useState(1)
   const [passingScore, setPassingScore] = useState(75)
+  const [category, setCategory] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const handleCreate = async () => {
     if (!name.trim()) { setError('Level name is required.'); return }
+    if (!category) { setError('Category is required.'); return }
     setSaving(true)
     setError('')
     try {
       const res = await adminFetch('/api/admin/levels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ level_name: name, sequence_order: order, passing_score: passingScore }),
+        body: JSON.stringify({ level_name: name, sequence_order: order, passing_score: passingScore, category }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to create')
@@ -610,6 +554,21 @@ function NewLevelModal({ onCreated, onClose }: { onCreated: (level: Level) => vo
           />
         </Field>
 
+        <Field label="Category">
+          <select
+            value={category}
+            style={inputStyle}
+            onChange={e => setCategory(e.target.value)}
+            onFocus={e => (e.currentTarget.style.borderColor = MEDIUM_BROWN)}
+            onBlur={e => (e.currentTarget.style.borderColor = INPUT_BORDER)}
+          >
+            <option value="">Select a category</option>
+            {LEVEL_CATEGORIES.map(cat => (
+              <option key={cat.value} value={cat.value}>{cat.label}</option>
+            ))}
+          </select>
+        </Field>
+
         <div className="grid grid-cols-2 gap-2 sm:gap-4">
           <Field label="Order / Sequence">
             <input
@@ -643,11 +602,13 @@ function NewLevelModal({ onCreated, onClose }: { onCreated: (level: Level) => vo
   )
 }
 
-function EditLevelModal({ name, onNameChange, order, onOrderChange, onSave, onClose, saving }: {
+function EditLevelModal({ name, onNameChange, order, onOrderChange, category, onCategoryChange, onSave, onClose, saving }: {
   name: string
   onNameChange: (value: string) => void
   order: number
   onOrderChange: (value: number) => void
+  category: string
+  onCategoryChange: (value: string) => void
   onSave: () => void
   onClose: () => void
   saving: boolean
@@ -674,6 +635,21 @@ function EditLevelModal({ name, onNameChange, order, onOrderChange, onSave, onCl
             onFocus={e => (e.currentTarget.style.borderColor = MEDIUM_BROWN)}
             onBlur={e => (e.currentTarget.style.borderColor = INPUT_BORDER)}
           />
+        </Field>
+
+        <Field label="Category">
+          <select
+            value={category}
+            style={inputStyle}
+            onChange={e => onCategoryChange(e.target.value)}
+            onFocus={e => (e.currentTarget.style.borderColor = MEDIUM_BROWN)}
+            onBlur={e => (e.currentTarget.style.borderColor = INPUT_BORDER)}
+          >
+            <option value="">Select a category</option>
+            {LEVEL_CATEGORIES.map(cat => (
+              <option key={cat.value} value={cat.value}>{cat.label}</option>
+            ))}
+          </select>
         </Field>
 
         <Field label="Order / Sequence">
@@ -707,6 +683,7 @@ export default function AdminLevelsPage() {
   const [showEditLevel, setShowEditLevel] = useState(false)
   const [editLevelName, setEditLevelName] = useState('')
   const [editLevelOrder, setEditLevelOrder] = useState(1)
+  const [editLevelCategory, setEditLevelCategory] = useState('')
   const [editingLevelSaving, setEditingLevelSaving] = useState(false)
 
   // Lessons state
@@ -739,6 +716,7 @@ export default function AdminLevelsPage() {
     const currentOrder = current.sequence_order ?? current.level_order ?? 1
     setEditLevelName(current.level_name)
     setEditLevelOrder(currentOrder)
+    setEditLevelCategory(current.category ?? '')
     setShowEditLevel(true)
   }
 
@@ -755,8 +733,9 @@ export default function AdminLevelsPage() {
     const currentOrder = current.sequence_order ?? current.level_order ?? 1
     const nameChanged = trimmed !== current.level_name
     const orderChanged = editLevelOrder !== currentOrder
+    const categoryChanged = editLevelCategory !== (current.category ?? '')
 
-    if (!nameChanged && !orderChanged) {
+    if (!nameChanged && !orderChanged && !categoryChanged) {
       setShowEditLevel(false)
       return
     }
@@ -766,7 +745,7 @@ export default function AdminLevelsPage() {
       const res = await adminFetch('/api/admin/levels', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ level_id: current.level_id, level_name: trimmed, sequence_order: editLevelOrder }),
+        body: JSON.stringify({ level_id: current.level_id, level_name: trimmed, sequence_order: editLevelOrder, category: editLevelCategory }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -774,9 +753,9 @@ export default function AdminLevelsPage() {
         return
       }
 
-      setLevels(prev => prev.map(l => l.level_id === current.level_id ? { ...l, level_name: trimmed, sequence_order: editLevelOrder, level_order: editLevelOrder } : l))
+      setLevels(prev => prev.map(l => l.level_id === current.level_id ? { ...l, level_name: trimmed, sequence_order: editLevelOrder, level_order: editLevelOrder, category: editLevelCategory } : l))
       setShowEditLevel(false)
-      showToast('Level title updated.', true)
+      showToast('Level updated.', true)
     } finally {
       setEditingLevelSaving(false)
     }
@@ -1048,6 +1027,8 @@ export default function AdminLevelsPage() {
           onNameChange={setEditLevelName}
           order={editLevelOrder}
           onOrderChange={setEditLevelOrder}
+          category={editLevelCategory}
+          onCategoryChange={setEditLevelCategory}
           onSave={saveEditedLevel}
           onClose={() => setShowEditLevel(false)}
           saving={editingLevelSaving}
