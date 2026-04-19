@@ -41,8 +41,6 @@ export function VideoSelect({
     }
   }, [isOpen, videoState.videos.length, videoState.loading, videoActions])
 
-  const searchTimeoutRef = useRef<NodeJS.Timeout>()
-
   // Handle search input changes
   const handleSearchChange = useCallback((searchTerm: string) => {
     setSearch(searchTerm)
