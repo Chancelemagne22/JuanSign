@@ -31,6 +31,9 @@ export function VideoSelect({
 
   const formatLabel = (video: string) => `Sign ${video}`
 
+  // Timeout ref for debounced search
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Load videos when dropdown opens
   useEffect(() => {
     if (isOpen && videoState.videos.length === 0 && !videoState.loading) {
