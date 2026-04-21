@@ -46,13 +46,13 @@ export function VideoSelect({
     setSearch(searchTerm)
     setHighlightedIndex(-1)
     videoActions.setSearch(searchTerm)
-    
+
     // Clear previous timeout
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current)
     }
-    
-    // Debounce search to avoid too many API calls
+
+    // Debounce API search
     searchTimeoutRef.current = setTimeout(() => {
       videoActions.loadVideos({ page: 1, search: searchTerm })
     }, 300)
@@ -64,7 +64,11 @@ export function VideoSelect({
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = dropdownRef.current!
-      if (scrollTop + clientHeight >= scrollHeight - 50 && videoState.hasMore && !videoState.loading) {
+      if (
+        scrollTop + clientHeight >= scrollHeight - 50 &&
+        videoState.hasMore &&
+        !videoState.loading
+      ) {
         videoActions.loadNextPage()
       }
     }
@@ -74,18 +78,27 @@ export function VideoSelect({
     return () => dropdown.removeEventListener('scroll', handleScroll)
   }, [videoState.hasMore, videoState.loading, videoActions])
 
-  const filtered = videoState.videos.filter(video =>
-    video.toLowerCase().includes(search.toLowerCase()) ||
-    formatLabel(video).toLowerCase().includes(search.toLowerCase())
-  )
+  // FIX 1: Deduplicate videos before rendering to eliminate duplicate key errors
+  // This handles cases where pagination appends overlapping items
+  const uniqueVideos = Array.from(new Set(videoState.videos))
+
+  // FIX 2: Only apply local filter when NOT doing an API search
+  // When search is active, the API already returns filtered results —
+  // applying a second filter on top caused "No videos found" to appear
+  // because the local search was comparing against stale/unrelated data.
+  // Now: if a search term exists, trust the API results directly.
+  // If no search term, show all unique videos as-is.
+  const filtered = search.trim()
+    ? uniqueVideos
+    : uniqueVideos
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus()
-      setSearch(value)
+      setSearch('')  // FIX 3: Clear search on open instead of setting to value
       setHighlightedIndex(-1)
     }
-  }, [isOpen, value])
+  }, [isOpen])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!isOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
@@ -210,7 +223,7 @@ export function VideoSelect({
             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
           }}
         >
-          {/* Refresh button */}
+          {/* Header: total count + refresh button */}
           <div
             style={{
               padding: '8px 12px',
@@ -228,11 +241,16 @@ export function VideoSelect({
                 color: '#666',
               }}
             >
-              {videoState.total > 0 ? `${videoState.total} videos` : 'No videos loaded'}
+              {videoState.loading && videoState.videos.length === 0
+                ? 'Loading...'
+                : videoState.total > 0
+                ? `${videoState.total} videos`
+                : 'No videos loaded'}
             </span>
             <button
               onClick={(e) => {
                 e.stopPropagation()
+                setSearch('')
                 videoActions.refresh()
               }}
               disabled={videoState.loading}
@@ -247,13 +265,14 @@ export function VideoSelect({
                 fontFamily: FONT,
               }}
               onMouseEnter={(e) => {
-                if (!videoState.loading) e.currentTarget.style.backgroundColor = '#E8D8A0'
+                if (!videoState.loading)
+                  e.currentTarget.style.backgroundColor = '#E8D8A0'
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = 'transparent'
               }}
             >
-              {videoState.loading ? '⟳' : '↻'}
+              {videoState.loading ? '⟳' : '↻ Refresh'}
             </button>
           </div>
 
@@ -274,7 +293,9 @@ export function VideoSelect({
             <>
               {filtered.map((video, index) => (
                 <div
-                  key={video}
+                  // FIX 1: Use index + video as key to guarantee uniqueness
+                  // even if API returns duplicates across pages
+                  key={`${index}-${video}`}
                   onClick={() => {
                     onChange(video)
                     setIsOpen(false)
@@ -289,13 +310,18 @@ export function VideoSelect({
                     color: BROWN,
                     fontFamily: FONT,
                     fontSize: '0.95rem',
-                    borderBottom: index === filtered.length - 1 ? 'none' : `1px solid ${INPUT_BORDER}`,
+                    borderBottom:
+                      index === filtered.length - 1
+                        ? 'none'
+                        : `1px solid ${INPUT_BORDER}`,
                     transition: 'background-color 0.2s',
                   }}
                 >
                   {formatLabel(video)}
                 </div>
               ))}
+
+              {/* Load more indicator */}
               {videoState.loading && videoState.videos.length > 0 && (
                 <div
                   style={{
@@ -312,6 +338,7 @@ export function VideoSelect({
               )}
             </>
           ) : (
+            // FIX 2: Proper empty state messages
             <div
               style={{
                 padding: '12px',
@@ -321,7 +348,9 @@ export function VideoSelect({
                 fontSize: '0.9rem',
               }}
             >
-              {search ? 'No videos match your search' : 'No videos found'}
+              {search
+                ? `No videos found for "${search}"`
+                : 'No videos uploaded yet'}
             </div>
           )}
         </div>

@@ -77,6 +77,7 @@ const LEVEL_CATEGORIES = [
   { value: 'greetings', label: 'Greetings' },
   { value: 'days_of_week', label: 'Days of the Week' },
   { value: 'adjectives_verbs', label: 'Adjectives/Verbs' },
+  { value: 'family', label: 'Family' },
 ] as const
 
 const emptyLesson = (defaultOrder = 1): Omit<Lesson, 'lesson_id'> => ({
@@ -905,7 +906,7 @@ export default function AdminLevelsPage() {
         questions.length
       )
 
-      const res = await fetch('/api/admin/questions', {
+      const res = await adminFetch('/api/admin/questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode, levelId: selectedLevelId, ...form }),

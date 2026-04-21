@@ -88,6 +88,7 @@ MODEL_REGISTRY = {
     "greetings":              "/model-weights/model/greetings.pth",
     "days_of_week":           "/model-weights/model/days_of_week.pth",
     "adjectives_verbs":       "/model-weights/model/adjectives_verbs.pth",
+    "family":                 "/model-weights/model/family.pth",
 }
 
 HAND_MODEL = "/hand_landmarker.task"
