@@ -119,6 +119,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
   const [showResultOverlay, setShowResultOverlay] = useState(false);
   const [recordingElapsed, setRecordingElapsed] = useState(0);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [countdownValue, setCountdownValue] = useState<number | null>(null)
 
   /* ── Start webcam on mount, stop tracks on unmount ────────────────────── */
   useEffect(() => {
@@ -154,56 +155,68 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
     };
   }, [t]);
 
-  /* ── Recording controls ────────────────────────────────────────────────── */
   function startRecording() {
-    if (!streamRef.current) return;
-    chunksRef.current = [];
-    const recorder = new MediaRecorder(streamRef.current);
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunksRef.current.push(e.data);
-    };
-    recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-      setRecordedBlob(blob);
-      setRecordState('done');
+    if (!streamRef.current) return
+    setFeedback(null)
+    setCountdownValue(3) // start get-ready countdown
 
-      // Auto-upload after recording stops
-      if (blob.size > 0) {
-        void uploadPrediction(blob);
+    let count = 3
+    const getReadyInterval = setInterval(() => {
+      count -= 1
+      if (count <= 0) {
+        clearInterval(getReadyInterval)
+        setCountdownValue(null)
+        beginActualRecording() // start the real recording after countdown
       } else {
-        setFeedback(t('module.noVideoCaptured'));
+        setCountdownValue(count)
       }
-    };
-    mediaRef.current = recorder;
-    recorder.start();
-    setRecordState('recording');
-    setFeedback(null);
-    setRecordingElapsed(0);
-
-    // Auto-stop after 7 seconds
-    const duration = 7000;
-    autoStopTimerRef.current = setTimeout(() => {
-      if (mediaRef.current && mediaRef.current.state !== 'inactive') {
-        mediaRef.current.stop();
-      }
-    }, duration);
-
-    // Update countdown timer every 100ms
-    recordingIntervalRef.current = setInterval(() => {
-      setRecordingElapsed((prev) => {
-        const next = prev + 100;
-        if (next >= duration) {
-          if (recordingIntervalRef.current) {
-            clearInterval(recordingIntervalRef.current);
-            recordingIntervalRef.current = null;
-          }
-          return duration;
-        }
-        return next;
-      });
-    }, 100);
+    }, 1000)
   }
 
+  function beginActualRecording() {
+    if (!streamRef.current) return
+    chunksRef.current = []
+    const recorder = new MediaRecorder(streamRef.current)
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data)
+    }
+    recorder.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: 'video/webm' })
+      setRecordedBlob(blob)
+      setRecordState('done')
+      if (blob.size > 0) {
+        void uploadPrediction(blob)
+      } else {
+        setFeedback(t('module.noVideoCaptured'))
+      }
+    }
+    mediaRef.current = recorder
+    recorder.start()
+    setRecordState('recording')
+    setRecordingElapsed(0)
+
+    const duration = 3000 // 3 seconds recording
+
+    autoStopTimerRef.current = setTimeout(() => {
+      if (mediaRef.current && mediaRef.current.state !== 'inactive') {
+        mediaRef.current.stop()
+      }
+    }, duration)
+
+    recordingIntervalRef.current = setInterval(() => {
+      setRecordingElapsed((prev) => {
+        const next = prev + 100
+        if (next >= duration) {
+          if (recordingIntervalRef.current) {
+            clearInterval(recordingIntervalRef.current)
+            recordingIntervalRef.current = null
+          }
+          return duration
+        }
+        return next
+      })
+    }, 100)
+  }
 
 
   function resetRecording() {
@@ -227,6 +240,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
     setFeedback(null);
     setRecordState('idle');
     setRecordingElapsed(0);
+    setCountdownValue(null)
   }
 
   /* ── ML Prediction Upload ────────────────────────────────────────────────
@@ -347,11 +361,23 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
           )}
 
           {/* Recording indicator with countdown timer */}
+          {countdownValue !== null && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20 gap-2">
+              <p className="text-white font-black text-2xl tracking-wide">
+                {t('module.getReady')}
+              </p>
+              <span className="text-white font-black text-8xl leading-none">
+                {countdownValue}
+              </span>
+            </div>
+          )}
+
+          {/* Recording indicator with countdown timer */}
           {isRecording && (
-            <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/50 rounded-full px-3 py-1.5 z-10">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-white text-xs font-bold tracking-wide">
-                {t('module.rec')} {Math.ceil((7000 - recordingElapsed) / 1000)}s
+            <div className="absolute top-4 right-4 flex items-center gap-3 bg-black/60 rounded-2xl px-4 py-2.5 z-10">
+              <span className="w-3.5 h-3.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+              <span className="text-white text-2xl font-black tracking-wide leading-none">
+                {t('module.rec')} {Math.ceil((3000 - recordingElapsed) / 1000)}s
               </span>
             </div>
           )}
@@ -371,15 +397,16 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
                 ${predictionResult.is_correct ? 'bg-green-600/80' : 'bg-red-600/80'}`}
             >
               <span className="text-5xl">{predictionResult.is_correct ? '✓' : '✗'}</span>
-              <p className="text-white font-black text-lg">
+              <p className="text-white font-black text-5xl">
                 {predictionResult.is_correct ? t('module.correct') : t('module.tryAgain')}
               </p>
-              <p className="text-white/90 font-semibold text-lg">
-                <span className="font-black">{predictionResult.sign}</span> - {Math.round((predictionResult.confidence ?? 0) * 100)}%
+            
+              <p className="text-white/90 font-semibold text-4xl">
+                <span className="font-black">{predictionResult.sign}</span> - {Math.round((predictionResult.confidence ?? 0) * 100)} %
               </p>
               <button
                 onClick={() => setShowResultOverlay(false)}
-                className="mt-2 bg-white/20 hover:bg-white/30 text-white font-bold text-xs px-4 py-1.5 rounded-full transition-colors"
+                className="mt-2 bg-white/20 hover:bg-white/30 text-white font-bold text-lg px-4 py-1.5 rounded-full transition-colors"
               >
                 {t('module.dismiss')}
               </button>
@@ -410,7 +437,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
         <div className="rounded-2xl border-2 border-[#BF7B45] bg-[#FFF7EA] px-4 sm:px-5 py-3 sm:py-4 shadow-[0_3px_10px_rgba(0,0,0,0.08)] min-h-[340px] sm:min-h-[400px] lg:min-h-[520px] overflow-y-auto flex flex-col gap-4">
           {/* Question container */}
           <div className="flex-shrink-0 rounded-2xl border-2 border-[#BF7B45] bg-white p-4 flex items-center justify-center min-h-[100px]">
-            <p className="text-[#5D3A1A] font-semibold text-sm sm:text-base lg:text-lg leading-relaxed text-center" style={{ fontFamily: 'var(--font-fredoka)' }}>
+            <p className="text-[#5D3A1A] font-semibold text-sm sm:text-base lg:text-3xl leading-relaxed text-center" style={{ fontFamily: 'var(--font-fredoka)' }}>
               {questionDisplayText}
             </p>
           </div>
@@ -420,7 +447,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
             <p className="text-[#5D3A1A] font-black text-base sm:text-lg mb-3" style={{ fontFamily: 'var(--font-fredoka)' }}>
               {t('module.practiceStepsTitle')}
             </p>
-            <ol className="list-decimal pl-5 space-y-2 text-[#4A2C0A] font-semibold text-[0.92rem] sm:text-[1rem] leading-relaxed" style={{ fontFamily: 'var(--font-fredoka)' }}>
+            <ol className="list-decimal pl-5 space-y-2 text-[#4A2C0A] font-semibold text-[0.92rem] sm:text-[1.250rem] leading-relaxed" style={{ fontFamily: 'var(--font-fredoka)' }}>
               <li>{t('module.practiceStep1')}</li>
               <li>{t('module.practiceStep2')}</li>
               <li>{t('module.practiceStep3')}</li>

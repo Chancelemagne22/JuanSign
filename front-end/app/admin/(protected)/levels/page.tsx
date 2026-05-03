@@ -62,10 +62,24 @@ const TAN_HOVER = 'var(--admin-tan-hover)'
 const TAN_ACTIVE = 'var(--admin-tan-active)'
 const MEDIUM_BROWN = 'var(--admin-brown-medium)'
 
-const FSL_LETTERS = [
+const FSL_DATA = [
   'A','B','C','D','E','F','G','H','I','J','K','L','M',
-  'N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+  'N','Ñ',"NG",'O','P','Q','R','S','T','U','V','W','X','Y','Z',"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+  "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+  "21", "22", "23", "24", "25", "26", "27", "28", "29", "30",
+  "40", "50", "60", "70", "80", "90", "100", "200", "300", "400",
+  "500", "600", "700", "800", "900", "1000", "2000", "3000", "1M", "2M",
+  "3M", "1B", "2B", "3B", "1T", "2T", "3T", "First", "Second", "Third",
+  "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth", "Hello", "Yes", "No",
+  "How are you?", "My name is", "What's your name?", "Nice to meet you", "I know a little sign", "You sign fast", "Again",
+  "Please sign slowly", "I understand", "I don't understand", "Sorry", "It's fine", "How to sign (point at it)", "Thank you",
+  "Welcome", "What", "When", "Where", "Who", "Why", "Good morning", "Good Midday", "Good afternoon",
+  "Good Evening", "Good Night", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+  "Sunday", "See", "Eat", "Drink", "Like", "Beautiful", "Handsome", "Ugly", "Cute",
+  "Family", "Lola", "Lolo", "Mama", "Ate", "Kuya", "Papa", "Parents", "Baby",
+  "Uncle", "Aunt", "Cousin"
 ]
+
 
 const OPTION_KEYS = ['A', 'B', 'C', 'D'] as const
 
@@ -438,7 +452,7 @@ function QuestionForm({
                     style={selectStyle}
                   >
                     <option value="">— select —</option>
-                    {FSL_LETTERS.map(l => <option key={l} value={l}>{l}</option>)}
+                    {FSL_DATA.map(l => <option key={l} value={l}>{l}</option>)}
                   </select>
                 </div>
               ))}

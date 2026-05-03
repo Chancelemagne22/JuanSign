@@ -342,7 +342,6 @@ export default function AdminUsersPage() {
     { key: 'fullName', label: 'User Name' },
     { key: 'email', label: 'Email' },
     { key: 'currentLevel', label: 'Current Level', align: 'center' },
-    { key: 'progress', label: 'Progress(%)', align: 'center' },
     { key: 'status', label: 'Status', align: 'center' },
   ]
 
@@ -456,12 +455,7 @@ export default function AdminUsersPage() {
                         >
                           {user.currentLevel}
                         </span>
-                        <span
-                          className="text-center"
-                          style={{ fontFamily: FONT, color: BROWN, fontSize: '0.82rem' }}
-                        >
-                          {user.progress}%
-                        </span>
+                       
                         <span
                           className="text-center"
                           style={{ fontFamily: FONT, color: BROWN, fontSize: '0.82rem' }}

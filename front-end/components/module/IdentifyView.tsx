@@ -92,23 +92,23 @@ export default function IdentifyView({
     getVideoRef().current?.play().catch(() => {});
   }
 
-  function pauseVideo() {
-    getVideoRef().current?.pause();
-  }
+  // function pauseVideo() {
+  //   getVideoRef().current?.pause();
+  // }
 
-  function replayVideo() {
-    const v = getVideoRef().current;
-    if (!v) return;
-    v.currentTime = 0;
-    v.play().catch(() => {});
-  }
+  // function replayVideo() {
+  //   const v = getVideoRef().current;
+  //   if (!v) return;
+  //   v.currentTime = 0;
+  //   v.play().catch(() => {});
+  // }
 
-  function stopVideo() {
-    const v = getVideoRef().current;
-    if (!v) return;
-    v.pause();
-    v.currentTime = 0;
-  }
+  // function stopVideo() {
+  //   const v = getVideoRef().current;
+  //   if (!v) return;
+  //   v.pause();
+  //   v.currentTime = 0;
+  // }
 
   const customControls = videoUrl ? (
     <div
@@ -122,7 +122,7 @@ export default function IdentifyView({
           </svg>
         </VideoControlBtn>
 
-        <VideoControlBtn onClick={pauseVideo} ariaLabel={t('lessonView.pause')}>
+        {/* <VideoControlBtn onClick={pauseVideo} ariaLabel={t('lessonView.pause')}>
           <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
             <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
           </svg>
@@ -138,7 +138,7 @@ export default function IdentifyView({
           <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden>
             <path d="M6 6h12v12H6z" />
           </svg>
-        </VideoControlBtn>
+        </VideoControlBtn> */}
       </div>
     </div>
   ) : null;

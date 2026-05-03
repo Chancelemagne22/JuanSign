@@ -165,7 +165,7 @@ export default function LoginModal({
           </label>
           <input
             type="text"
-            placeholder={t('login.usernamePlaceholder')}
+            placeholder={"JuanSign123"}
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
@@ -180,7 +180,7 @@ export default function LoginModal({
           <div className="relative mb-4">
             <input
               type={showPw ? 'text' : 'password'}
-              placeholder={t('login.passwordPlaceholder')}
+              placeholder={"Password123"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleLogin()}

@@ -324,7 +324,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
               </label>
               <input
                 type="text"
-                placeholder={t('signup.firstNamePlaceholder')}
+                placeholder={"Juan"}
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 disabled={loading}
@@ -337,7 +337,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
               </label>
               <input
                 type="text"
-                placeholder={t('signup.lastNamePlaceholder')}
+                placeholder={"Dela Cruz"}
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 disabled={loading}
@@ -353,7 +353,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
             </label>
             <input
               type="text"
-              placeholder={t('signup.usernamePlaceholder')}
+              placeholder={"JuanSign123"}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               disabled={loading}
@@ -368,7 +368,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
             </label>
             <input
               type="email"
-              placeholder={t('signup.emailPlaceholder')}
+              placeholder={"juan.dela.cruz@example.com"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
@@ -383,7 +383,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
             </label>
             <input
               type={showPw ? 'text' : 'password'}
-              placeholder={t('signup.passwordPlaceholder')}
+              placeholder={"Password123"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
@@ -406,7 +406,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
             </label>
             <input
               type={showCf ? 'text' : 'password'}
-              placeholder={t('signup.confirmPasswordPlaceholder')}
+              placeholder={"Password123"}
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               disabled={loading}

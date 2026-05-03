@@ -261,7 +261,7 @@ export const translations = {
       noVideoCaptured: 'No video captured. Please record again.',
       niceJobSigned: 'Nice job! You signed',
       correctly: 'correctly.',
-      notQuiteModelSaw: 'Not quite. The model saw',
+      notQuiteModelSaw: 'Not quite. You slightly missed it, you got ',
       sessionExpired: 'Session expired. Please log in again.',
       uploadFailed: 'Upload failed. Please try again.',
       recordYourSign: 'Record your sign first.',
@@ -272,7 +272,7 @@ export const translations = {
       correct: 'Correct',
       tryAgain: 'Try Again',
       aiSaw: 'AI saw',
-      dismiss: 'Dismiss',
+      dismiss: 'CONTINUE',
       resumeRecording: 'Resume recording',
       startRecording: 'Start recording',
       pauseRecording: 'Pause recording',
@@ -287,6 +287,7 @@ export const translations = {
       practiceStep3: 'Wait for the result.',
       next: 'Next',
       finish: 'Finish',
+      getReady: 'Get your hands ready!'
     },
   },
   tl: {
@@ -562,7 +563,7 @@ export const translations = {
       correct: 'Tama',
       tryAgain: 'Subukan Muli',
       aiSaw: 'Nakita ng AI',
-      dismiss: 'Isara',
+      dismiss: 'ITULOY',
       resumeRecording: 'Ipagpatuloy ang recording',
       startRecording: 'Simulan ang recording',
       pauseRecording: 'I-pause ang recording',
@@ -577,6 +578,7 @@ export const translations = {
       practiceStep3: 'Antayin ang result.',
       next: 'Susunod',
       finish: 'Tapusin',
+      getReady: 'Ihanda ang iyong mga kamay!'
     },
   },
 } as const;
