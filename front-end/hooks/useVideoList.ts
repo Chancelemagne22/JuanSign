@@ -21,7 +21,7 @@ interface VideoListActions {
   refresh: () => Promise<void>
 }
 
-export function useVideoList(initialLimit = 20): [VideoListState, VideoListActions] {
+export function useVideoList(initialLimit = 150): [VideoListState, VideoListActions] {
   const [state, setState] = useState<VideoListState>({
     videos: [],
     total: 0,

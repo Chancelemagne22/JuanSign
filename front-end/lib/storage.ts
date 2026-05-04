@@ -32,17 +32,17 @@ export async function listLessonVideos(options: {
         videos: result.videos || [],
         total: result.total || 0,
         page: result.page || 1,
-        limit: result.limit || 20,
+        limit: result.limit || 150,
         hasMore: result.hasMore || false
       }
     } else {
       console.warn('[Storage] API returned status:', response.status)
     }
     
-    return { videos: [], total: 0, page: 1, limit: 20, hasMore: false }
+    return { videos: [], total: 0, page: 1, limit: 150, hasMore: false }
   } catch (err) {
     console.error('[Storage] Error fetching lesson videos:', err)
-    return { videos: [], total: 0, page: 1, limit: 20, hasMore: false }
+    return { videos: [], total: 0, page: 1, limit: 150, hasMore: false }
   }
 }
 

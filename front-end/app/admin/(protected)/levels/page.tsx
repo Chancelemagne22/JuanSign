@@ -230,6 +230,7 @@ function LessonForm({
   const set = (k: string, v: string | number) => setForm(prev => ({ ...prev, [k]: v }))
 
   const handleVideoSelect = (selectedFilename: string) => {
+    console.log("niight")
     const fullUrl = getLessonVideoUrl(selectedFilename)
     set('video_url', fullUrl)
   }
