@@ -177,23 +177,8 @@ export default function LessonPanelView({
     videoRef.current?.play().catch(() => {});
   }
 
-  function pause() {
-    videoRef.current?.pause();
-  }
+  
 
-  function restart() {
-    const v = videoRef.current;
-    if (!v) return;
-    v.currentTime = 0;
-    v.play().catch(() => {});
-  }
-
-  function stop() {
-    const v = videoRef.current;
-    if (!v) return;
-    v.pause();
-    v.currentTime = 0;
-  }
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 sm:gap-5 min-w-0">
@@ -265,14 +250,8 @@ export default function LessonPanelView({
             {/* CONTROLS OVERLAY - Positioned at bottom center, above video */}
             <div className="absolute bottom-4 left-0 right-0 flex flex-wrap gap-2 sm:gap-3 justify-center px-4 z-20">
               <ControlBtn onClick={play} ariaLabel={t('lessonView.play')}>
-                <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="currentColor" aria-hidden>
+                <svg viewBox="0 0 24 24" className="w-10 h-10 text-white" fill="currentColor" aria-hidden>
                   <path d="M8 5v14l11-7z" />
-                </svg>
-              </ControlBtn>
-
-              <ControlBtn onClick={restart} ariaLabel={t('lessonView.restart')}>
-                <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="currentColor" aria-hidden>
-                  <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
                 </svg>
               </ControlBtn>
             </div>
@@ -283,10 +262,15 @@ export default function LessonPanelView({
           RIGHT SECTION: INSTRUCTIONS (structured, readable)
           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         <div className="flex-1 min-h-0 flex flex-col rounded-[12px] border-[3px] border-[#8B5E3C] bg-[#F6ECDD] p-4 sm:p-6 overflow-y-auto shadow-[0_6px_16px_rgba(0,0,0,0.12)] min-w-0">
-          
           {translatedContextText ? (
             <>
               {/* SECTION TITLE */}
+              <span
+                  className="font-black text-[#3B2408] font-4xl text-center leading-none"
+                  style={{ fontSize: 'clamp(2.5rem, 10vw, 7rem)' }}
+                >
+                  {letter}
+                </span>
               <h3 className="text-[#2F1B05] font-black text-[1.2rem] sm:text-[1.35rem] lg:text-[1.55rem] mb-4 sm:mb-5 flex-shrink-0 tracking-tight">
                 {t('lessonView.instructions')}
               </h3>

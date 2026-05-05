@@ -178,9 +178,24 @@ export default function AdminReportsPage() {
   }, [filters])
 
   useEffect(() => {
-    loadReport()
-  }, [loadReport])
-
+    const params = new URLSearchParams({
+      levelId: filters.levelId,
+      dateRange: filters.dateRange,
+      status: filters.status,
+    })
+    Promise.resolve()
+    .then(() => {
+      setLoading(true)  // now inside async callback, not synchronous
+      return adminFetch(`/api/admin/reports?${params}`)
+    })
+    .then((r) => r.json())
+    .then((d) => {
+      if (d.error) throw new Error(d.error)
+      setData(d)
+    })
+    .catch((e) => setError(e.message))
+    .finally(() => setLoading(false))
+  }, [filters]) 
   const setFilter = (key: keyof Filters, value: string) =>
     setFilters((prev) => ({ ...prev, [key]: value }))
 
@@ -427,6 +442,7 @@ export default function AdminReportsPage() {
             >
               Level Performance Table
             </h2>
+            
             {loading || !data ? (
               <div className="flex-1 min-h-0">
                 <TableSkeleton cols={5} />

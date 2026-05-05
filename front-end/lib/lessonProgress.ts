@@ -48,37 +48,6 @@ export async function markLessonViewed(userId: string, lessonId: string): Promis
     console.error('[lessonProgress] markLessonViewed exception:', e);
   }
 }
-
-/**
- * Fetch all focused lessons for a user in a specific level
- * Returns array of lesson objects with id, lesson_title, lesson_order
- * 
- * ⚠️ REMOVED - Feature removed on 2026-04-02
- */
-
-/**
- * Check if a lesson is in the user's focused_lessons list
- * 
- * ⚠️ REMOVED - Feature removed on 2026-04-02
- */
-
-/**
- * Toggle a lesson in the focused_lessons table
- * If already focused, remove it. If not focused, add it.
- * Returns the new state (true = now focused, false = now unfocused)
- * 
- * ⚠️ REMOVED - Feature removed on 2026-04-02
- */
-
-/**
- * Save the user's current page index for a lesson (Resume feature)
- * Creates a new record if one doesn't exist, updates if it does (UPSERT)
- *
- * @param userId - The authenticated user ID
- * @param lessonId - The lesson UUID
- * @param pageIndex - The current page index (0-based)
- * @returns The updated page index on success, null on error
- */
 export async function saveLastPageIndex(
   userId: string,
   lessonId: string,

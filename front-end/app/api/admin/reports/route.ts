@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
         .select('auth_user_id, username, first_name, last_name'),
       supabaseAdmin
         .from('practice_sessions')
-        .select('auth_user_id, level_id, average_accuracy, session_date')
+        .select('auth_user_id, level_id, session_date, is_correct, target_sign')
         .order('session_date', { ascending: false }),
       supabaseAdmin
         .from('profiles')
@@ -234,24 +234,26 @@ export async function GET(request: NextRequest) {
     })
 
     // ── Commonly Missed Signs ─────────────────────────────────────────
-    // Derive from practice_sessions: levels where avg accuracy is lowest
-    const practiceByLevel = new Map<string, number[]>()
+    const missedMap = new Map<string, { total: number; incorrect: number }>()
+
     for (const s of practiceSessions ?? []) {
       if (levelId !== 'all' && s.level_id !== levelId) continue
       if (since && new Date(s.session_date) < new Date(since)) continue
-      const arr = practiceByLevel.get(s.level_id) ?? []
-      arr.push(s.average_accuracy ?? 0)
-      practiceByLevel.set(s.level_id, arr)
+      if (!s.target_sign || s.target_sign.trim() === '') continue
+      if (s.is_correct === null || s.is_correct === undefined) continue
+
+      const sign = s.target_sign.trim()
+      const entry = missedMap.get(sign) ?? { total: 0, incorrect: 0 }
+      entry.total += 1
+      if (!s.is_correct) entry.incorrect += 1
+      missedMap.set(sign, entry)
     }
 
-    const commonlyMissed: CommonlyMissedRow[] = Array.from(practiceByLevel.entries())
-      .map(([lid, scores]) => {
-        const avg = scores.reduce((a, b) => a + b, 0) / scores.length
-        return {
-          sign: levelsMap.get(lid) ?? 'Unknown',
-          percentIncorrect: Math.round(100 - avg),
-        }
-      })
+    const commonlyMissed: CommonlyMissedRow[] = Array.from(missedMap.entries())
+      .map(([sign, { total, incorrect }]) => ({
+        sign,
+        percentIncorrect: total > 0 ? Math.round((incorrect / total) * 100) : 0,
+      }))
       .filter((r) => r.percentIncorrect > 0)
       .sort((a, b) => b.percentIncorrect - a.percentIncorrect)
       .slice(0, 5)
