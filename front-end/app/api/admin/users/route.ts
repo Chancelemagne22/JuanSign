@@ -51,7 +51,6 @@ export interface AdminUser {
 
 export async function GET(request: NextRequest) {
   const user = await getAuthorizedUser(request)
-  console.log("Is this shii?")
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

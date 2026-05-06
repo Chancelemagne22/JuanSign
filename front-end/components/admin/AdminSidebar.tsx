@@ -31,7 +31,7 @@ export default function AdminSidebar() {
     >
       {/* Logo */}
       <div className="px-4 lg:px-6 pt-5 lg:pt-6 pb-3 lg:pb-4 shrink-0">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center justify-center gap-1">
           <span
             style={{
               fontFamily: 'var(--font-spicy-rice)',
@@ -57,11 +57,11 @@ export default function AdminSidebar() {
       </div>
 
       {/* Nav links */}
-      <nav className="flex flex-col gap-1 px-3 lg:px-4 flex-1 min-h-0 overflow-y-auto mt-1 lg:mt-2">
+      <nav className="flex flex-col gap-1  px-3 lg:px-4 flex-1 min-h-0 overflow-y-auto mt-1 lg:mt-2">
         {NAV_ITEMS.map((item) => (
           <Link key={item.href} href={item.href}>
             <div
-              className="w-full px-5 py-3 rounded-xl text-center font-bold transition-all"
+              className="w-full px-5 py-3 rounded-xl text-left font-bold transition-all"
               style={{
                 fontFamily: 'var(--font-fredoka)',
                 fontSize: '0.95rem',

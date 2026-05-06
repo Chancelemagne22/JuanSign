@@ -34,6 +34,23 @@ interface PredictionResult {
   accuracy:   number;
 }
 
+const WRONG_TIP_KEYS = [
+  'module.wrongTip0',
+  'module.wrongTip1',
+  'module.wrongTip2',
+  'module.wrongTip3',
+  'module.wrongTip4',
+  'module.wrongTip5',
+  'module.wrongTip6',
+  'module.wrongTip7',
+  'module.wrongTip8',
+  'module.wrongTip9',
+] as const
+
+function getRandomTipKey(): string {
+  return WRONG_TIP_KEYS[Math.floor(Math.random() * WRONG_TIP_KEYS.length)]
+}
+
 /* ── Green circular control button ─────────────────────────────────────────── */
 function ControlBtn({
   onClick,
@@ -120,6 +137,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
   const [recordingElapsed, setRecordingElapsed] = useState(0);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [countdownValue, setCountdownValue] = useState<number | null>(null)
+  const [wrongResult, setWrongResult] = useState<{ sign: string; tipKey: string } | null>(null)
 
   /* ── Start webcam on mount, stop tracks on unmount ────────────────────── */
   useEffect(() => {
@@ -182,8 +200,8 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
     }
     recorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: 'video/webm' })
-      setRecordedBlob(blob)
-      setRecordState('done')
+        setRecordedBlob(blob)
+        setRecordState('done')
       if (blob.size > 0) {
         void uploadPrediction(blob)
       } else {
@@ -241,6 +259,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
     setRecordState('idle');
     setRecordingElapsed(0);
     setCountdownValue(null)
+    setWrongResult(null)
   }
 
   /* ── ML Prediction Upload ────────────────────────────────────────────────
@@ -298,11 +317,16 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
       // 4. Show result + notify parent
       setPredictionResult(result);
       setShowResultOverlay(true);
-      setFeedback(
-        result.is_correct
-          ? `${t('module.niceJobSigned')} "${result.sign}" ${t('module.correctly')}`
-          : `${t('module.notQuiteModelSaw')} "${result.sign}"`,
-      );
+
+      if (result.is_correct) {
+      setWrongResult(null)
+      setFeedback(`${t('module.niceJobSigned')} "${result.sign}" ${t('module.correctly')}`)
+    } else {
+      const tipKey = getRandomTipKey()
+      setWrongResult({ sign: result.sign, tipKey }) // ← store raw, not translated
+      setFeedback(null) // ← clear feedback, we'll use wrongResult instead
+    }
+
       onResult?.(result.accuracy);
 
     } catch (err) {
@@ -333,10 +357,12 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
 
   /* ── Bubble message ────────────────────────────────────────────────────── */
   const bubbleText = feedback
-    ? feedback
+  ? feedback
+  : wrongResult
+    ? `${t('module.notQuiteModelSaw')} "${wrongResult.sign}". ${t(wrongResult.tipKey as any)}`
     : isDone
       ? t('module.greatUpload')
-      : `${t('module.showSignFor')} "${letter}"!`;
+      : `${t('module.showSignFor')} "${letter}"!`
 
   return (
     <div className="h-full min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-2 sm:gap-3 min-w-0 pb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
@@ -402,7 +428,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
               </p>
             
               <p className="text-white/90 font-semibold text-4xl">
-                <span className="font-black">{predictionResult.sign}</span> - {Math.round((predictionResult.confidence ?? 0) * 100)} %
+                <span className="font-black">{predictionResult.sign}</span> - {Math.round((predictionResult.confidence ?? 0) * 100)}%
               </p>
               <button
                 onClick={() => setShowResultOverlay(false)}

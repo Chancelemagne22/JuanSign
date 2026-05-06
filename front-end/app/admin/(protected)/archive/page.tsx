@@ -129,13 +129,13 @@ export default function ArchivedUsersPage() {
               <div className="grid px-4 sm:px-6 py-2.5 border-b" 
                 style={{ gridTemplateColumns: '100px minmax(120px, 1fr) 140px 100px', borderColor: DIVIDER }}>
                 <button onClick={() => setSortKey('username')} className="text-left font-semibold" style={{ fontFamily: FONT, color: GOLD, fontSize: '0.82rem' }}>
-                  User <SortIcon active={sortKey==='username'} asc={sortAsc}/>
+                  USER <SortIcon active={sortKey==='username'} asc={sortAsc}/>
                 </button>
-                <span className="font-semibold" style={{ fontFamily: FONT, color: GOLD, fontSize: '0.82rem' }}>Email</span>
+                <span className="font-semibold" style={{ fontFamily: FONT, color: GOLD, fontSize: '0.82rem' }}>EMAIL</span>
                 <button onClick={() => setSortKey('archived_at')} className="text-center font-semibold" style={{ fontFamily: FONT, color: GOLD, fontSize: '0.82rem' }}>
-                  Archived Date <SortIcon active={sortKey==='archived_at'} asc={sortAsc}/>
+                  ARCHIVED DATE <SortIcon active={sortKey==='archived_at'} asc={sortAsc}/>
                 </button>
-                <span className="text-center font-semibold" style={{ fontFamily: FONT, color: GOLD, fontSize: '0.82rem' }}>Progress</span>
+                <span className="text-center font-semibold" style={{ fontFamily: FONT, color: GOLD, fontSize: '0.82rem' }}>PROGRESS</span>
               </div>
 
               <div className="overflow-y-auto max-h-[68dvh]">

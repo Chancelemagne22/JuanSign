@@ -54,20 +54,13 @@ function SortIcon({ active, asc }: { active: boolean; asc: boolean }) {
 
 function UserDetailView({ user, onUserDeleted }: { user: AdminUser; onUserDeleted?: () => void }) {
   const [showDeleteWarning, setShowDeleteWarning] = useState(false)
-  const [countdown, setCountdown] = useState(10)
   const [isDeleting, setIsDeleting] = useState(false)
 
   // Countdown timer
   useEffect(() => {
     if (!showDeleteWarning) return
-    setCountdown(10)
   }, [showDeleteWarning])
 
-  useEffect(() => {
-    if (!showDeleteWarning || countdown === 0) return
-    const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
-    return () => clearTimeout(timer)
-  }, [showDeleteWarning, countdown])
 
   const rows: [string, string][] = [
     ['User ID', user.displayId],
@@ -112,77 +105,47 @@ function UserDetailView({ user, onUserDeleted }: { user: AdminUser; onUserDelete
             style={{ backgroundColor: CREAM }}
             onClick={(e) => e.stopPropagation()}
           >
-            {countdown > 0 ? (
-              <>
-                <h3 className="text-center text-lg font-bold mb-3" style={{ fontFamily: FONT, color: ERROR_RED }}>
-                  ⚠️ Delete Account Warning
-                </h3>
-                <p className="text-center mb-4" style={{ fontFamily: FONT, color: BROWN, fontSize: '0.95rem' }}>
-                  Are you sure you want to permanently delete this user account?
-                </p>
-                <p className="text-center mb-6" style={{ fontFamily: FONT, color: MEDIUM_BROWN, fontSize: '0.9rem' }}>
-                  <strong>{user.fullName}</strong> ({user.email})
-                </p>
-                <div className="text-center mb-6">
-                  <p style={{ fontFamily: FONT, color: BROWN, fontSize: '0.95rem' }}>
-                    This action <strong>cannot be undone</strong>. All user data will be permanently deleted.
-                  </p>
-                </div>
-                <div
-                  className="text-center py-4 rounded-lg mb-6"
-                  style={{ backgroundColor: MEDIUM_BROWN }}
+            <>
+              <h3 className="text-center text-lg font-bold mb-4" style={{ fontFamily: FONT, color: ERROR_RED }}>
+                ⚠️ Confirm Deletion
+              </h3>
+              <p className="text-center mb-6" style={{ fontFamily: FONT, color: BROWN, fontSize: '0.95rem' }}>
+                Delete user <strong>{user.fullName}</strong>?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteWarning(false)}
+                  disabled={isDeleting}
+                  className="flex-1 py-2 rounded-lg font-bold transition-colors"
+                  style={{
+                    fontFamily: FONT,
+                    backgroundColor: MEDIUM_BROWN,
+                    color: 'white',
+                    opacity: isDeleting ? 0.5 : 1,
+                    cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  }}
                 >
-                  <p style={{ fontFamily: FONT, color: 'white', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                    {countdown}s
-                  </p>
-                  <p style={{ fontFamily: FONT, color: 'white', fontSize: '0.85rem' }}>
-                    Delete button will appear shortly...
-                  </p>
-                </div>
-              </>
-            ) : (
-              <>
-                <h3 className="text-center text-lg font-bold mb-4" style={{ fontFamily: FONT, color: ERROR_RED }}>
-                  ⚠️ Confirm Deletion
-                </h3>
-                <p className="text-center mb-6" style={{ fontFamily: FONT, color: BROWN, fontSize: '0.95rem' }}>
-                  Delete user <strong>{user.fullName}</strong>?
-                </p>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setShowDeleteWarning(false)}
-                    disabled={isDeleting}
-                    className="flex-1 py-2 rounded-lg font-bold transition-colors"
-                    style={{
-                      fontFamily: FONT,
-                      backgroundColor: MEDIUM_BROWN,
-                      color: 'white',
-                      opacity: isDeleting ? 0.5 : 1,
-                      cursor: isDeleting ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleDeleteUser}
-                    disabled={isDeleting}
-                    className="flex-1 py-2 rounded-lg font-bold transition-colors"
-                    style={{
-                      fontFamily: FONT,
-                      backgroundColor: ERROR_RED,
-                      color: 'white',
-                      opacity: isDeleting ? 0.5 : 1,
-                      cursor: isDeleting ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    {isDeleting ? 'Deleting...' : 'Delete'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteUser}
+                  disabled={isDeleting}
+                  className="flex-1 py-2 rounded-lg font-bold transition-colors"
+                  style={{
+                    fontFamily: FONT,
+                    backgroundColor: ERROR_RED,
+                    color: 'white',
+                    opacity: isDeleting ? 0.5 : 1,
+                    cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </>
         </div>
-      )}
+      </div>
+    )}
 
       {/* User Detail Card */}
       <div className="rounded-2xl overflow-hidden shadow-sm min-h-0 h-full flex flex-col" style={{ backgroundColor: CREAM }}>
@@ -401,7 +364,7 @@ export default function AdminUsersPage() {
                   <button
                     key={col.key}
                     onClick={() => toggleSort(col.key)}
-                    className={`flex items-center gap-0.5 font-semibold transition-opacity hover:opacity-70 ${
+                    className={`flex items-center uppercase gap-0.5 font-semibold transition-opacity hover:opacity-70 ${
                       col.align === 'center' ? 'justify-center' : col.align === 'right' ? 'justify-end' : ''
                     }`}
                     style={{ fontFamily: FONT, color: GOLD, fontSize: '0.82rem' }}
