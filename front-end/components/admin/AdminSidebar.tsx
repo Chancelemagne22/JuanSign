@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { label: 'Edit Level', href: '/admin/levels' },
   { label: 'Performance Report', href: '/admin/reports' },
   { label: 'System Settings', href: '/admin/settings' },
+  { label: 'Archived Accounts', href: '/admin/archive' },
 ]
 
 export default function AdminSidebar() {

@@ -178,48 +178,54 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
   }
 }
-
 export async function DELETE(request: NextRequest) {
+  // 1. Check Authorization
   if (!getAuthorizedUser(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // 2. Get User ID
   const authUserId = new URL(request.url).searchParams.get('authUserId')
   if (!authUserId) {
     return NextResponse.json({ error: 'authUserId is required' }, { status: 400 })
   }
 
   try {
-    // Delete user profile
-    await supabaseAdmin
+  
+    const { error } = await supabaseAdmin
       .from('profiles')
-      .delete()
+      .update({ 
+        is_archived: true, 
+        archived_at: new Date().toISOString() 
+      })
       .eq('auth_user_id', authUserId)
 
-    // Delete user progress
-    await supabaseAdmin
-      .from('user_progress')
-      .delete()
-      .eq('auth_user_id', authUserId)
+    if (error) throw error
+    return NextResponse.json({ 
+        success: true, 
+        message: 'User account has been archived and data preserved.' 
+    })
 
-    // Delete practice sessions
-    await supabaseAdmin
-      .from('practice_sessions')
-      .delete()
-      .eq('auth_user_id', authUserId)
-
-    // Delete assessment results
-    await supabaseAdmin
-      .from('assessment_results')
-      .delete()
-      .eq('auth_user_id', authUserId)
-
-    // Delete from Supabase Auth
-    await supabaseAdmin.auth.admin.deleteUser(authUserId)
-
-    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('[admin/users DELETE]', error)
-    return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 })
+    console.error('[admin/users ARCHIVE ERROR]', error)
+    return NextResponse.json({ error: 'Failed to archive user' }, { status: 500 })
+  }
+}
+export async function PATCH(request: NextRequest) {
+  const { authUserId } = await request.json();
+
+  try {
+    const { error } = await supabaseAdmin
+      .from('profiles')
+      .update({ 
+        is_archived: false, 
+        archived_at: null 
+      })
+      .eq('auth_user_id', authUserId)
+
+    if (error) throw error
+    return NextResponse.json({ success: true, message: 'Account restored!' })
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to restore' }, { status: 500 })
   }
 }

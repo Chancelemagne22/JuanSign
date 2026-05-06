@@ -29,19 +29,23 @@ export async function POST(request: NextRequest) {
       password,
     })
 
-    if (signInError || !authData.user) {
-      return NextResponse.json(
-        { error: 'Invalid email or password.' },
-        { status: 401 }
-      )
+    if (signInError) return NextResponse.json({ error: signInError.message }, { status: 401 });
+
+    const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role, is_archived')
+    .eq('auth_user_id', authData.user.id)
+    .single();
+
+    if (profileError) {
+        console.error("DB Error:", profileError);
+        return NextResponse.json({ error: "Database lookup failed. Check RLS policies." }, { status: 500 });
     }
 
-    // Check if user has admin or super_admin role in profiles table
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('auth_user_id', authData.user.id)
-      .single()
+    if (profile.is_archived) {
+      await supabase.auth.signOut();
+      return NextResponse.json({ error: "Account archived." }, { status: 403 });
+    }
 
     if (profileError || !profile || !['admin', 'super_admin'].includes(profile.role)) {
       // User exists in auth but doesn't have admin role - not authorized
