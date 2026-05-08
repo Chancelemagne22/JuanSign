@@ -101,16 +101,27 @@ function toExcelHTML(levelRows: LevelPerformanceRow[], learnerRows: LearnerPerfo
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
+  const isLongText = String(value).length > 20
+  
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <div className="flex flex-col items-center gap-1.5 h-full">
       <p style={{ fontFamily: FONT, color: BROWN, fontSize: '0.8rem', textAlign: 'center' }}>
         {label}
       </p>
       <div
-        className="w-full rounded-2xl flex items-center justify-center py-3 shadow-sm"
-        style={{ backgroundColor: CREAM }}
+        className="w-full rounded-2xl flex items-center justify-center shadow-sm flex-1"
+        style={{ backgroundColor: CREAM, height: '170px' }}
       >
-        <span className="text-2xl font-bold" style={{ fontFamily: FONT, color: GOLD }}>
+        <span 
+          className="font-bold text-center leading-snug px-3" 
+          style={{ 
+            fontFamily: FONT, 
+            color: GOLD,
+            fontSize: isLongText ? '1rem' : '1.6rem',
+            wordWrap: 'break-word',
+            overflowWrap: 'break-word'
+          }}
+        >
           {value}
         </span>
       </div>
@@ -355,7 +366,7 @@ export default function AdminReportsPage() {
   }
 
   return (
-    <div className="h-full min-h-0 flex flex-col gap-3 sm:gap-4 overflow-y-auto lg:overflow-hidden">
+    <div className="min-h-0 flex flex-col gap-3 sm:gap-4">
       {/* ── Filters ──────────────────────────────────────────────────── */}
       <div className="rounded-2xl p-2.5 sm:p-3 shrink-0" style={{ backgroundColor: 'transparent' }}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3">
@@ -412,12 +423,12 @@ export default function AdminReportsPage() {
       </div>
 
       {/* ── Stat Cards ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3 shrink-0">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3 auto-rows-fr">
         {loading || !data ? (
           Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex flex-col items-center gap-1.5">
+            <div key={i} className="flex flex-col items-center gap-1.5 h-full">
               <div className="h-4 w-32 rounded animate-pulse" style={{ backgroundColor: DIVIDER }} />
-              <div className="w-full rounded-2xl py-3.5 animate-pulse" style={{ backgroundColor: CREAM, minHeight: '64px' }} />
+              <div className="w-full rounded-2xl animate-pulse flex-1" style={{ backgroundColor: CREAM, minHeight: '170px' }} />
             </div>
           ))
         ) : (
@@ -467,7 +478,7 @@ export default function AdminReportsPage() {
                   )}
                 </div>
 
-                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
+                <div className="flex-1 min-h-0 overflow-x-auto">
                   {data.levelPerformance.length === 0 ? (
                     <div className="px-5 py-8 text-center border-t" style={{ borderColor: DIVIDER }}>
                       <p style={{ fontFamily: FONT, color: GOLD }}>No data for selected filters.</p>
@@ -541,7 +552,7 @@ export default function AdminReportsPage() {
                   )}
                 </div>
 
-                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
+                <div className="flex-1 min-h-0 overflow-x-auto">
                   {data.learnerPerformance.length === 0 ? (
                     <div className="px-5 py-8 text-center border-t" style={{ borderColor: DIVIDER }}>
                       <p style={{ fontFamily: FONT, color: GOLD }}>No learner data for selected filters.</p>

@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Make box-sizing predictable so padding doesn't cause overflow on small screens */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 /* ── Theme tokens ──────────────────────────────────────────────── */
 :root {
   --background: #ffffff;

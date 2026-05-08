@@ -80,6 +80,18 @@ const FSL_DATA = [
   "Uncle", "Aunt", "Cousin"
 ]
 
+const FSL_LABELS: Record<string, string> = {
+  '1M': '1 Million',
+  '2M': '2 Million',
+  '3M': '3 Million',
+  '1B': '1 Billion',
+  '2B': '2 Billion',
+  '3B': '3 Billion',
+  '1T': '1 Trillion',
+  '2T': '2 Trillion',
+  '3T': '3 Trillion',
+}
+
 
 const OPTION_KEYS = ['A', 'B', 'C', 'D'] as const
 
@@ -453,7 +465,7 @@ function QuestionForm({
                     style={selectStyle}
                   >
                     <option value="">— select —</option>
-                    {FSL_DATA.map(l => <option key={l} value={l}>{l}</option>)}
+                    {FSL_DATA.map(l => <option key={l} value={l}>{FSL_LABELS[l] ?? l}</option>)}
                   </select>
                 </div>
               ))}

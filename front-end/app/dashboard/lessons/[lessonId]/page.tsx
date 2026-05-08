@@ -170,7 +170,7 @@ export default function LessonPage() {
 
   return (
     <>
-    <div className="min-h-dvh overflow-x-hidden overflow-y-auto xl:h-dvh xl:overflow-hidden bg-white px-4 sm:px-6 pt-4 sm:pt-5 pb-4 sm:pb-5 flex flex-col">
+    <div className="min-h-screen overflow-x-hidden overflow-y-auto bg-white px-4 sm:px-6 pt-6 pb-20 flex flex-col">
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-4 shrink-0">

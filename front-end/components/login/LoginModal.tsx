@@ -254,7 +254,7 @@ export default function LoginModal({
             e.stopPropagation();
             onSignupClick();
           }}
-          className="text-[#2E8B2E] underline font-bold hover:text-[#1a5c1a] transition-colors"
+          className="text-[#2E8B2E] underline font-bold hover:text-white transition-colors"
         >
           {t('login.signupCta')}
         </button>
@@ -263,7 +263,8 @@ export default function LoginModal({
       {/* ── Admin access ─────────────────────────────────────────── */}
       <button
         onClick={() => { onClose(); router.push('/admin/login'); }}
-        className="mt-2 text-[#2E8B2E] text-l font-semibold hover:text-white transition-colors opacity-100 hover:opacity-100"
+        className="mt-2 text-white text-lg font-semibold transition-all duration-150 transform hover:scale-105 hover:text-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-300 opacity-100"
+        style={{ textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}
       >
         {t('login.adminAccess')}
       </button>

@@ -12,7 +12,12 @@ const NAV_ITEMS = [
   { label: 'Archived Accounts', href: '/admin/archive' },
 ]
 
-export default function AdminSidebar() {
+interface AdminSidebarProps {
+  mobileOpen?: boolean
+  onClose?: () => void
+}
+
+export default function AdminSidebar({ mobileOpen = false, onClose }: AdminSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -25,10 +30,17 @@ export default function AdminSidebar() {
   }
 
   return (
-    <aside
-      className="w-[220px] lg:w-[270px] h-auto lg:h-full min-h-0 flex flex-col flex-shrink-0"
-      style={{ backgroundColor: '#FFF8DC' }}
-    >
+    <>
+      <div
+        className={`fixed inset-0 z-30 bg-black/40 transition-opacity duration-300 lg:hidden ${mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 w-[82vw] max-w-[280px] lg:relative lg:inset-auto lg:z-auto lg:w-[270px] h-full min-h-0 flex flex-col flex-shrink-0 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+        style={{ backgroundColor: '#FFF8DC' }}
+      >
       {/* Logo */}
       <div className="px-4 lg:px-6 pt-5 lg:pt-6 pb-3 lg:pb-4 shrink-0">
         <div className="flex items-center justify-center gap-1">
@@ -57,7 +69,7 @@ export default function AdminSidebar() {
       </div>
 
       {/* Nav links */}
-      <nav className="flex flex-col gap-1  px-3 lg:px-4 flex-1 min-h-0 overflow-y-auto mt-1 lg:mt-2">
+      <nav className="flex flex-col gap-1 px-3 lg:px-4 flex-1 min-h-0 overflow-y-auto mt-1 lg:mt-2">
         {NAV_ITEMS.map((item) => (
           <Link key={item.href} href={item.href}>
             <div
@@ -68,6 +80,7 @@ export default function AdminSidebar() {
                 backgroundColor: isActive(item.href) ? '#B5621E' : 'transparent',
                 color: isActive(item.href) ? '#FFFFFF' : '#5D3A1A',
               }}
+              onClick={() => onClose?.()}
               onMouseEnter={(e) => {
                 if (!isActive(item.href))
                   (e.currentTarget as HTMLDivElement).style.backgroundColor = '#F4E0B0'
@@ -104,6 +117,7 @@ export default function AdminSidebar() {
           Logout
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }
