@@ -367,12 +367,6 @@ export default function SettingsModal() {
             </button>
           </div>
 
-          {recentUpdate && (
-            <p className="mb-3 text-xs font-bold text-[#2E7D1C]" aria-live="polite">
-              {t('settings.saved')}: {t(recentUpdate)}
-            </p>
-          )}
-
           <div className="settings-scrollbar mt-1.5 min-h-0 max-h-[62%] sm:max-h-[64%] overflow-y-auto pr-1 space-y-2">
             <section className="rounded-xl border-2 border-[#7B3F00] px-3.5 py-2.5">
               <h3 className="mb-2 font-black text-[#4A2C0A]">{t('settings.languageSection')}</h3>
