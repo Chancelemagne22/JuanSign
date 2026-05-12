@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Make box-sizing predictable so padding doesn't cause overflow on small screens */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 /* ── Theme tokens ──────────────────────────────────────────────── */
 :root {
   --background: #ffffff;
@@ -279,9 +284,23 @@ input[type="password"]::-ms-clear {
   line-height: 1.2;
 }
 
-/* Lessons-only fluid gallery layout */
+/* Shared fluid gallery layout */
+.page-scrollbar-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.page-scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
 .lesson-gallery-scroll {
-  scrollbar-gutter: stable;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.lesson-gallery-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .lesson-gallery-shell {

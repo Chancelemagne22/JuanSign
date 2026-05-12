@@ -155,7 +155,16 @@ export default function AssessmentPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-white px-4 sm:px-6 pt-4 pb-3 overflow-y-auto overflow-x-hidden flex flex-col" style={{ WebkitOverflowScrolling: 'touch' }}>
+    <div
+      className="page-scrollbar-hidden h-screen bg-white px-4 sm:px-6 pt-4 pb-3 overflow-hidden flex flex-col"
+      style={{
+        WebkitOverflowScrolling: 'touch',
+        backgroundImage: 'url(/menu_background.svg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-3 sm:mb-4">
@@ -250,18 +259,18 @@ export default function AssessmentPage() {
           <button
             onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
             disabled={!hasPrev}
-            className="px-3 py-1.5 rounded-full text-sm font-bold border border-[#BF7B45] text-[#7B3F00] disabled:opacity-40"
+            className="w-24 sm:w-28 py-1.5 rounded-full text-sm font-bold border border-[#D9C08A] bg-white text-[#5D3A1A] shadow-sm disabled:opacity-50 disabled:shadow-none inline-flex items-center justify-center"
             aria-label={t('assessmentPage.previousAssessmentPage')}
           >
             {t('common.previous')}
           </button>
-          <span className="text-xs sm:text-sm text-[#7B3F00] font-semibold px-2">
+          <span className="text-xs sm:text-sm text-white font-semibold px-2">
             {currentPage + 1} / {totalPages}
           </span>
           <button
             onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
             disabled={!hasNext}
-            className="px-3 py-1.5 rounded-full text-sm font-bold border border-[#BF7B45] text-[#7B3F00] disabled:opacity-40"
+            className="w-24 sm:w-28 py-1.5 rounded-full text-sm font-bold border border-[#D9C08A] bg-white text-[#5D3A1A] shadow-sm disabled:opacity-50 disabled:shadow-none inline-flex items-center justify-center"
             aria-label={t('assessmentPage.nextAssessmentPage')}
           >
             {t('common.next')}

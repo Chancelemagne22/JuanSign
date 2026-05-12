@@ -46,7 +46,13 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-white px-6 pt-5 pb-12">
+    <div className="min-h-screen px-6 pt-5 pb-12" style={{
+      backgroundImage: 'url(/menu_background.svg)',
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundAttachment: 'fixed',
+      backgroundRepeat: 'no-repeat',
+    }}>
 
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-10">

@@ -206,7 +206,7 @@ export default function LessonPanelView({
       {/* ═══════════════════════════════════════════════════════════════════════
         MAIN LEARNING CARD: Video + Instructions as unified unit
         ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="flex-1 min-h-0 flex flex-col xl:grid xl:grid-cols-2 xl:items-stretch gap-3 sm:gap-5 min-w-0">
+      <div className="flex-1 min-h-0 flex flex-col xl:flex-none xl:grid xl:grid-cols-2 xl:items-stretch gap-3 sm:gap-5 min-w-0">
         
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           LEFT SECTION: VIDEO DISPLAY (equal height with instructions)
@@ -307,16 +307,16 @@ export default function LessonPanelView({
       {/* ═══════════════════════════════════════════════════════════════════════
         FOOTER ACTION BAR: Back/Next buttons
         ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end px-2 shrink-0 gap-3">
-        {/* Back / Next buttons container */}
-        <div className="flex items-stretch sm:items-center justify-end gap-3 flex-shrink-0 w-full sm:w-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end px-4 shrink-0 gap-2">
+        {/* Back / Next buttons container (extra horizontal padding prevents overflow on small screens) */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 flex-shrink-0 w-full sm:w-auto px-0">
           {/* Back button */}
           <button
             onClick={() => onPrevious?.()}
             disabled={currentIndex === 0}
             aria-label={t('lessonView.previousAria') ?? 'Previous'}
             className="
-              rounded-full px-5 h-10 flex-shrink-0 w-full sm:w-auto min-w-[7.5rem]
+              box-border max-w-full rounded-full px-5 h-10 flex-shrink-0 w-full sm:w-auto min-w-[7.5rem]
               bg-[#FF9900] border-[3px] border-[#FF9900]
               flex items-center justify-center gap-2
               text-white font-black text-xs sm:text-sm
@@ -334,7 +334,7 @@ export default function LessonPanelView({
             onClick={onNext}
             aria-label={nextLabel ?? t('lessonView.nextAria')}
             className="
-              rounded-full px-5 h-10 flex-shrink-0 w-full sm:w-auto min-w-[7.5rem]
+              box-border max-w-full rounded-full px-5 h-10 flex-shrink-0 w-full sm:w-auto min-w-[7.5rem]
               bg-[#33AA11] border-[3px] border-[#33AA11]
               flex items-center justify-center gap-2
               text-white font-black text-xs sm:text-sm

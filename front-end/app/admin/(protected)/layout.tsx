@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 export default function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
   const [adminName, setAdminName] = useState('Admin')
   const [loading, setLoading] = useState(true)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   useEffect(() => {
     const fetchAdminInfo = async () => {
@@ -52,17 +53,32 @@ export default function AdminProtectedLayout({ children }: { children: React.Rea
   }, [])
 
   return (
-    <div className="flex min-h-dvh lg:h-dvh" style={{ backgroundColor: '#FFF8DC' }}>
-      <AdminSidebar />
+    <div className="relative flex min-h-screen" style={{ backgroundColor: '#FFF8DC' }}>
+      <AdminSidebar mobileOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Top bar */}
         <header
-          className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 lg:py-4 shrink-0"
+          className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 lg:py-4 shrink-0 relative z-20"
           style={{ backgroundColor: '#7B9A2E' }}
         >
+          <button
+            type="button"
+            className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-full text-white border border-white/30 shrink-0"
+            style={{ backgroundColor: '#B5621E' }}
+            onClick={() => setMobileSidebarOpen((prev) => !prev)}
+            aria-label={mobileSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+            aria-expanded={mobileSidebarOpen}
+          >
+            <span className="flex flex-col gap-1">
+              <span className="block w-4 h-0.5 bg-white rounded" />
+              <span className="block w-4 h-0.5 bg-white rounded" />
+              <span className="block w-4 h-0.5 bg-white rounded" />
+            </span>
+          </button>
+
           <h1
-            className="text-white text-xl sm:text-2xl font-bold truncate pr-4"
+            className="text-white text-lg sm:text-2xl font-bold truncate px-3 lg:px-4 flex-1"
             style={{ fontFamily: 'var(--font-fredoka)' }}
           >
             Hello, {loading ? 'Admin' : adminName}!
@@ -79,8 +95,8 @@ export default function AdminProtectedLayout({ children }: { children: React.Rea
         </header>
 
         {/* Page content */}
-        <main className="flex-1 min-h-0 px-4 sm:px-5 lg:px-6 pb-4 sm:pb-5 lg:pb-6 pt-0 overflow-y-auto lg:overflow-y-auto">
-          <div className="h-full min-h-0">{children}</div>
+        <main className="flex-1 min-h-0 px-4 sm:px-5 lg:px-6 pb-4 sm:pb-5 lg:pb-6 pt-0">
+          <div className="min-h-0">{children}</div>
         </main>
       </div>
     </div>
