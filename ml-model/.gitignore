@@ -35,3 +35,8 @@ juansignmodel
 MDS
 .venv
 category_models
+frame_extracted
+dataset.zip
+training
+results
+runs
