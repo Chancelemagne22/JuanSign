@@ -1,5 +1,5 @@
-# ml-model/src/train.py
-# JuanSign V2.2 — ResNet50 + Modal & Local Hybrid Optimized
+# ml-model/src/train_main.py
+# JuanSign V2.2 — ResNet50 + BiLSTM | Full Automated Testing Suite
 
 import os
 import json
@@ -8,16 +8,31 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from torch.profiler import profile, record_function, ProfilerActivity
 from collections import Counter
 
 import numpy as np
-from sklearn.metrics import confusion_matrix, classification_report
+import wandb
 import matplotlib
-matplotlib.use("Agg")  # No display needed on server
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from torchmetrics.classification import (
+    MulticlassAccuracy,
+    MulticlassF1Score,
+    MulticlassPrecision,
+    MulticlassRecall,
+    MulticlassConfusionMatrix,
+    MulticlassCalibrationError,
+)
+from sklearn.metrics import classification_report
+from fvcore.nn import FlopCountAnalysis, parameter_count_table
+from torchinfo import summary as torchinfo_summary
+
 from fsl_datasets import FSLDataset, collate_fn
+
+WANDB_ENABLED = False  # Set to True when W&B connects successfully
 from resnet_lstm_architecture import ResNetLSTM
 
 # ── CONFIG (HYBRID PATHING) ──────────────────────────────────────────────────
@@ -27,18 +42,19 @@ CLASS_NAMES = ["what", "when", "where", "who", "why"]
 NUM_CLASSES = len(CLASS_NAMES)
 
 if IS_MODAL:
-    FRAME_ROOT      = "/data/processed_output/frame_extracted"
-    MODEL_SAVE_PATH = "/data/models/juansign_v2_2.pth"
-    LOG_DIR         = "/data/runs/v2_2_pilot"
-    RESULTS_DIR     = "/data/results"
+    FRAME_ROOT          = "/data/processed_output/frame_extracted"
+    MODEL_SAVE_PATH     = "/data/models/juansign_v2_2.pth"
+    LOG_DIR             = "/data/runs/v2_2_pilot"
+    RESULTS_DIR         = "/data/results"
     BATCH_SIZE          = 16   # Frozen phase
     BATCH_SIZE_UNFREEZE = 6    # Reduced after ResNet50 unfreezes (VRAM spike)
 else:
-    FRAME_ROOT      = "./processed_output/frame_extracted"
-    MODEL_SAVE_PATH = "./juansignmodel/juansign_model_v2_2.pth"
-    LOG_DIR         = "./runs/v2_2_pilot"
-    RESULTS_DIR     = "./results"
-    BATCH_SIZE      = 4
+    FRAME_ROOT          = "./processed_output/frame_extracted"
+    MODEL_SAVE_PATH     = "./juansignmodel/juansign_model_v2_2.pth"
+    LOG_DIR             = "./runs/v2_2_pilot"
+    RESULTS_DIR         = "./results"
+    BATCH_SIZE          = 4
+    BATCH_SIZE_UNFREEZE = 2
 
 EPOCHS              = 50
 LEARNING_RATE       = 1e-4
@@ -47,28 +63,164 @@ EARLY_STOP_PATIENCE = 7
 SEED                = 42
 
 # ══════════════════════════════════════════════════════════════════════════════
-# AUTOMATED WEIGHTING & CRITERION
+# MODEL ANALYSIS — FLOPs + Parameters (runs once before training)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def log_model_analysis(model, device):
+    print("\n" + "═"*55)
+    print("  MODEL ANALYSIS")
+    print("═"*55)
+    dummy_frames = torch.randn(1, 32, 5, 224, 224).to(device)
+    dummy_lms    = torch.randn(1, 32, 126).to(device)
+
+    # ── torchinfo layer table ─────────────────────────────────────────────────
+    model_summary = torchinfo_summary(
+        model,
+        input_data=[dummy_frames, dummy_lms],
+        col_names=["input_size", "output_size", "num_params", "trainable"],
+        depth=4,
+        verbose=0,
+    )
+    summary_str = str(model_summary)
+    print(summary_str)
+
+    # Save to file for paper/report
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    summary_path = os.path.join(RESULTS_DIR, "model_summary.txt")
+    with open(summary_path, "w") as f:
+        f.write(summary_str)
+    print(f"  Layer table saved → {summary_path}")
+
+    # ── fvcore FLOPs count ────────────────────────────────────────────────────
+    model.eval()
+    with torch.no_grad():
+        flops = FlopCountAnalysis(model, (dummy_frames, dummy_lms))
+
+    print(f"\n  GFLOPs (per inference) : {flops.total() / 1e9:.2f}")
+    print(parameter_count_table(model))
+    print("═"*55 + "\n")
+
+    if WANDB_ENABLED: wandb.log({
+        "model/gflops":        round(flops.total() / 1e9, 2),
+        "model/total_params":  sum(p.numel() for p in model.parameters()),
+        "model/trainable_params": sum(p.numel() for p in model.parameters() if p.requires_grad),
+    })
+
+# ══════════════════════════════════════════════════════════════════════════════
+# GRADIENT FLOW CHECKER
+# ══════════════════════════════════════════════════════════════════════════════
+
+def check_gradient_flow(model, epoch):
+    """Detects vanishing/exploding gradients after backward pass."""
+    issues = []
+    for name, param in model.named_parameters():
+        if param.grad is not None:
+            grad_mean = param.grad.abs().mean().item()
+            if grad_mean < 1e-7:
+                issues.append(f"vanishing:{name}")
+            elif grad_mean > 100:
+                issues.append(f"exploding:{name}")
+
+    if issues:
+        print(f"  ⚠️  Epoch {epoch} gradient issues:")
+        for i in issues:
+            print(f"     {i}")
+    
+    # Log average grad norm per layer group to W&B
+    grad_norms = {}
+    for name, param in model.named_parameters():
+        if param.grad is not None:
+            group = name.split(".")[0]
+            grad_norms[group] = grad_norms.get(group, [])
+            grad_norms[group].append(param.grad.norm().item())
+    
+    if WANDB_ENABLED: wandb.log({
+        f"gradients/{k}_norm": np.mean(v)
+        for k, v in grad_norms.items()
+    }, step=epoch)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LSTM GATE ACTIVATION TEST
+# ══════════════════════════════════════════════════════════════════════════════
+
+def check_lstm_gates(model, sample_frames, sample_landmarks, epoch):
+    """Checks if BiLSTM hidden states are alive (not saturated/dead)."""
+    model.eval()
+    gate_stats = {}
+    hooks = []
+
+    def make_hook(name):
+        def fn(module, input, output):
+            h = output[0].detach()
+            gate_stats[name] = {
+                "mean":  round(h.mean().item(), 4),
+                "std":   round(h.std().item(), 4),
+                "dead%": round((h.abs() < 0.01).float().mean().item() * 100, 2),
+            }
+        return fn
+
+    for name, module in model.named_modules():
+        if isinstance(module, nn.LSTM):
+            hooks.append(module.register_forward_hook(make_hook(name)))
+
+    with torch.no_grad():
+        model(sample_frames, sample_landmarks)
+
+    for h in hooks:
+        h.remove()
+
+    print(f"  LSTM Gate Stats (Epoch {epoch}):")
+    for name, stats in gate_stats.items():
+        print(f"    {name}: mean={stats['mean']:.4f} | std={stats['std']:.4f} | dead={stats['dead%']:.1f}%")
+        if stats["dead%"] > 50:
+            print(f"    ⚠️  {name} has >50% dead neurons!")
+
+    if WANDB_ENABLED: wandb.log({
+        f"lstm/{k}_{stat}": v
+        for k, stats in gate_stats.items()
+        for stat, v in stats.items()
+    }, step=epoch)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# VRAM MONITOR
+# ══════════════════════════════════════════════════════════════════════════════
+
+def log_vram(epoch):
+    """Logs current VRAM usage."""
+    allocated = torch.cuda.memory_allocated() / 1e9
+    reserved  = torch.cuda.memory_reserved() / 1e9
+    print(f"  VRAM: {allocated:.2f} GB allocated / {reserved:.2f} GB reserved")
+    if WANDB_ENABLED: wandb.log({"vram/allocated_gb": allocated, "vram/reserved_gb": reserved}, step=epoch)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CRITERION
 # ══════════════════════════════════════════════════════════════════════════════
 
 def get_criterion(train_dataset, device):
-    labels = [s[1] for s in train_dataset.samples]
+    labels       = [s[1] for s in train_dataset.samples]
     label_counts = Counter(labels)
-    total_samples = len(labels)
-    weights = []
-    for i in range(len(train_dataset.classes)):
-        count = label_counts.get(i, 1)
-        weights.append(total_samples / (len(train_dataset.classes) * count))
-    weights_tensor = torch.FloatTensor(weights).to(device)
-    return nn.CrossEntropyLoss(weight=weights_tensor, label_smoothing=0.1)
+    total        = len(labels)
+    weights      = [total / (len(train_dataset.classes) * label_counts.get(i, 1))
+                    for i in range(len(train_dataset.classes))]
+    return nn.CrossEntropyLoss(
+        weight=torch.FloatTensor(weights).to(device),
+        label_smoothing=0.1
+    )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TRAINING & EVAL STEPS (AMP Enabled)
+# TRAINING STEP
 # ══════════════════════════════════════════════════════════════════════════════
 
-def train_one_epoch(model, loader, criterion, optimizer, scaler, device):
+def train_one_epoch(model, loader, criterion, optimizer, scaler, device, epoch,
+                    acc_metric, f1_metric, run_profiler=False):
     model.train()
-    total_loss, total_correct, total_samples = 0.0, 0, 0
-    for frames, landmarks, labels in loader:
+    acc_metric.reset()
+    f1_metric.reset()
+    total_loss, total_samples = 0.0, 0
+    last_batch_frames = last_batch_lms = None
+
+    def _run_batch(frames, landmarks, labels):
+        nonlocal total_loss, total_samples
         frames, landmarks, labels = frames.to(device), landmarks.to(device), labels.to(device)
         optimizer.zero_grad()
         with torch.cuda.amp.autocast():
@@ -78,48 +230,95 @@ def train_one_epoch(model, loader, criterion, optimizer, scaler, device):
         nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
         scaler.step(optimizer)
         scaler.update()
-        preds          = logits.argmax(dim=1)
-        total_correct += (preds == labels).sum().item()
+        preds = logits.argmax(dim=1)
+        acc_metric.update(preds, labels)
+        f1_metric.update(preds, labels)
         total_loss    += loss.item() * frames.size(0)
         total_samples += frames.size(0)
-    return total_loss / total_samples, total_correct / total_samples * 100
+        return frames[:1].detach(), landmarks[:1].detach()
 
-def evaluate(model, loader, criterion, device):
+    if run_profiler:
+        # Profile the first epoch to find bottlenecks
+        print("  🔍 Running torch.profiler on this epoch...")
+        with profile(
+            activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+            record_shapes=True,
+            with_flops=True,
+        ) as prof:
+            for frames, landmarks, labels in loader:
+                with record_function("forward_backward"):
+                    last_batch_frames, last_batch_lms = _run_batch(frames, landmarks, labels)
+        
+        profile_path = os.path.join(RESULTS_DIR, "profiler_report.txt")
+        with open(profile_path, "w") as pf:
+            pf.write(prof.key_averages().table(sort_by="cuda_time_total", row_limit=20))
+        print(f"  Profiler report saved → {profile_path}")
+        if WANDB_ENABLED: wandb.save(profile_path)
+    else:
+        for frames, landmarks, labels in loader:
+            last_batch_frames, last_batch_lms = _run_batch(frames, landmarks, labels)
+
+    # Check gradients after full epoch
+    check_gradient_flow(model, epoch)
+
+    train_loss = total_loss / total_samples
+    train_acc  = acc_metric.compute().item() * 100
+    train_f1   = f1_metric.compute().item()
+    return train_loss, train_acc, train_f1, last_batch_frames, last_batch_lms
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EVALUATION STEP
+# ══════════════════════════════════════════════════════════════════════════════
+
+def evaluate(model, loader, criterion, device,
+             acc_metric, f1_metric, precision_metric, recall_metric, calib_metric):
     model.eval()
-    total_loss, total_correct, total_samples = 0.0, 0, 0
+    acc_metric.reset()
+    f1_metric.reset()
+    precision_metric.reset()
+    recall_metric.reset()
+    calib_metric.reset()
+    total_loss, total_samples = 0.0, 0
+
     with torch.no_grad():
         for frames, landmarks, labels in loader:
             frames, landmarks, labels = frames.to(device), landmarks.to(device), labels.to(device)
             with torch.cuda.amp.autocast():
                 logits = model(frames, landmarks)
                 loss   = criterion(logits, labels)
-            preds          = logits.argmax(dim=1)
-            total_correct += (preds == labels).sum().item()
+            probs = torch.softmax(logits, dim=1)
+            preds = probs.argmax(dim=1)
+            acc_metric.update(preds, labels)
+            f1_metric.update(preds, labels)
+            precision_metric.update(preds, labels)
+            recall_metric.update(preds, labels)
+            calib_metric.update(probs, labels)
             total_loss    += loss.item() * frames.size(0)
             total_samples += frames.size(0)
-    return total_loss / total_samples, total_correct / total_samples * 100
+
+    return (
+        total_loss / total_samples,
+        acc_metric.compute().item() * 100,
+        f1_metric.compute().item(),
+        precision_metric.compute().item(),
+        recall_metric.compute().item(),
+        calib_metric.compute().item(),
+    )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# AUTOMATED TESTING — Full Report on Test Set
+# AUTOMATED TEST EVALUATION
 # ══════════════════════════════════════════════════════════════════════════════
 
 def run_test_evaluation(model, criterion, device, class_names):
-    """
-    Runs after training completes on the held-out test set.
-    Produces:
-      - Per-class accuracy report (precision, recall, F1)
-      - Confusion matrix image
-      - JSON results file
-    """
     print("\n" + "═"*55)
     print("  AUTOMATED TEST EVALUATION")
     print("═"*55)
 
-    test_ds = FSLDataset(os.path.join(FRAME_ROOT, "testing"), augment=False)
+    test_ds     = FSLDataset(os.path.join(FRAME_ROOT, "testing"), augment=False)
     test_loader = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_fn)
 
     model.eval()
-    all_preds, all_labels = [], []
+    all_preds, all_labels, all_probs = [], [], []
     total_loss, total_samples = 0.0, 0
 
     with torch.no_grad():
@@ -128,9 +327,11 @@ def run_test_evaluation(model, criterion, device, class_names):
             with torch.cuda.amp.autocast():
                 logits = model(frames, landmarks)
                 loss   = criterion(logits, labels)
-            preds = logits.argmax(dim=1)
+            probs = torch.softmax(logits, dim=1)
+            preds = probs.argmax(dim=1)
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
+            all_probs.extend(probs.cpu().numpy())
             total_loss    += loss.item() * frames.size(0)
             total_samples += frames.size(0)
 
@@ -138,37 +339,60 @@ def run_test_evaluation(model, criterion, device, class_names):
     test_acc  = np.mean(np.array(all_preds) == np.array(all_labels)) * 100
 
     # ── Classification Report ─────────────────────────────────────────────────
-    report = classification_report(
-        all_labels, all_preds,
-        target_names=class_names,
-        output_dict=True
-    )
+    report = classification_report(all_labels, all_preds, target_names=class_names, output_dict=True)
     print(f"\n  Test Loss     : {test_loss:.4f}")
     print(f"  Test Accuracy : {test_acc:.2f}%\n")
     print(classification_report(all_labels, all_preds, target_names=class_names))
 
     # ── Confusion Matrix ──────────────────────────────────────────────────────
-    cm = confusion_matrix(all_labels, all_preds)
+    cm_metric = MulticlassConfusionMatrix(num_classes=NUM_CLASSES).to(device)
+    t_preds   = torch.tensor(all_preds).to(device)
+    t_labels  = torch.tensor(all_labels).to(device)
+    cm_metric.update(t_preds, t_labels)
+    cm = cm_metric.compute().cpu().numpy()
+
     fig, ax = plt.subplots(figsize=(max(6, len(class_names)), max(5, len(class_names) - 1)))
-    sns.heatmap(
-        cm, annot=True, fmt="d", cmap="Blues",
-        xticklabels=class_names, yticklabels=class_names, ax=ax
-    )
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+                xticklabels=class_names, yticklabels=class_names, ax=ax)
     ax.set_title("JuanSign V2.2 — Confusion Matrix (Test Set)")
     ax.set_ylabel("True Label")
     ax.set_xlabel("Predicted Label")
     plt.tight_layout()
-
     cm_path = os.path.join(RESULTS_DIR, "confusion_matrix.png")
     plt.savefig(cm_path, dpi=150)
     plt.close()
-    print(f"  Confusion matrix saved → {cm_path}")
+    print(f"  Confusion matrix → {cm_path}")
+    if WANDB_ENABLED: wandb.log({"test/confusion_matrix": wandb.Image(cm_path)})
+
+    # ── Calibration Plot ──────────────────────────────────────────────────────
+    all_probs_np  = np.array(all_probs)
+    all_labels_np = np.array(all_labels)
+    max_probs     = all_probs_np.max(axis=1)
+    correct       = (np.array(all_preds) == all_labels_np).astype(float)
+
+    fig, ax = plt.subplots(figsize=(6, 5))
+    bins = np.linspace(0, 1, 11)
+    bin_ids = np.digitize(max_probs, bins) - 1
+    bin_acc  = [correct[bin_ids == i].mean() if (bin_ids == i).sum() > 0 else 0 for i in range(10)]
+    bin_conf = [(bins[i] + bins[i+1]) / 2 for i in range(10)]
+    ax.bar(bin_conf, bin_acc, width=0.09, alpha=0.7, label="Model")
+    ax.plot([0, 1], [0, 1], "k--", label="Perfect calibration")
+    ax.set_title("Confidence Calibration (Test Set)")
+    ax.set_xlabel("Confidence")
+    ax.set_ylabel("Accuracy")
+    ax.legend()
+    plt.tight_layout()
+    calib_path = os.path.join(RESULTS_DIR, "calibration_plot.png")
+    plt.savefig(calib_path, dpi=150)
+    plt.close()
+    print(f"  Calibration plot → {calib_path}")
+    if WANDB_ENABLED: wandb.log({"test/calibration_plot": wandb.Image(calib_path)})
 
     # ── JSON Summary ──────────────────────────────────────────────────────────
     summary = {
         "test_accuracy": round(test_acc, 4),
         "test_loss":     round(test_loss, 6),
-        "per_class":     {
+        "per_class": {
             cls: {
                 "precision": round(report[cls]["precision"], 4),
                 "recall":    round(report[cls]["recall"], 4),
@@ -181,10 +405,56 @@ def run_test_evaluation(model, criterion, device, class_names):
     results_path = os.path.join(RESULTS_DIR, "test_results.json")
     with open(results_path, "w") as f:
         json.dump(summary, f, indent=2)
-    print(f"  Results JSON saved    → {results_path}")
-    print("═"*55 + "\n")
+    print(f"  Results JSON → {results_path}")
 
+    if WANDB_ENABLED: wandb.log({
+        "test/accuracy":  test_acc,
+        "test/loss":      test_loss,
+        **{f"test/{cls}_f1": summary["per_class"][cls]["f1_score"] for cls in class_names}
+    })
+
+    print("═"*55 + "\n")
     return test_acc
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TRAINING CURVES
+# ══════════════════════════════════════════════════════════════════════════════
+
+def save_training_curves(history):
+    epochs = range(1, len(history["train_acc"]) + 1)
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+
+    metrics = [
+        ("train_acc",  "val_acc",   "Accuracy (%)", "Accuracy"),
+        ("train_loss", "val_loss",  "Loss",          "Loss"),
+        ("train_f1",   "val_f1",    "F1 Score",      "F1 Score"),
+        ("val_precision", "val_recall", "Score",     "Precision vs Recall"),
+    ]
+    labels = [
+        ("Train Acc",  "Val Acc"),
+        ("Train Loss", "Val Loss"),
+        ("Train F1",   "Val F1"),
+        ("Val Precision", "Val Recall"),
+    ]
+
+    for ax, (m1, m2, ylabel, title), (l1, l2) in zip(axes.flat, metrics, labels):
+        if m1 in history:
+            ax.plot(epochs, history[m1], label=l1, marker="o", markersize=3)
+        if m2 in history:
+            ax.plot(epochs, history[m2], label=l2, marker="o", markersize=3)
+        ax.set_title(title)
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel(ylabel)
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+
+    fig.suptitle("JuanSign V2.2 — Training Curves", fontsize=14)
+    plt.tight_layout()
+    path = os.path.join(RESULTS_DIR, "training_curves.png")
+    plt.savefig(path, dpi=150)
+    plt.close()
+    print(f"  Training curves → {path}")
+    if WANDB_ENABLED: wandb.log({"training/curves": wandb.Image(path)})
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN RUNNER
@@ -198,32 +468,80 @@ def train():
     os.makedirs(LOG_DIR, exist_ok=True)
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
+    # ── W&B Init (with offline fallback) ─────────────────────────────────────
+    global WANDB_ENABLED
+    try:
+        wandb.init(
+            project = "juansign-v2-2",
+            config  = {
+                "model":         "ResNet50-BiLSTM",
+                "num_classes":   NUM_CLASSES,
+                "class_names":   CLASS_NAMES,
+                "epochs":        EPOCHS,
+                "lr":            LEARNING_RATE,
+                "batch_size":    BATCH_SIZE,
+                "freeze_epochs": FREEZE_EPOCHS,
+            },
+            timeout = 30,
+        )
+        WANDB_ENABLED = True
+        print("  W&B connected ✓")
+    except Exception as e:
+        WANDB_ENABLED = False
+        print(f"  W&B unavailable ({e}) — logging to TensorBoard only.")
+
     print(f"--- Training JuanSign V2.2 on {torch.cuda.get_device_name(0)} ---")
     print(f"--- Dataset: {FRAME_ROOT} | Batch Size: {BATCH_SIZE} ---")
 
-    # 1. Data
-    train_ds = FSLDataset(os.path.join(FRAME_ROOT, "training"), augment=True)
+    # ── Data ──────────────────────────────────────────────────────────────────
+    train_ds = FSLDataset(os.path.join(FRAME_ROOT, "training"),   augment=True)
     val_ds   = FSLDataset(os.path.join(FRAME_ROOT, "validation"), augment=False)
 
-    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True,  collate_fn=collate_fn, pin_memory=True)
-    val_loader   = DataLoader(val_ds,   batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_fn)
+    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True,
+                              collate_fn=collate_fn, pin_memory=True)
+    val_loader   = DataLoader(val_ds,   batch_size=BATCH_SIZE, shuffle=False,
+                              collate_fn=collate_fn)
 
-    # 2. Model & AMP Scaler
+    # ── Model ─────────────────────────────────────────────────────────────────
     model  = ResNetLSTM(num_classes=NUM_CLASSES).to(device)
     scaler = torch.cuda.amp.GradScaler()
     model.freeze_backbone()
 
-    # 3. Loss, Optimizer, Scheduler
+    # ── Model Analysis (FLOPs + params) ───────────────────────────────────────
+    log_model_analysis(model, device)
+
+    # ── Metrics ───────────────────────────────────────────────────────────────
+    def make_metrics():
+        return (
+            MulticlassAccuracy(num_classes=NUM_CLASSES, average="macro").to(device),
+            MulticlassF1Score(num_classes=NUM_CLASSES, average="macro").to(device),
+            MulticlassPrecision(num_classes=NUM_CLASSES, average="macro").to(device),
+            MulticlassRecall(num_classes=NUM_CLASSES, average="macro").to(device),
+            MulticlassCalibrationError(num_classes=NUM_CLASSES).to(device),
+        )
+
+    t_acc, t_f1, _, _, _           = make_metrics()
+    v_acc, v_f1, v_prec, v_rec, v_cal = make_metrics()
+
+    # ── Loss, Optimizer, Scheduler ────────────────────────────────────────────
     criterion = get_criterion(train_ds, device)
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=3)
     writer    = SummaryWriter(log_dir=LOG_DIR)
 
-    best_val_acc       = 0.0
-    epochs_no_improve  = 0
-    history            = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
+    best_val_acc      = 0.0
+    epochs_no_improve = 0
+    history = {
+        "train_loss": [], "val_loss": [],
+        "train_acc":  [], "val_acc":  [],
+        "train_f1":   [], "val_f1":   [],
+        "val_precision": [], "val_recall": [], "val_calibration": [],
+    }
+    sample_frames = sample_lms = None  # Will be set on first epoch
 
     for epoch in range(1, EPOCHS + 1):
+
+        # ── Unfreeze backbone ─────────────────────────────────────────────────
         if epoch == FREEZE_EPOCHS + 1:
             model.unfreeze_backbone()
             optimizer = optim.Adam([
@@ -234,30 +552,69 @@ def train():
             ])
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=3)
 
-            # Recreate loaders with smaller batch to handle VRAM spike after unfreeze
-            train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE_UNFREEZE, shuffle=True,  collate_fn=collate_fn, pin_memory=True)
-            val_loader   = DataLoader(val_ds,   batch_size=BATCH_SIZE_UNFREEZE, shuffle=False, collate_fn=collate_fn)
+            # Recreate loaders with smaller batch to handle VRAM spike
+            train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE_UNFREEZE, shuffle=True,
+                                      collate_fn=collate_fn, pin_memory=True)
+            val_loader   = DataLoader(val_ds,   batch_size=BATCH_SIZE_UNFREEZE, shuffle=False,
+                                      collate_fn=collate_fn)
             print(f"\n--- ResNet50 Unfrozen | Batch size → {BATCH_SIZE_UNFREEZE} ---")
 
-        train_loss, train_acc = train_one_epoch(model, train_loader, criterion, optimizer, scaler, device)
-        val_loss,   val_acc   = evaluate(model, val_loader, criterion, device)
+        # ── Train ─────────────────────────────────────────────────────────────
+        run_profiler = (epoch == 1)  # Profile first epoch only
+        train_loss, train_acc, train_f1, last_frames, last_lms = train_one_epoch(
+            model, train_loader, criterion, optimizer, scaler, device,
+            epoch, t_acc, t_f1, run_profiler=run_profiler
+        )
+        if sample_frames is None:
+            sample_frames, sample_lms = last_frames, last_lms
+
+        # ── Validate ──────────────────────────────────────────────────────────
+        val_loss, val_acc, val_f1, val_prec, val_rec, val_cal = evaluate(
+            model, val_loader, criterion, device,
+            v_acc, v_f1, v_prec, v_rec, v_cal
+        )
+
+        # ── LSTM Gate Check (every 5 epochs) ──────────────────────────────────
+        if epoch % 5 == 0 and sample_frames is not None:
+            check_lstm_gates(model, sample_frames, sample_lms, epoch)
+
+        # ── VRAM Monitor ──────────────────────────────────────────────────────
+        log_vram(epoch)
 
         scheduler.step(val_loss)
 
-        # ── TensorBoard (Accuracy + Loss) ─────────────────────────────────────
-        writer.add_scalars("Accuracy", {"train": train_acc, "val": val_acc}, epoch)
-        writer.add_scalars("Loss",     {"train": train_loss, "val": val_loss}, epoch)
+        # ── TensorBoard ───────────────────────────────────────────────────────
+        writer.add_scalars("Accuracy",  {"train": train_acc,  "val": val_acc},  epoch)
+        writer.add_scalars("Loss",      {"train": train_loss, "val": val_loss}, epoch)
+        writer.add_scalars("F1",        {"train": train_f1,   "val": val_f1},   epoch)
 
-        # ── History tracking ──────────────────────────────────────────────────
+        # ── W&B ───────────────────────────────────────────────────────────────
+        if WANDB_ENABLED: wandb.log({
+            "train/loss": train_loss, "train/acc": train_acc, "train/f1": train_f1,
+            "val/loss":   val_loss,   "val/acc":   val_acc,   "val/f1":   val_f1,
+            "val/precision":    val_prec,
+            "val/recall":       val_rec,
+            "val/calibration":  val_cal,
+            "lr": optimizer.param_groups[0]["lr"],
+        }, step=epoch)
+
+        # ── History ───────────────────────────────────────────────────────────
         history["train_loss"].append(round(train_loss, 6))
         history["val_loss"].append(round(val_loss, 6))
         history["train_acc"].append(round(train_acc, 4))
         history["val_acc"].append(round(val_acc, 4))
+        history["train_f1"].append(round(train_f1, 4))
+        history["val_f1"].append(round(val_f1, 4))
+        history["val_precision"].append(round(val_prec, 4))
+        history["val_recall"].append(round(val_rec, 4))
+        history["val_calibration"].append(round(val_cal, 4))
 
         print(f"Epoch {epoch:02d} | "
-              f"Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.1f}% | "
-              f"Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.1f}%")
+              f"Train Loss: {train_loss:.4f} Acc: {train_acc:.1f}% F1: {train_f1:.3f} | "
+              f"Val Loss: {val_loss:.4f} Acc: {val_acc:.1f}% F1: {val_f1:.3f} | "
+              f"Prec: {val_prec:.3f} Rec: {val_rec:.3f} | Cal: {val_cal:.4f}")
 
+        # ── Save Best ─────────────────────────────────────────────────────────
         if val_acc > best_val_acc:
             best_val_acc      = val_acc
             epochs_no_improve = 0
@@ -267,6 +624,7 @@ def train():
                 "num_classes": NUM_CLASSES,
             }, MODEL_SAVE_PATH)
             print(f"  ✓ Model saved → {MODEL_SAVE_PATH}")
+            if WANDB_ENABLED: wandb.run.summary["best_val_acc"] = best_val_acc
         else:
             epochs_no_improve += 1
             if epochs_no_improve >= EARLY_STOP_PATIENCE:
@@ -277,10 +635,8 @@ def train():
 
     writer.close()
 
-    # ── Save training curves ──────────────────────────────────────────────────
-    _save_training_curves(history)
-
-    # ── Save history JSON ─────────────────────────────────────────────────────
+    # ── Save training curves & history ────────────────────────────────────────
+    save_training_curves(history)
     with open(os.path.join(RESULTS_DIR, "training_history.json"), "w") as f:
         json.dump(history, f, indent=2)
 
@@ -291,37 +647,7 @@ def train():
     model.load_state_dict(checkpoint["model_state"])
     run_test_evaluation(model, criterion, device, CLASS_NAMES)
 
-
-def _save_training_curves(history):
-    """Saves accuracy and loss curve plots to RESULTS_DIR."""
-    epochs = range(1, len(history["train_acc"]) + 1)
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
-
-    # Accuracy
-    ax1.plot(epochs, history["train_acc"], label="Train Acc", marker="o", markersize=3)
-    ax1.plot(epochs, history["val_acc"],   label="Val Acc",   marker="o", markersize=3)
-    ax1.set_title("Accuracy")
-    ax1.set_xlabel("Epoch")
-    ax1.set_ylabel("Accuracy (%)")
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
-
-    # Loss
-    ax2.plot(epochs, history["train_loss"], label="Train Loss", marker="o", markersize=3)
-    ax2.plot(epochs, history["val_loss"],   label="Val Loss",   marker="o", markersize=3)
-    ax2.set_title("Loss")
-    ax2.set_xlabel("Epoch")
-    ax2.set_ylabel("Loss")
-    ax2.legend()
-    ax2.grid(True, alpha=0.3)
-
-    fig.suptitle("JuanSign V2.2 — Training Curves", fontsize=14)
-    plt.tight_layout()
-    path = os.path.join(RESULTS_DIR, "training_curves.png")
-    plt.savefig(path, dpi=150)
-    plt.close()
-    print(f"  Training curves saved → {path}")
+    if WANDB_ENABLED: wandb.finish()
 
 
 if __name__ == "__main__":

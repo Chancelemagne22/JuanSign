@@ -18,7 +18,11 @@ image = (
         "tensorboard",
         "scikit-learn",
         "matplotlib",
-        "seaborn"
+        "seaborn",
+        "wandb",
+        "torchmetrics",
+        "fvcore",
+        "torchinfo"
     )
     .apt_install("unzip", "curl", "libgl1", "libglib2.0-0", "libegl1-mesa", "libgles2-mesa")
     .env({
@@ -46,6 +50,7 @@ vol = modal.Volume.from_name("juansign-model-vol", create_if_missing=True)
     memory=8192,
     volumes={"/data": vol},
     timeout=10800,
+    secrets=[modal.Secret.from_name("wandb-secret")],
 )
 def extract_on_cloud():
     os.chdir("/root")
@@ -85,6 +90,7 @@ def extract_on_cloud():
     gpu="A10G",
     volumes={"/data": vol},
     timeout=7200,
+    secrets=[modal.Secret.from_name("wandb-secret")],
 )
 def train_on_cloud():
     os.chdir("/root")
