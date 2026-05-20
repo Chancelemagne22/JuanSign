@@ -58,8 +58,8 @@ else:
 
 EPOCHS              = 50
 LEARNING_RATE       = 1e-4
-FREEZE_EPOCHS       = 3
-EARLY_STOP_PATIENCE = 7
+FREEZE_EPOCHS       = 5
+EARLY_STOP_PATIENCE = 15
 SEED                = 42
 
 # ══════════════════════════════════════════════════════════════════════════════
