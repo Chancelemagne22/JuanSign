@@ -4,8 +4,6 @@ import sys
 import subprocess
 
 # ── CLOUD ENVIRONMENT ─────────────────────────────────────────────────────────
-# MediaPipe models are downloaded at image build time (same approach as main.py)
-# so they are always available without needing local files.
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
@@ -19,10 +17,10 @@ image = (
         "scikit-learn",
         "matplotlib",
         "seaborn",
-        "wandb",
         "torchmetrics",
         "fvcore",
         "torchinfo"
+        # wandb removed
     )
     .apt_install("unzip", "curl", "libgl1", "libglib2.0-0", "libegl1-mesa", "libgles2-mesa")
     .env({
@@ -50,39 +48,32 @@ vol = modal.Volume.from_name("juansign-model-vol", create_if_missing=True)
     memory=8192,
     volumes={"/data": vol},
     timeout=10800,
-    secrets=[modal.Secret.from_name("wandb-secret")],
 )
 def extract_on_cloud():
     os.chdir("/root")
     sys.path.insert(0, "/root")
     os.environ["MODAL_RUN"] = "1"
 
-    # Step 1 — Unzip dataset.zip if unprocessed_input doesn't exist yet
-    if not os.path.exists("/data/unprocessed_input/training"):
-        zip_path = "/data/unprocessed_input/dataset.zip" if os.path.exists("/data/unprocessed_input/dataset.zip") else "/data/dataset.zip"
+    if not os.path.exists("/data/unprocessed_input/training_data"):
+        zip_path = "/data/dataset.zip"
         if os.path.exists(zip_path):
             print("📦 Extracting dataset.zip...")
-            result = subprocess.run(["unzip", "-q", zip_path, "-d", "/data/unprocessed_input"])
-            print(f"Unzip exit code: {result.returncode}")
-            print("Contents of /data after unzip:", os.listdir("/data"))
+            subprocess.run(["unzip", "-q", zip_path, "-d", "/data"])
             vol.commit()
             print("✅ Unzip complete.")
         else:
-            print("❌ ERROR: Neither /data/unprocessed_input nor /data/dataset.zip found in Volume.")
-            print("   Upload your dataset first:")
-            print("   modal volume put juansign-model-vol ./dataset.zip /dataset.zip")
+            print("❌ ERROR: /data/dataset.zip not found.")
             return
 
-    # Step 2 — Run extraction
     print("🔍 Starting JuanSign Frame Extraction...")
     from frame_extractor import run_extraction
     run_extraction()
 
     vol.commit()
-    print("✅ Extraction complete. Frames saved to Volume.")
+    print("✅ Extraction complete.")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STEP 2 — TRAINING
+# STEP 2 — TRAINING (With Force-Commit Logic)
 # ══════════════════════════════════════════════════════════════════════════════
 
 @app.function(
@@ -90,7 +81,6 @@ def extract_on_cloud():
     gpu="A10G",
     volumes={"/data": vol},
     timeout=7200,
-    secrets=[modal.Secret.from_name("wandb-secret")],
 )
 def train_on_cloud():
     os.chdir("/root")
@@ -98,21 +88,27 @@ def train_on_cloud():
     os.environ["MODAL_RUN"] = "1"
 
     if not os.path.exists("/data/processed_output"):
-        print("❌ ERROR: /data/processed_output not found in Volume.")
-        print("   Run extraction first: modal run modal_run.py::extract")
+        print("❌ ERROR: /data/processed_output not found.")
         return
 
     print("🚀 Starting JuanSign V2.2 Training...")
     from train_main import train
-    train()
-
-    vol.commit()
-    print("✅ Training complete. Model saved to /data/models/juansign_v2_2.pth")
+    
+    try:
+        train()
+    except Exception as e:
+        print(f"💥 Training crashed: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        # GUARANTEE: Even if the code crashes, we save the results folder
+        print("💾 Force-committing results to Volume...")
+        vol.commit()
+        print("✅ Results saved.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # LOCAL ENTRYPOINTS
 # ══════════════════════════════════════════════════════════════════════════════
-
 @app.local_entrypoint()
 def extract():
     """Extraction only  →  modal run modal_run.py::extract"""
@@ -125,8 +121,6 @@ def train():
 
 @app.local_entrypoint()
 def main():
-    """Full pipeline  →  modal run modal_run.py"""
-    print("--- Step 1/2: Frame Extraction ---")
+    """Run extraction then training"""
     extract_on_cloud.remote()
-    print("--- Step 2/2: Training ---")
     train_on_cloud.remote()
