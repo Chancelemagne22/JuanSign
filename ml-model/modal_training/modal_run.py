@@ -19,13 +19,12 @@ image = (
         "seaborn",
         "torchmetrics",
         "fvcore",
-        "torchinfo"
-        # wandb removed
+        "torchinfo",
     )
     .apt_install("unzip", "curl", "libgl1", "libglib2.0-0", "libegl1-mesa", "libgles2-mesa")
     .env({
-        "EGL_PLATFORM": "surfaceless",
-        "MEDIAPIPE_DISABLE_GPU": "1",
+        "EGL_PLATFORM":           "surfaceless",
+        "MEDIAPIPE_DISABLE_GPU":  "1",
         "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
     })
     .run_commands(
@@ -47,40 +46,46 @@ vol = modal.Volume.from_name("juansign-model-vol", create_if_missing=True)
     cpu=4,
     memory=8192,
     volumes={"/data": vol},
-    timeout=10800,
+    timeout=10800,  # 3 hours
 )
 def extract_on_cloud():
     os.chdir("/root")
     sys.path.insert(0, "/root")
     os.environ["MODAL_RUN"] = "1"
 
-    if not os.path.exists("/data/unprocessed_input/training_data"):
-        zip_path = "/data/dataset.zip"
+    if not os.path.exists("/data/unprocessed_input/training"):
+        zip_path = "/data/unprocessed_input/dataset.zip" \
+            if os.path.exists("/data/unprocessed_input/dataset.zip") \
+            else "/data/dataset.zip"
         if os.path.exists(zip_path):
             print("📦 Extracting dataset.zip...")
-            subprocess.run(["unzip", "-q", zip_path, "-d", "/data"])
+            extract_dir = "/data/unprocessed_input" \
+                if "unprocessed_input" in zip_path else "/data"
+            result = subprocess.run(["unzip", "-q", zip_path, "-d", extract_dir])
+            print(f"Unzip exit code: {result.returncode}")
+            print("Contents of /data after unzip:", os.listdir("/data"))
             vol.commit()
             print("✅ Unzip complete.")
         else:
-            print("❌ ERROR: /data/dataset.zip not found.")
+            print("❌ ERROR: No dataset.zip found in Volume.")
+            print("   Upload first: modal volume put juansign-model-vol ./dataset.zip /dataset.zip")
             return
 
     print("🔍 Starting JuanSign Frame Extraction...")
     from frame_extractor import run_extraction
     run_extraction()
-
     vol.commit()
     print("✅ Extraction complete.")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STEP 2 — TRAINING (With Force-Commit Logic)
+# STEP 2 — TRAINING
 # ══════════════════════════════════════════════════════════════════════════════
 
 @app.function(
     image=image,
     gpu="A10G",
     volumes={"/data": vol},
-    timeout=7200,
+    timeout=21600,   # ← 6 hours (was 2 hours — too short for 50 epochs)
 )
 def train_on_cloud():
     os.chdir("/root")
@@ -89,11 +94,12 @@ def train_on_cloud():
 
     if not os.path.exists("/data/processed_output"):
         print("❌ ERROR: /data/processed_output not found.")
+        print("   Run extraction first: modal run modal_run.py::extract")
         return
 
     print("🚀 Starting JuanSign V2.2 Training...")
     from train_main import train
-    
+
     try:
         train()
     except Exception as e:
@@ -101,26 +107,52 @@ def train_on_cloud():
         import traceback
         traceback.print_exc()
     finally:
-        # GUARANTEE: Even if the code crashes, we save the results folder
-        print("💾 Force-committing results to Volume...")
+        # Commits whatever was saved — even on crash or timeout
+        print("💾 Committing all results to Volume...")
         vol.commit()
-        print("✅ Results saved.")
+        print("✅ Results committed.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # LOCAL ENTRYPOINTS
+# Use .spawn() for detached/background work (per Modal best practices)
+# Example: modal run modal_run.py::train --detach
 # ══════════════════════════════════════════════════════════════════════════════
+
 @app.local_entrypoint()
 def extract():
-    """Extraction only  →  modal run modal_run.py::extract"""
-    extract_on_cloud.remote()
+    """
+    Extraction only.
+    Invoke with: modal run modal_run.py::extract --detach
+    Monitor with: modal app logs juansign-v2-2-training
+    """
+    extract_on_cloud.spawn()
+    print("✅ Extraction spawned in Modal cloud.")
+    print("   Invoke with: modal run modal_run.py::extract --detach")
+    print("   Monitor: modal app logs juansign-v2-2-training")
 
 @app.local_entrypoint()
 def train():
-    """Training only  →  modal run modal_run.py::train"""
-    train_on_cloud.remote()
+    """
+    Training only.
+    Invoke with: modal run modal_run.py::train --detach
+    Monitor with: modal app logs juansign-v2-2-training
+    """
+    train_on_cloud.spawn()
+    print("✅ Training spawned in Modal cloud.")
+    print("   Invoke with: modal run modal_run.py::train --detach")
+    print("   Monitor: modal app logs juansign-v2-2-training")
 
 @app.local_entrypoint()
 def main():
-    """Run extraction then training"""
-    extract_on_cloud.remote()
-    train_on_cloud.remote()
+    """
+    Full pipeline (extraction + training).
+    Invoke with: modal run modal_run.py --detach
+    Monitor with: modal app logs juansign-v2-2-training
+    """
+    extract_on_cloud.spawn()
+    print("✅ Extraction spawned.")
+    train_on_cloud.spawn()
+    print("✅ Training spawned.")
+    print("   Both jobs running in Modal cloud.")
+    print("   Invoke with: modal run modal_run.py --detach")
+    print("   Monitor: modal app logs juansign-v2-2-training")

@@ -9,7 +9,6 @@ files = [
     "model_summary.txt",
     "profiler_report.txt",
     "test_results.json",
-    "training_curves.png",
     "training_history.json",
 ]
 
