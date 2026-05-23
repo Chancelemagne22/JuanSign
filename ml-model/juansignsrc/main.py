@@ -84,7 +84,7 @@ MODEL_REGISTRY = {
     "alphabets":              "/model-weights/model/alphabets.pth",
     "numbers":                "/model-weights/model/numbers.pth",
     "conversational_phrases": "/model-weights/model/conversational_phrases.pth",
-    "five_ws":                "/model-weights/model/five_ws.pth",
+    "five_ws":                "/model-weights/model/5whs.pth",
     "greetings":              "/model-weights/model/greetings.pth",
     "days_of_week":           "/model-weights/model/days_of_week.pth",
     "adjectives_verbs":       "/model-weights/model/adjectives_verbs.pth",
@@ -315,13 +315,7 @@ class JuanSignInference:
 
         logger.info("JuanSignInference container ready. Models will be lazy-loaded per category.")
 
-        # Optional: Pre-warm alphabets since it's the most common category
-        # Uncomment if you want faster first prediction for alphabets:
-        # try:
-        #     self.models["alphabets"], self.class_names_cache["alphabets"] = _build_model(MODEL_REGISTRY["alphabets"], self.device)
-        #     logger.info("Pre-warmed alphabets model")
-        # except Exception as e:
-        #     logger.warning(f"Could not pre-warm alphabets model: {e}")
+       
 
     @modal.fastapi_endpoint(method="POST", label="predict")
     def predict(self, request: dict):
