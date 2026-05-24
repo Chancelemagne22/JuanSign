@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import type { ReportData, LevelPerformanceRow, LearnerPerformanceRow } from '@/app/api/admin/reports/route'
+import type { ReportData, LevelPerformanceRow, LearnerPerformanceRow, IndividualReport } from '@/app/api/admin/reports/route'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -58,6 +58,47 @@ function toCSV(levelRows: LevelPerformanceRow[], learnerRows: LearnerPerformance
   return lines.join('\n')
 }
 
+function csvCell(value: string | number): string {
+  const text = String(value).replace(/"/g, '""')
+  return `"${text}"`
+}
+
+function escapeHTML(value: string | number): string {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function safeFilename(value: string): string {
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  return slug || 'learner'
+}
+
+function formatDateTime(value: string): string {
+  if (!value) return 'N/A'
+  return new Date(value).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+function formatDuration(seconds: number): string {
+  if (!seconds) return 'N/A'
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
+}
+
 function downloadFile(content: string, filename: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType })
   const url = URL.createObjectURL(blob)
@@ -66,6 +107,82 @@ function downloadFile(content: string, filename: string, mimeType: string) {
   a.download = filename
   a.click()
   URL.revokeObjectURL(url)
+}
+
+function toIndividualCSV(report: IndividualReport): string {
+  const lines: string[] = []
+
+  lines.push('Individual Performance Report')
+  lines.push(`Learner,${csvCell(report.learner.name)}`)
+  lines.push(`Email,${csvCell(report.learner.email)}`)
+  lines.push(`Current Level,${csvCell(report.learner.currentLevel)}`)
+  lines.push('')
+
+  lines.push('Summary')
+  lines.push('Attempts,Average Score,Pass Rate,Latest Score,Latest Status,Highest Completed Level')
+  lines.push(
+    [
+      report.stats.attempts,
+      `${report.stats.avgScore}%`,
+      `${report.stats.passRate}%`,
+      `${report.stats.latestScore}%`,
+      report.stats.latestStatus,
+      csvCell(report.stats.highestCompletedLevel),
+    ].join(',')
+  )
+  lines.push('')
+
+  lines.push('Per-Level Performance')
+  lines.push('Level,Attempts,Average Score,Best Score,Latest Score,Status')
+  if (report.levelPerformance.length === 0) {
+    lines.push('No data for selected filters.,,,,,')
+  } else {
+    for (const row of report.levelPerformance) {
+      lines.push(
+        [
+          csvCell(row.levelName),
+          row.attempts,
+          `${row.avgScore}%`,
+          `${row.bestScore}%`,
+          `${row.latestScore}%`,
+          row.status,
+        ].join(',')
+      )
+    }
+  }
+  lines.push('')
+
+  lines.push('Assessment History')
+  lines.push('Date,Level,Score,Stars Earned,Time Taken,Status')
+  if (report.assessmentHistory.length === 0) {
+    lines.push('No data for selected filters.,,,,,')
+  } else {
+    for (const row of report.assessmentHistory) {
+      lines.push(
+        [
+          csvCell(formatDateTime(row.attemptDate)),
+          csvCell(row.levelName),
+          `${row.score}%`,
+          row.starsEarned,
+          csvCell(formatDuration(row.timeTakenSeconds)),
+          row.status,
+        ].join(',')
+      )
+    }
+  }
+  lines.push('')
+
+  lines.push('Commonly Missed Signs')
+  lines.push('Sign,Percent Incorrect')
+  if (report.commonlyMissed.length === 0) {
+    lines.push('No data available.,')
+  } else {
+    for (const row of report.commonlyMissed) {
+      lines.push(`${csvCell(row.sign)},${row.percentIncorrect}%`)
+    }
+  }
+
+  return lines.join('\n')
 }
 
 function toExcelHTML(levelRows: LevelPerformanceRow[], learnerRows: LearnerPerformanceRow[]): string {
@@ -94,6 +211,69 @@ function toExcelHTML(levelRows: LevelPerformanceRow[], learnerRows: LearnerPerfo
     <table border="1">
       <tr><th>User Name</th><th>Current Level</th><th>Attempts</th><th>Latest Score</th><th>Status</th></tr>
       ${learnerTableRows}
+    </table>
+  </body></html>`
+}
+
+function toIndividualExcelHTML(report: IndividualReport): string {
+  const levelTableRows =
+    report.levelPerformance.length > 0
+      ? report.levelPerformance
+          .map(
+            (row) =>
+              `<tr><td>${escapeHTML(row.levelName)}</td><td>${row.attempts}</td><td>${row.avgScore}%</td><td>${row.bestScore}%</td><td>${row.latestScore}%</td><td>${row.status}</td></tr>`
+          )
+          .join('')
+      : '<tr><td colspan="6">No data for selected filters.</td></tr>'
+
+  const historyTableRows =
+    report.assessmentHistory.length > 0
+      ? report.assessmentHistory
+          .map(
+            (row) =>
+              `<tr><td>${escapeHTML(formatDateTime(row.attemptDate))}</td><td>${escapeHTML(row.levelName)}</td><td>${row.score}%</td><td>${row.starsEarned}</td><td>${escapeHTML(formatDuration(row.timeTakenSeconds))}</td><td>${row.status}</td></tr>`
+          )
+          .join('')
+      : '<tr><td colspan="6">No data for selected filters.</td></tr>'
+
+  const missedTableRows =
+    report.commonlyMissed.length > 0
+      ? report.commonlyMissed
+          .map((row) => `<tr><td>${escapeHTML(row.sign)}</td><td>${row.percentIncorrect}%</td></tr>`)
+          .join('')
+      : '<tr><td colspan="2">No data available.</td></tr>'
+
+  return `<html><body>
+    <h1>JuanSign Individual Performance Report</h1>
+    <h2>Learner</h2>
+    <table border="1">
+      <tr><th>Name</th><td>${escapeHTML(report.learner.name)}</td></tr>
+      <tr><th>Email</th><td>${escapeHTML(report.learner.email)}</td></tr>
+      <tr><th>Current Level</th><td>${escapeHTML(report.learner.currentLevel)}</td></tr>
+    </table>
+    <br/>
+    <h2>Summary</h2>
+    <table border="1">
+      <tr><th>Attempts</th><th>Average Score</th><th>Pass Rate</th><th>Latest Score</th><th>Latest Status</th><th>Highest Completed Level</th></tr>
+      <tr><td>${report.stats.attempts}</td><td>${report.stats.avgScore}%</td><td>${report.stats.passRate}%</td><td>${report.stats.latestScore}%</td><td>${report.stats.latestStatus}</td><td>${escapeHTML(report.stats.highestCompletedLevel)}</td></tr>
+    </table>
+    <br/>
+    <h2>Per-Level Performance</h2>
+    <table border="1">
+      <tr><th>Level</th><th>Attempts</th><th>Average Score</th><th>Best Score</th><th>Latest Score</th><th>Status</th></tr>
+      ${levelTableRows}
+    </table>
+    <br/>
+    <h2>Assessment History</h2>
+    <table border="1">
+      <tr><th>Date</th><th>Level</th><th>Score</th><th>Stars Earned</th><th>Time Taken</th><th>Status</th></tr>
+      ${historyTableRows}
+    </table>
+    <br/>
+    <h2>Commonly Missed Signs</h2>
+    <table border="1">
+      <tr><th>Sign</th><th>Percent Incorrect</th></tr>
+      ${missedTableRows}
     </table>
   </body></html>`
 }
@@ -159,6 +339,7 @@ interface Level { level_id: string; level_name: string }
 
 export default function AdminReportsPage() {
   const [filters, setFilters] = useState<Filters>({ levelId: 'all', dateRange: '7', status: 'all' })
+  const [selectedLearnerId, setSelectedLearnerId] = useState('all')
   const [levels, setLevels] = useState<Level[]>([])
   const [data, setData] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -171,28 +352,12 @@ export default function AdminReportsPage() {
       .then((d) => setLevels(d.levels ?? []))
   }, [])
 
-  const loadReport = useCallback(() => {
-    setLoading(true)
-    const params = new URLSearchParams({
-      levelId: filters.levelId,
-      dateRange: filters.dateRange,
-      status: filters.status,
-    })
-    adminFetch(`/api/admin/reports?${params}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.error) throw new Error(d.error)
-        setData(d)
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false))
-  }, [filters])
-
   useEffect(() => {
     const params = new URLSearchParams({
       levelId: filters.levelId,
       dateRange: filters.dateRange,
       status: filters.status,
+      learnerId: selectedLearnerId,
     })
     Promise.resolve()
     .then(() => {
@@ -206,9 +371,12 @@ export default function AdminReportsPage() {
     })
     .catch((e) => setError(e.message))
     .finally(() => setLoading(false))
-  }, [filters]) 
+  }, [filters, selectedLearnerId]) 
   const setFilter = (key: keyof Filters, value: string) =>
     setFilters((prev) => ({ ...prev, [key]: value }))
+
+  const individualReport = data?.individualReport ?? null
+  const canExportIndividual = Boolean(individualReport && selectedLearnerId !== 'all')
 
   const handleExportCSV = () => {
     if (!data) return
@@ -220,6 +388,148 @@ export default function AdminReportsPage() {
     if (!data) return
     const html = toExcelHTML(data.levelPerformance, data.learnerPerformance)
     downloadFile(html, 'juansign-report.xls', 'application/vnd.ms-excel')
+  }
+
+  const handleIndividualCSV = () => {
+    if (!individualReport) return
+    const csv = toIndividualCSV(individualReport)
+    downloadFile(
+      csv,
+      `juansign-individual-report-${safeFilename(individualReport.learner.name)}.csv`,
+      'text/csv;charset=utf-8;'
+    )
+  }
+
+  const handleIndividualExcel = () => {
+    if (!individualReport) return
+    const html = toIndividualExcelHTML(individualReport)
+    downloadFile(
+      html,
+      `juansign-individual-report-${safeFilename(individualReport.learner.name)}.xls`,
+      'application/vnd.ms-excel'
+    )
+  }
+
+  const handleIndividualPDF = () => {
+    if (!individualReport) return
+
+    const levelLabel =
+      filters.levelId === 'all'
+        ? 'All levels'
+        : levels.find((l) => l.level_id === filters.levelId)?.level_name ?? 'Selected level'
+
+    const dateRangeMap: Record<string, string> = {
+      '7': 'Last 7 days',
+      '30': 'Last 30 days',
+      '90': 'Last 90 days',
+      all: 'All time',
+    }
+
+    const statusMap: Record<string, string> = {
+      all: 'All',
+      completed: 'Completed',
+      failed: 'Failed',
+    }
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(18)
+    doc.text('JuanSign Individual Performance Report', 40, 44)
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.text(`Generated: ${formatDateTime(new Date().toISOString())}`, 40, 62)
+    doc.text(
+      `Filters: Level ${levelLabel} | Date ${dateRangeMap[filters.dateRange] ?? filters.dateRange} | Status ${statusMap[filters.status] ?? filters.status}`,
+      40,
+      78
+    )
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.text('Learner', 40, 104)
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.text(`Name: ${individualReport.learner.name}`, 40, 122)
+    doc.text(`Email: ${individualReport.learner.email}`, 40, 138)
+    doc.text(`Current Level: ${individualReport.learner.currentLevel}`, 40, 154)
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.text('Summary', 40, 184)
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.text(`Attempts: ${individualReport.stats.attempts}`, 40, 202)
+    doc.text(`Average Score: ${individualReport.stats.avgScore}%`, 40, 218)
+    doc.text(`Pass Rate: ${individualReport.stats.passRate}%`, 220, 202)
+    doc.text(`Latest Score: ${individualReport.stats.latestScore}%`, 220, 218)
+    doc.text(`Latest Status: ${individualReport.stats.latestStatus}`, 390, 202)
+    doc.text(`Highest Completed Level: ${individualReport.stats.highestCompletedLevel}`, 390, 218)
+
+    autoTable(doc, {
+      startY: 242,
+      head: [['Level', 'Attempts', 'Average Score', 'Best Score', 'Latest Score', 'Status']],
+      body:
+        individualReport.levelPerformance.length > 0
+          ? individualReport.levelPerformance.map((row) => [
+              row.levelName,
+              row.attempts,
+              `${row.avgScore}%`,
+              `${row.bestScore}%`,
+              `${row.latestScore}%`,
+              row.status,
+            ])
+          : [['No data for selected filters.', '', '', '', '', '']],
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: { fillColor: [234, 224, 198], textColor: [93, 58, 26] },
+      margin: { left: 40, right: 40 },
+    })
+
+    let nextY = ((doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? 242) + 28
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.text('Assessment History', 40, nextY - 8)
+
+    autoTable(doc, {
+      startY: nextY,
+      head: [['Date', 'Level', 'Score', 'Stars', 'Time Taken', 'Status']],
+      body:
+        individualReport.assessmentHistory.length > 0
+          ? individualReport.assessmentHistory.map((row) => [
+              formatDateTime(row.attemptDate),
+              row.levelName,
+              `${row.score}%`,
+              row.starsEarned,
+              formatDuration(row.timeTakenSeconds),
+              row.status,
+            ])
+          : [['No data for selected filters.', '', '', '', '', '']],
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 4 },
+      headStyles: { fillColor: [234, 224, 198], textColor: [93, 58, 26] },
+      margin: { left: 40, right: 40 },
+    })
+
+    nextY = ((doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? nextY) + 26
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.text('Commonly Missed Signs', 40, nextY)
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    if (individualReport.commonlyMissed.length === 0) {
+      doc.text('No data available.', 40, nextY + 16)
+    } else {
+      individualReport.commonlyMissed.slice(0, 5).forEach((item, index) => {
+        doc.text(`- "${item.sign}" - ${item.percentIncorrect}% Incorrect`, 40, nextY + 16 + index * 14)
+      })
+    }
+
+    doc.save(`juansign-individual-report-${safeFilename(individualReport.learner.name)}.pdf`)
   }
 
   const handlePrintReport = () => {
@@ -369,7 +679,7 @@ export default function AdminReportsPage() {
     <div className="min-h-0 flex flex-col gap-3 sm:gap-4">
       {/* ── Filters ──────────────────────────────────────────────────── */}
       <div className="rounded-2xl p-2.5 sm:p-3 shrink-0" style={{ backgroundColor: 'transparent' }}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 sm:gap-3">
           {/* Level Selector */}
           <div>
             <p style={{ fontFamily: FONT, color: BROWN, fontSize: '0.74rem', marginBottom: '2px' }}>
@@ -417,6 +727,26 @@ export default function AdminReportsPage() {
               <option value="all">All</option>
               <option value="completed">Completed</option>
               <option value="failed">Failed</option>
+            </select>
+          </div>
+
+          {/* Learner Selector */}
+          <div>
+            <p style={{ fontFamily: FONT, color: BROWN, fontSize: '0.74rem', marginBottom: '2px' }}>
+              Learner Selector
+            </p>
+            <select
+              value={selectedLearnerId}
+              onChange={(e) => setSelectedLearnerId(e.target.value)}
+              style={INPUT_STYLE}
+              disabled={!data}
+            >
+              <option value="all">Select learner</option>
+              {(data?.learnerOptions ?? []).map((learner) => (
+                <option key={learner.authUserId} value={learner.authUserId}>
+                  {learner.name}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -640,6 +970,12 @@ export default function AdminReportsPage() {
               Export Options
             </h2>
             <div className="flex flex-col gap-3">
+              <p
+                className="font-semibold text-center"
+                style={{ fontFamily: FONT, color: BROWN, fontSize: '0.78rem' }}
+              >
+                Overall Report
+              </p>
               <button
                 onClick={handlePrintReport}
                 disabled={!data}
@@ -703,6 +1039,80 @@ export default function AdminReportsPage() {
                 }}
               >
                 Export Report As Excel
+              </button>
+
+              <div className="h-px my-1" style={{ backgroundColor: DIVIDER }} />
+              <p
+                className="font-semibold text-center"
+                style={{ fontFamily: FONT, color: BROWN, fontSize: '0.78rem' }}
+              >
+                Individual Report
+              </p>
+
+              <button
+                onClick={handleIndividualPDF}
+                disabled={!canExportIndividual}
+                className="w-full py-2.5 rounded-xl font-semibold transition-colors disabled:opacity-50"
+                style={{
+                  fontFamily: FONT,
+                  color: BROWN,
+                  fontSize: '0.95rem',
+                  backgroundColor: WHITE,
+                  border: `1.5px solid ${DIVIDER}`,
+                  cursor: canExportIndividual ? 'pointer' : 'not-allowed',
+                }}
+                onMouseEnter={(e) => {
+                  if (canExportIndividual) (e.currentTarget as HTMLButtonElement).style.backgroundColor = TAN_LIGHT
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = WHITE
+                }}
+              >
+                Export Individual PDF
+              </button>
+
+              <button
+                onClick={handleIndividualCSV}
+                disabled={!canExportIndividual}
+                className="w-full py-2.5 rounded-xl font-semibold transition-colors disabled:opacity-50"
+                style={{
+                  fontFamily: FONT,
+                  color: BROWN,
+                  fontSize: '0.95rem',
+                  backgroundColor: WHITE,
+                  border: `1.5px solid ${DIVIDER}`,
+                  cursor: canExportIndividual ? 'pointer' : 'not-allowed',
+                }}
+                onMouseEnter={(e) => {
+                  if (canExportIndividual) (e.currentTarget as HTMLButtonElement).style.backgroundColor = TAN_LIGHT
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = WHITE
+                }}
+              >
+                Export Individual CSV
+              </button>
+
+              <button
+                onClick={handleIndividualExcel}
+                disabled={!canExportIndividual}
+                className="w-full py-2.5 rounded-xl font-semibold transition-colors disabled:opacity-50"
+                style={{
+                  fontFamily: FONT,
+                  color: BROWN,
+                  fontSize: '0.95rem',
+                  backgroundColor: WHITE,
+                  border: `1.5px solid ${DIVIDER}`,
+                  cursor: canExportIndividual ? 'pointer' : 'not-allowed',
+                }}
+                onMouseEnter={(e) => {
+                  if (canExportIndividual) (e.currentTarget as HTMLButtonElement).style.backgroundColor = TAN_LIGHT
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = WHITE
+                }}
+              >
+                Export Individual Excel
               </button>
             </div>
           </div>

@@ -32,6 +32,10 @@ interface PredictionResult {
   confidence: number;
   is_correct: boolean;
   accuracy:   number;
+  top_predictions?: Array<{
+    sign: string;
+    confidence: number;
+  }>;
 }
 
 const WRONG_TIP_KEYS = [
@@ -47,7 +51,9 @@ const WRONG_TIP_KEYS = [
   'module.wrongTip9',
 ] as const
 
-function getRandomTipKey(): string {
+type WrongTipKey = (typeof WRONG_TIP_KEYS)[number]
+
+function getRandomTipKey(): WrongTipKey {
   return WRONG_TIP_KEYS[Math.floor(Math.random() * WRONG_TIP_KEYS.length)]
 }
 
@@ -137,7 +143,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
   const [recordingElapsed, setRecordingElapsed] = useState(0);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [countdownValue, setCountdownValue] = useState<number | null>(null)
-  const [wrongResult, setWrongResult] = useState<{ sign: string; tipKey: string } | null>(null)
+  const [wrongResult, setWrongResult] = useState<{ sign: string; tipKey: WrongTipKey } | null>(null)
 
   /* ── Start webcam on mount, stop tracks on unmount ────────────────────── */
   useEffect(() => {
@@ -359,7 +365,7 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
   const bubbleText = feedback
   ? feedback
   : wrongResult
-    ? `${t('module.notQuiteModelSaw')} "${wrongResult.sign}". ${t(wrongResult.tipKey as any)}`
+    ? `${t('module.notQuiteModelSaw')} "${wrongResult.sign}". ${t(wrongResult.tipKey)}`
     : isDone
       ? t('module.greatUpload')
       : `${t('module.showSignFor')} "${letter}"!`
@@ -427,9 +433,26 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
                 {predictionResult.is_correct ? t('module.correct') : t('module.tryAgain')}
               </p>
             
-              <p className="text-white/90 font-semibold text-4xl">
-                <span className="font-black">{predictionResult.sign}</span> - {Math.round((predictionResult.confidence ?? 0) * 100)}%
+              <p className="text-white/90 font-semibold text-2xl sm:text-4xl text-center px-4">
+                Predicted: <span className="font-black">{predictionResult.sign}</span> - {Math.round((predictionResult.confidence ?? 0) * 100)}%
               </p>
+              {predictionResult.top_predictions && predictionResult.top_predictions.length > 1 && (
+                <div className="flex flex-col items-center gap-1 px-4">
+                  <p className="text-white/80 font-bold text-base sm:text-xl">
+                    Close matches
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {predictionResult.top_predictions.slice(1, 3).map((prediction) => (
+                      <span
+                        key={`${prediction.sign}-${prediction.confidence}`}
+                        className="rounded-full bg-white/20 px-3 py-1 text-white font-bold text-sm sm:text-lg"
+                      >
+                        {prediction.sign} - {Math.round((prediction.confidence ?? 0) * 100)}%
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <button
                 onClick={() => setShowResultOverlay(false)}
                 className="mt-2 bg-white/20 hover:bg-white/30 text-white font-bold text-lg px-4 py-1.5 rounded-full transition-colors"

@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
-import { getAuthorizedAdmin } from '@/lib/adminAuth'
-
 async function getAuthorizedUser(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -51,6 +49,7 @@ export interface LevelPerformanceRow {
 }
 
 export interface LearnerPerformanceRow {
+  authUserId: string
   username: string
   currentLevel: string
   attempts: number
@@ -70,11 +69,58 @@ export interface ReportStats {
   highestLevel: string
 }
 
+export interface LearnerOption {
+  authUserId: string
+  name: string
+  email: string
+}
+
+export interface IndividualLevelPerformanceRow {
+  levelId: string
+  levelName: string
+  attempts: number
+  avgScore: number
+  bestScore: number
+  latestScore: number
+  status: 'Passed' | 'Failed'
+}
+
+export interface IndividualAssessmentHistoryRow {
+  attemptDate: string
+  levelName: string
+  score: number
+  starsEarned: number
+  timeTakenSeconds: number
+  status: 'Passed' | 'Failed'
+}
+
+export interface IndividualReport {
+  learner: {
+    authUserId: string
+    name: string
+    email: string
+    currentLevel: string
+  }
+  stats: {
+    attempts: number
+    avgScore: number
+    passRate: number
+    latestScore: number
+    latestStatus: 'Passed' | 'Failed' | 'N/A'
+    highestCompletedLevel: string
+  }
+  levelPerformance: IndividualLevelPerformanceRow[]
+  assessmentHistory: IndividualAssessmentHistoryRow[]
+  commonlyMissed: CommonlyMissedRow[]
+}
+
 export interface ReportData {
   stats: ReportStats
   levelPerformance: LevelPerformanceRow[]
   learnerPerformance: LearnerPerformanceRow[]
   commonlyMissed: CommonlyMissedRow[]
+  learnerOptions: LearnerOption[]
+  individualReport: IndividualReport | null
 }
 
 export async function GET(request: NextRequest) {
@@ -87,6 +133,7 @@ export async function GET(request: NextRequest) {
   const levelId = searchParams.get('levelId') ?? 'all'
   const dateRange = searchParams.get('dateRange') ?? 'all'
   const status = searchParams.get('status') ?? 'all'
+  const learnerId = searchParams.get('learnerId') ?? 'all'
 
   const since = dateFilter(dateRange)
 
@@ -94,7 +141,7 @@ export async function GET(request: NextRequest) {
     // ── Build base query for assessment_results ───────────────────────
     let query = supabaseAdmin
       .from('assessment_results')
-      .select('result_id, auth_user_id, level_id, score, is_passed, attempt_date')
+      .select('result_id, auth_user_id, level_id, score, stars_earned, time_taken_seconds, is_passed, attempt_date')
 
     if (levelId !== 'all') query = query.eq('level_id', levelId)
     if (since) query = query.gte('attempt_date', since)
@@ -110,11 +157,12 @@ export async function GET(request: NextRequest) {
       { data: profiles },
       { data: practiceSessions },
       { data: totalProfiles },
+      { data: { users: authUsers } },
     ] = await Promise.all([
       supabaseAdmin.from('levels').select('level_id, level_name'),
       supabaseAdmin
         .from('profiles')
-        .select('auth_user_id, username, first_name, last_name'),
+        .select('auth_user_id, username, first_name, last_name, role'),
       supabaseAdmin
         .from('practice_sessions')
         .select('auth_user_id, level_id, session_date, is_correct, target_sign')
@@ -122,9 +170,37 @@ export async function GET(request: NextRequest) {
       supabaseAdmin
         .from('profiles')
         .select('auth_user_id', { count: 'exact', head: false }),
+      supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
     ])
 
     const levelsMap = new Map((levels ?? []).map((l) => [l.level_id, l.level_name]))
+    const authEmailMap = new Map((authUsers ?? []).map((u) => [u.id, u.email ?? 'N/A']))
+
+    const getProfileName = (profile: {
+      username: string | null
+      first_name: string | null
+      last_name: string | null
+    } | undefined) =>
+      profile
+        ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() ||
+          profile.username ||
+          'Unknown'
+        : 'Unknown'
+
+    const getHighestCompletedLevel = (rows: typeof allResults) => {
+      const names = rows
+        .filter((r) => r.is_passed)
+        .map((r) => levelsMap.get(r.level_id) ?? '')
+        .filter(Boolean)
+
+      return names.length > 0
+        ? names.reduce((best, name) => {
+            const n = parseInt(name.replace(/\D/g, '')) || 0
+            const b = parseInt(best.replace(/\D/g, '')) || 0
+            return n > b ? name : best
+          }, names[0])
+        : 'N/A'
+    }
 
     // ── Stats ─────────────────────────────────────────────────────────
     const assessmentsTaken = allResults.length
@@ -141,18 +217,7 @@ export async function GET(request: NextRequest) {
       totalUsers > 0 ? Math.round((usersWithPass / totalUsers) * 100) : 0
 
     // Highest completed level — parse number from name, pick max
-    const passedLevelNames = allResults
-      .filter((r) => r.is_passed)
-      .map((r) => levelsMap.get(r.level_id) ?? '')
-      .filter(Boolean)
-    const highestLevel =
-      passedLevelNames.length > 0
-        ? passedLevelNames.reduce((best, name) => {
-            const n = parseInt(name.replace(/\D/g, '')) || 0
-            const b = parseInt(best.replace(/\D/g, '')) || 0
-            return n > b ? name : best
-          }, passedLevelNames[0])
-        : 'N/A'
+    const highestLevel = getHighestCompletedLevel(allResults)
 
     // ── Level Performance Table ───────────────────────────────────────
     const levelGroups = new Map<string, typeof allResults>()
@@ -211,11 +276,7 @@ export async function GET(request: NextRequest) {
       userResultsMap.entries()
     ).map(([userId, rows]) => {
       const profile = (profiles ?? []).find((p) => p.auth_user_id === userId)
-      const name =
-        profile
-          ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() ||
-            profile.username
-          : 'Unknown'
+      const name = getProfileName(profile)
       const sorted = [...rows].sort(
         (a, b) => new Date(b.attempt_date).getTime() - new Date(a.attempt_date).getTime()
       )
@@ -225,6 +286,7 @@ export async function GET(request: NextRequest) {
       const hasPassed = rows.some((r) => r.is_passed)
 
       return {
+        authUserId: userId,
         username: name,
         currentLevel,
         attempts: rows.length,
@@ -232,6 +294,15 @@ export async function GET(request: NextRequest) {
         status: hasPassed ? 'Passed' : 'Failed',
       }
     })
+
+    const learnerOptions: LearnerOption[] = (profiles ?? [])
+      .filter((profile) => profile.role === 'student')
+      .map((profile) => ({
+        authUserId: profile.auth_user_id,
+        name: getProfileName(profile),
+        email: authEmailMap.get(profile.auth_user_id) ?? 'N/A',
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
 
     // ── Commonly Missed Signs ─────────────────────────────────────────
     const missedMap = new Map<string, { total: number; incorrect: number }>()
@@ -258,11 +329,113 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.percentIncorrect - a.percentIncorrect)
       .slice(0, 5)
 
+    let individualReport: IndividualReport | null = null
+
+    if (learnerId !== 'all') {
+      const learnerProfile = (profiles ?? []).find((p) => p.auth_user_id === learnerId)
+      const learnerRows = allResults.filter((r) => r.auth_user_id === learnerId)
+      const sortedLearnerRows = [...learnerRows].sort(
+        (a, b) => new Date(b.attempt_date).getTime() - new Date(a.attempt_date).getTime()
+      )
+      const latest = sortedLearnerRows[0]
+      const passedRows = learnerRows.filter((r) => r.is_passed)
+      const avgScore =
+        learnerRows.length > 0
+          ? Math.round(learnerRows.reduce((sum, r) => sum + (r.score ?? 0), 0) / learnerRows.length)
+          : 0
+      const passRate =
+        learnerRows.length > 0 ? Math.round((passedRows.length / learnerRows.length) * 100) : 0
+
+      const learnerLevelGroups = new Map<string, typeof learnerRows>()
+      for (const row of learnerRows) {
+        const group = learnerLevelGroups.get(row.level_id) ?? []
+        group.push(row)
+        learnerLevelGroups.set(row.level_id, group)
+      }
+
+      const individualLevelPerformance: IndividualLevelPerformanceRow[] = Array.from(
+        learnerLevelGroups.entries()
+      )
+        .map(([lid, rows]) => {
+          const sortedRows = [...rows].sort(
+            (a, b) => new Date(b.attempt_date).getTime() - new Date(a.attempt_date).getTime()
+          )
+          const latestRow = sortedRows[0]
+          const scores = rows.map((r) => r.score ?? 0)
+
+          return {
+            levelId: lid,
+            levelName: levelsMap.get(lid) ?? 'Unknown',
+            attempts: rows.length,
+            avgScore: Math.round(scores.reduce((sum, score) => sum + score, 0) / rows.length),
+            bestScore: Math.max(...scores),
+            latestScore: latestRow.score ?? 0,
+            status: rows.some((r) => r.is_passed) ? 'Passed' as const : 'Failed' as const,
+          }
+        })
+        .sort((a, b) => a.levelName.localeCompare(b.levelName))
+
+      const assessmentHistory: IndividualAssessmentHistoryRow[] = sortedLearnerRows.map((row) => ({
+        attemptDate: row.attempt_date,
+        levelName: levelsMap.get(row.level_id) ?? 'Unknown',
+        score: row.score ?? 0,
+        starsEarned: row.stars_earned ?? 0,
+        timeTakenSeconds: row.time_taken_seconds ?? 0,
+        status: row.is_passed ? 'Passed' : 'Failed',
+      }))
+
+      const individualMissedMap = new Map<string, { total: number; incorrect: number }>()
+      for (const session of practiceSessions ?? []) {
+        if (session.auth_user_id !== learnerId) continue
+        if (levelId !== 'all' && session.level_id !== levelId) continue
+        if (since && new Date(session.session_date) < new Date(since)) continue
+        if (!session.target_sign || session.target_sign.trim() === '') continue
+        if (session.is_correct === null || session.is_correct === undefined) continue
+
+        const sign = session.target_sign.trim()
+        const entry = individualMissedMap.get(sign) ?? { total: 0, incorrect: 0 }
+        entry.total += 1
+        if (!session.is_correct) entry.incorrect += 1
+        individualMissedMap.set(sign, entry)
+      }
+
+      const individualCommonlyMissed: CommonlyMissedRow[] = Array.from(individualMissedMap.entries())
+        .map(([sign, { total, incorrect }]) => ({
+          sign,
+          percentIncorrect: total > 0 ? Math.round((incorrect / total) * 100) : 0,
+        }))
+        .filter((r) => r.percentIncorrect > 0)
+        .sort((a, b) => b.percentIncorrect - a.percentIncorrect)
+        .slice(0, 5)
+
+      individualReport = {
+        learner: {
+          authUserId: learnerId,
+          name: getProfileName(learnerProfile),
+          email: authEmailMap.get(learnerId) ?? 'N/A',
+          currentLevel: latest ? levelsMap.get(latest.level_id) ?? 'N/A' : 'N/A',
+        },
+        stats: {
+          attempts: learnerRows.length,
+          avgScore,
+          passRate,
+          latestScore: latest?.score ?? 0,
+          latestStatus: latest ? (latest.is_passed ? 'Passed' : 'Failed') : 'N/A',
+          highestCompletedLevel: getHighestCompletedLevel(learnerRows),
+        },
+        levelPerformance: individualLevelPerformance,
+        assessmentHistory,
+        commonlyMissed: individualCommonlyMissed,
+      }
+    }
+
     const data: ReportData = {
       stats: { assessmentsTaken, avgAccuracy, completionRate, highestLevel },
       levelPerformance,
       learnerPerformance,
       commonlyMissed,
+      learnerOptions,
+      individualReport,
     }
 
     return NextResponse.json(data)

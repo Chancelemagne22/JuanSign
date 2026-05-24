@@ -374,6 +374,15 @@ class JuanSignInference:
                 conf, idx = torch.max(probs, dim=0)
                 sign = self.class_names_cache[category][idx.item()]
                 confidence = round(conf.item(), 4)
+                top_count = min(3, probs.numel())
+                top_confidences, top_indices = torch.topk(probs, k=top_count)
+                top_predictions = [
+                    {
+                        "sign": self.class_names_cache[category][class_idx.item()],
+                        "confidence": round(score.item(), 4),
+                    }
+                    for score, class_idx in zip(top_confidences, top_indices)
+                ]
 
             # 6. DB Log
             target = request.get("expected_sign", "")
@@ -397,7 +406,8 @@ class JuanSignInference:
                 "confidence": confidence,
                 "is_correct": is_correct,
                 "accuracy": confidence,
-                "category": category
+                "category": category,
+                "top_predictions": top_predictions
             })
 
         except Exception as e:
