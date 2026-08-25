@@ -128,7 +128,7 @@ class LandmarkEncoder(nn.Module):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FUSION + TEMPORAL CLASSIFIER (ResNet50 + BiLSTM)
+# FUSION + TEMPORAL CLASSIFIER (ResNet50 + LSTM)
 # ══════════════════════════════════════════════════════════════════════════════
 
 class ResNetLSTM(nn.Module):
@@ -198,7 +198,7 @@ class ResNetLSTM(nn.Module):
     def count_parameters(self):
         total = sum(p.numel() for p in self.parameters())
         trainable = sum(p.numel() for p in self.parameters() if p.requires_grad)
-        print(f"\n── ResNet50-BiLSTM V2.2 Stats ───────────────────")
+        print(f"\n── ResNet50-LSTM V2.2 Stats ───────────────────")
         print(f"   Total Parameters     : {total:,}")
         print(f"   Trainable Parameters : {trainable:,}")
         print(f"────────────────────────────────────────────────\n")

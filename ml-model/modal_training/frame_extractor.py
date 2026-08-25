@@ -330,7 +330,7 @@ def run_extraction():
         split_output = os.path.join(OUTPUT_BASE, split)
         if not os.path.exists(split_input): continue
 
-        letters = [d for d in os.listdir(split_input) if d in ["what", "when", "where", "who", "why"]]
+        letters = [d for d in os.listdir(split_input) if d in ["good_afternoon", "good_evening", "good_midday", "good_morning", "good_night"]]
         
         for letter in sorted(letters):
             letter_in  = os.path.join(split_input, letter)

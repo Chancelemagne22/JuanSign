@@ -1,5 +1,5 @@
 # ml-model/src/train_main.py
-# JuanSign V2.2 — ResNet50 + BiLSTM | Full Automated Testing Suite
+# JuanSign V2.2 — ResNet50 + LSTM | Full Automated Testing Suite
 
 import os
 import json
@@ -29,14 +29,14 @@ from sklearn.metrics import classification_report
 from fvcore.nn import FlopCountAnalysis, parameter_count_table
 from torchinfo import summary as torchinfo_summary
 
-from fsl_datasets import FSLDataset, collate_fn
+from fsl_datasets import FSLDataset, load_dataset, collate_fn
 
 from resnet_lstm_architecture import ResNetLSTM
 
 # ── CONFIG ───────────────────────────────────────────────────────────────────
 IS_MODAL = "MODAL_RUN" in os.environ
 
-CLASS_NAMES = ["what", "when", "where", "who", "why"]
+CLASS_NAMES = ["good_afternoon","good_evening","good_midday","good_morning","good_night"]
 NUM_CLASSES = len(CLASS_NAMES)
 
 if IS_MODAL:
@@ -116,6 +116,7 @@ def check_gradient_flow(model, epoch):
         if param.grad is not None:
             group = name.split(".")[0]
             grad_norms.setdefault(group, []).append(param.grad.norm().item())
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # LSTM GATE ACTIVATION TEST
@@ -200,18 +201,21 @@ def train_one_epoch(model, loader, criterion, optimizer, scaler, device, epoch,
         total_samples += frames.size(0)
         return frames[:1].detach(), landmarks[:1].detach()
 
-    if run_profiler:
-        print("  🔍 Running torch.profiler on this epoch...")
-        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-                     record_shapes=True, with_flops=True) as prof:
+    if run_profiler and not IS_MODAL:
+        # Profiler only runs locally — CUPTI unavailable on Modal causes OOM
+        print("  🔍 Running torch.profiler (local only)...")
+        with profile(activities=[ProfilerActivity.CPU],
+                     record_shapes=False, with_flops=False) as prof:
             for frames, landmarks, labels in loader:
                 with record_function("forward_backward"):
                     last_batch_frames, last_batch_lms = _run_batch(frames, landmarks, labels)
         profile_path = os.path.join(RESULTS_DIR, "profiler_report.txt")
         with open(profile_path, "w") as pf:
-            pf.write(prof.key_averages().table(sort_by="cuda_time_total", row_limit=20))
-        print(f"  Profiler report saved → {profile_path}")
+            pf.write(prof.key_averages().table(sort_by="cpu_time_total", row_limit=20))
+        print(f"  Profiler report saved -> {profile_path}")
     else:
+        if run_profiler and IS_MODAL:
+            print("  Profiler skipped on Modal (CUPTI unavailable - would cause OOM).")
         for frames, landmarks, labels in loader:
             last_batch_frames, last_batch_lms = _run_batch(frames, landmarks, labels)
 
@@ -267,7 +271,7 @@ def run_test_evaluation(model, criterion, device, class_names):
         print(f"  ⚠️ {test_path} not found. Skipping test evaluation.")
         return
 
-    test_ds     = FSLDataset(test_path, augment=False)
+    test_ds     = load_dataset(FRAME_ROOT, "testing", augment=False)
     test_loader = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_fn)
 
     model.eval()
@@ -398,13 +402,15 @@ def train():
     print(f"--- Dataset: {FRAME_ROOT} | Batch Size: {BATCH_SIZE} ---")
 
     # ── Data ──────────────────────────────────────────────────────────────────
-    train_ds = FSLDataset(os.path.join(FRAME_ROOT, "training"),   augment=True)
-    val_ds   = FSLDataset(os.path.join(FRAME_ROOT, "validation"), augment=False)
+    train_ds = load_dataset(FRAME_ROOT, "training",   augment=True)
+    val_ds   = load_dataset(FRAME_ROOT, "validation", augment=False)
 
     train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True,
-                              collate_fn=collate_fn, pin_memory=True)
+                              collate_fn=collate_fn, pin_memory=True,
+                              num_workers=2, persistent_workers=True)
     val_loader   = DataLoader(val_ds,   batch_size=BATCH_SIZE, shuffle=False,
-                              collate_fn=collate_fn)
+                              collate_fn=collate_fn,
+                              num_workers=2, persistent_workers=True)
 
     # ── Model ─────────────────────────────────────────────────────────────────
     model  = ResNetLSTM(num_classes=NUM_CLASSES).to(device)
@@ -454,9 +460,11 @@ def train():
             ])
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=3)
             train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE_UNFREEZE, shuffle=True,
-                                      collate_fn=collate_fn, pin_memory=True)
+                                      collate_fn=collate_fn, pin_memory=True,
+                                      num_workers=2, persistent_workers=True)
             val_loader   = DataLoader(val_ds,   batch_size=BATCH_SIZE_UNFREEZE, shuffle=False,
-                                      collate_fn=collate_fn)
+                                      collate_fn=collate_fn,
+                                      num_workers=2, persistent_workers=True)
             print(f"\n--- ResNet50 Unfrozen | Batch size → {BATCH_SIZE_UNFREEZE} ---")
 
         # ── Train ─────────────────────────────────────────────────────────────
@@ -487,6 +495,7 @@ def train():
         writer.add_scalars("Accuracy", {"train": train_acc,  "val": val_acc},  epoch)
         writer.add_scalars("Loss",     {"train": train_loss, "val": val_loss}, epoch)
         writer.add_scalars("F1",       {"train": train_f1,   "val": val_f1},   epoch)
+
 
         # ── History ───────────────────────────────────────────────────────────
         history["train_loss"].append(round(train_loss, 6))

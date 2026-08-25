@@ -1,8 +1,16 @@
-node_modules
-venv
-# __pycache__
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Node
+node_modules/
+.next/
+
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -10,9 +18,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Build outputs
+dist/
+dist-ssr/
 *.local
 
 # Editor directories and files
@@ -25,13 +33,57 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ML Model - Data and Cache
+ml-model/unprocessed_input/
+ml-model/category_models/
+ml-model/frame_extracted/
+ml-model/juansignmodel/
+ml-model/dataset.zip
+ml-model/training/
+ml-model/results/
+ml-model/runs/
+ml-model/category_model*.pth
+
+# ML Model - Processed data
 processed_output.zip
-processed_output
-unprocessed_input
-gradcam_videos
-raw_data
-new_sample
-juansignmodel
-MDS
-supabase
-./ml-model/category_model*.pth
+processed_output/
+gradcam_videos/
+raw_data/
+new_sample/
+
+# ML Model - Non-essential files
+ml-model/check.py
+ml-model/colab_juansign.ipynb
+ml-model/envprocess.txt
+ml-model/extraction_progress.txt
+ml-model/file_structure.json
+ml-model/session_log.csv
+ml-model/evaluation_results.png
+ml-model/final_confusion_matrix.png
+ml-model/gradcam_output.png
+ml-model/blaze_face_short_range.tflite
+ml-model/hand_landmarker.task
+
+# ML Model - Legacy source (superseded by modal_training)
+ml-model/juansignsrc/
+
+# Visualizations
+model_visual/
+
+# Project documentation
+QUESTION_ORDER_SYNC_FIX.md
+command_to_download.txt
+
+# Supabase
+supabase/
+
+# Front-end build
+front-end/.next/
+front-end/node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+ml-model/modal_training/__pycache__/modal_run.cpython-312.pyc

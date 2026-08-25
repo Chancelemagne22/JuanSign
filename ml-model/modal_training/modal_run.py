@@ -77,6 +77,33 @@ def extract_on_cloud():
     vol.commit()
     print("✅ Extraction complete.")
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 1.5 — DATASET CACHING (run once after extraction)
+# Converts 42,500 individual file reads per epoch → 1 file read per clip
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.function(
+    image=image,
+    cpu=4,
+    memory=16384,   # 16 GB RAM — holds all tensors during build
+    volumes={"/data": vol},
+    timeout=10800,
+)
+def cache_on_cloud():
+    os.chdir("/root")
+    sys.path.insert(0, "/root")
+    os.environ["MODAL_RUN"] = "1"
+
+    if not os.path.exists("/data/processed_output"):
+        print("❌ ERROR: Run extraction first.")
+        return
+
+    from cache_dataset import run_cache
+    run_cache()
+    vol.commit()
+    print("✅ Cache saved to Volume.")
+
 # ══════════════════════════════════════════════════════════════════════════════
 # STEP 2 — TRAINING
 # ══════════════════════════════════════════════════════════════════════════════
@@ -112,47 +139,80 @@ def train_on_cloud():
         vol.commit()
         print("✅ Results committed.")
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FULL PIPELINE — Cache + Train in one cloud function
+# This is the recommended way to run long jobs — no local client needed
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.function(
+    image=image,
+    gpu="A10G",
+    memory=16384,
+    volumes={"/data": vol},
+    timeout=28800,   # 8 hours total
+)
+def pipeline_on_cloud():
+    os.chdir("/root")
+    sys.path.insert(0, "/root")
+    os.environ["MODAL_RUN"] = "1"
+
+    if not os.path.exists("/data/processed_output"):
+        print("❌ ERROR: Run extraction first.")
+        return
+
+    # Step 1 — Cache (if not already done)
+    cache_path = "/data/cache/training.pt"
+    if not os.path.exists(cache_path):
+        print("📦 Building dataset cache...")
+        from cache_dataset import run_cache
+        run_cache()
+        vol.commit()
+        print("✅ Cache complete.")
+    else:
+        print("✅ Cache already exists, skipping.")
+
+    # Step 2 — Train
+    print("🚀 Starting training...")
+    from train_main import train
+    try:
+        train()
+    except Exception as e:
+        print(f"💥 Training crashed: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        print("💾 Committing results...")
+        vol.commit()
+        print("✅ Done.")
+
 # ══════════════════════════════════════════════════════════════════════════════
 # LOCAL ENTRYPOINTS
-# Use .spawn() for detached/background work (per Modal best practices)
-# Example: modal run modal_run.py::train --detach
+# Use --detach flag when running: modal run --detach modal_run.py::train
 # ══════════════════════════════════════════════════════════════════════════════
+
+@app.local_entrypoint()
+def pipeline():
+    """Cache + Train in one shot  →  modal run --detach modal_run.py::pipeline"""
+    pipeline_on_cloud.remote()
 
 @app.local_entrypoint()
 def extract():
-    """
-    Extraction only.
-    Invoke with: modal run modal_run.py::extract --detach
-    Monitor with: modal app logs juansign-v2-2-training
-    """
-    extract_on_cloud.spawn()
-    print("✅ Extraction spawned in Modal cloud.")
-    print("   Invoke with: modal run modal_run.py::extract --detach")
-    print("   Monitor: modal app logs juansign-v2-2-training")
+    """Extraction only  →  modal run --detach modal_run.py::extract"""
+    extract_on_cloud.remote()
+
+@app.local_entrypoint()
+def cache():
+    """Cache dataset  →  modal run --detach modal_run.py::cache"""
+    cache_on_cloud.remote()
 
 @app.local_entrypoint()
 def train():
-    """
-    Training only.
-    Invoke with: modal run modal_run.py::train --detach
-    Monitor with: modal app logs juansign-v2-2-training
-    """
-    train_on_cloud.spawn()
-    print("✅ Training spawned in Modal cloud.")
-    print("   Invoke with: modal run modal_run.py::train --detach")
-    print("   Monitor: modal app logs juansign-v2-2-training")
+    """Training only  →  modal run --detach modal_run.py::train"""
+    train_on_cloud.remote()
 
 @app.local_entrypoint()
 def main():
-    """
-    Full pipeline (extraction + training).
-    Invoke with: modal run modal_run.py --detach
-    Monitor with: modal app logs juansign-v2-2-training
-    """
-    extract_on_cloud.spawn()
-    print("✅ Extraction spawned.")
-    train_on_cloud.spawn()
-    print("✅ Training spawned.")
-    print("   Both jobs running in Modal cloud.")
-    print("   Invoke with: modal run modal_run.py --detach")
-    print("   Monitor: modal app logs juansign-v2-2-training")
+    """Full pipeline  →  modal run --detach modal_run.py"""
+    extract_on_cloud.remote()
+    train_on_cloud.remote()
