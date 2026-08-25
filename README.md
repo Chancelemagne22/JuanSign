@@ -72,12 +72,6 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    -- Creates admin invite system and RPC functions
    ```
 
-5. Run the question ordering migration:
-
-   ```sql
-   -- Run: front-end/supabase/ADD_QUESTION_ORDER.sql
-   -- Adds question_order column for drag-and-drop sorting
-   ```
 
 > **Note:** The main schema (`juansign_database.sql`) includes Row Level Security (RLS) policies. Make sure your Supabase project has auth enabled.
 
