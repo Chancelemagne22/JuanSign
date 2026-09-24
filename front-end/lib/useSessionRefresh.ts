@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 /**
  * useSessionRefresh
@@ -22,12 +23,12 @@ export function useSessionRefresh() {
         // Attempt to refresh the JWT token
         const { data: refreshedSession, error } = await supabase.auth.refreshSession();
         if (error) {
-          console.warn('[useSessionRefresh] Failed to refresh session:', error.message);
+          logger.warn('session', 'refresh_failed', { reason: error.message });
         } else {
-          console.log('[useSessionRefresh] Session refreshed successfully');
+          logger.debug('session', 'refreshed');
         }
       } catch (err) {
-        console.error('[useSessionRefresh] Unexpected error:', err);
+        logger.error('session', 'refresh_error', { reason: err instanceof Error ? err.message : String(err) });
       }
     }
 
@@ -38,9 +39,9 @@ export function useSessionRefresh() {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'TOKEN_REFRESHED') {
-          console.log('[useSessionRefresh] Token automatically refreshed by Supabase SDK');
+          logger.debug('session', 'token_refreshed');
         } else if (event === 'SIGNED_OUT') {
-          console.log('[useSessionRefresh] User signed out');
+          logger.debug('session', 'signed_out');
         }
       }
     );

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
+import { logger } from '@/lib/logger'
 
 type QuestionType = 'identify' | 'perform'
 
@@ -49,7 +50,7 @@ async function queryAssessmentQuestions(levelId: string, status: string) {
   }
 
   const buildQueryWithIsActive = () => {
-    let query = supabaseAdmin
+    const query = supabaseAdmin
       .from('assessment_questions')
       .select(QUESTION_COLS)
       .eq('level_id', levelId)
@@ -123,7 +124,7 @@ export async function GET(request: NextRequest) {
       questions,
     })
   } catch (err) {
-    console.error('[assessment/questions GET]', err)
+    logger.error('assessment/questions', 'get_failed', { reason: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: 'Failed to fetch assessment questions' }, { status: 500 })
   }
 }

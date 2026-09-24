@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { logger } from '@/lib/logger'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -23,7 +24,11 @@ export async function middleware(request: NextRequest) {
   )
 
   // Handle /admin/* routes (Supabase auth + admin table check)
-  if (pathname.startsWith('/admin/')) {
+  // V-3 fix: also cover bare /admin (matcher alone never sent it here before)
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    // NOTE: bare /admin must run the same auth check below (it renders
+    // app/admin/(protected)/page.tsx for signed-in admins). Do NOT blanket-
+    // redirect it to /admin/login — that creates a post-login loop.
     // Allow /admin/setup without auth (public invite page)
     if (pathname === '/admin/setup') {
       return response
@@ -34,8 +39,8 @@ export async function middleware(request: NextRequest) {
       return response
     }
 
-    // For protected admin routes, check Supabase session and admin role in profiles
-    if (pathname.startsWith('/admin/')) {
+    // For protected admin routes (including bare /admin), check session + role.
+    {
       try {
         const { data: { user }, error: userError } = await supabase.auth.getUser()
 
@@ -44,9 +49,10 @@ export async function middleware(request: NextRequest) {
         }
 
         // Check if user has admin or super_admin role in profiles table
+        // V-8: disabled/archived accounts are bounced on their next request.
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, is_active, is_archived')
           .eq('auth_user_id', user.id)
           .single()
 
@@ -54,56 +60,55 @@ export async function middleware(request: NextRequest) {
           // User is authenticated but not an admin
           return NextResponse.redirect(new URL('/admin/login', request.url))
         }
+
+        if (profile.is_active === false || profile.is_archived === true) {
+          return NextResponse.redirect(new URL('/admin/login', request.url))
+        }
       } catch (error) {
-        console.error('Admin middleware error:', error)
+        logger.error('middleware', 'admin_check_failed', { reason: error instanceof Error ? error.message : String(error) })
         return NextResponse.redirect(new URL('/admin/login', request.url))
       }
     }
   }
 
   // Handle /super-admin/* routes (Supabase role-based auth)
-  if (pathname.startsWith('/super-admin/')) {
-    console.log('[Middleware] Checking super-admin route:', pathname)
+  // V-3 fix: also cover bare /super-admin
+  if (pathname === '/super-admin' || pathname.startsWith('/super-admin/')) {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser()
-      
-      console.log('[Middleware] Auth user:', user?.id, 'Error:', userError?.message)
-      
+
       if (!user || userError) {
-        console.log('[Middleware] No user found, redirecting to /admin/login')
         return NextResponse.redirect(new URL('/admin/login', request.url))
       }
 
       // Check user role in profiles table
+      // V-8: disabled/archived accounts are bounced on their next request.
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, is_active, is_archived')
         .eq('auth_user_id', user.id)
         .single()
 
-      console.log('[Middleware] Profile query - Data:', profile, 'Error:', profileError?.message)
-
       if (!profile?.role) {
-        console.log('[Middleware] No profile or role found, redirecting to /dashboard')
         return NextResponse.redirect(new URL('/dashboard', request.url))
       }
 
-      console.log('[Middleware] User role:', profile.role, '| Required: super_admin | Match:', profile.role === 'super_admin')
+      if (profile.is_active === false || profile.is_archived === true) {
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+      }
 
       if (profile.role !== 'super_admin') {
-        console.log('[Middleware] Role mismatch - redirecting to /dashboard')
         return NextResponse.redirect(new URL('/dashboard', request.url))
       }
-
-      console.log('[Middleware] Authorization passed, allowing access')
     } catch (error) {
-      console.error('[Middleware] Super-admin middleware error:', error)
+      logger.error('middleware', 'super_admin_check_failed', { reason: error instanceof Error ? error.message : String(error) })
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
 
   // Handle /dashboard/* routes (student auth - check profiles table)
-  if (pathname.startsWith('/dashboard/')) {
+  // V-3 fix: also cover bare /dashboard (previously client-AuthGuard only → flash/bypass)
+  if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser()
 
@@ -112,17 +117,22 @@ export async function middleware(request: NextRequest) {
       }
 
       // Make sure user has a profile (is a student, not admin)
+      // V-8: disabled/archived students are bounced on their next request.
       const { data: profile } = await supabase
         .from('profiles')
-        .select('profile_id')
+        .select('profile_id, is_active, is_archived')
         .eq('auth_user_id', user.id)
         .single()
 
       if (!profile) {
         return NextResponse.redirect(new URL('/', request.url))
       }
+
+      if (profile.is_active === false || profile.is_archived === true) {
+        return NextResponse.redirect(new URL('/', request.url))
+      }
     } catch (error) {
-      console.error('Dashboard middleware error:', error)
+      logger.error('middleware', 'dashboard_check_failed', { reason: error instanceof Error ? error.message : String(error) })
       return NextResponse.redirect(new URL('/', request.url))
     }
   }
@@ -131,5 +141,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/dashboard/:path*', '/super-admin/:path*'],
+  matcher: ['/admin', '/admin/:path*', '/dashboard', '/dashboard/:path*', '/super-admin', '/super-admin/:path*'],
 }

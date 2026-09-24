@@ -1,42 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
+// V-6: single source of truth (role + disabled/archived enforcement lives there).
 import { getAuthorizedAdmin } from '@/lib/adminAuth'
-
-async function getAuthorizedUser(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null
-  }
-
-  const token = authHeader.substring(7)
-  const { data: user, error: authError } = await supabaseAdmin.auth.getUser(token)
-
-  if (authError || !user || !user.user) {
-    return null
-  }
-
-  const userId = user.user.id
-  
-  if (!userId) {
-    return null
-  }
-
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('auth_user_id', userId)
-    .single()
-
-  if (profileError || !profile || !['admin', 'super_admin'].includes(profile.role)) {
-    return null
-  }
-
-  return user
-}
 
 // GET /api/admin/settings — health check + system info
 export async function GET(request: NextRequest) {
-  const user = await getAuthorizedUser(request)
+  const user = await getAuthorizedAdmin(request)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -76,7 +45,7 @@ export async function GET(request: NextRequest) {
 
 // POST /api/admin/settings — validate current password for change operations
 export async function POST(request: NextRequest) {
-  const user = await getAuthorizedUser(request)
+  const user = await getAuthorizedAdmin(request)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

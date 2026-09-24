@@ -182,6 +182,8 @@ export const translations = {
       levelLabel: 'Level {{number}}',
       previousAria: 'Previous',
       nextAria: 'Next',
+      back: 'Back',
+      next: 'Next',
     },
     identifyView: {
       questionLabel: 'Question {{current}} / {{total}}',
@@ -298,6 +300,8 @@ export const translations = {
       wrongTip7: 'Avoid wearing gloves or accessories that cover your hand.',
       wrongTip8: 'Try moving slightly closer or farther from the camera.',
       wrongTip9: 'Make sure your wrist and fingers are both in frame.',
+      predicted: 'Predicted',
+      closeMatches: 'Close matches',
     },
   },
   tl: {
@@ -483,6 +487,8 @@ export const translations = {
       levelLabel: 'Antas {{number}}',
       previousAria: 'Nakaraang',
       nextAria: 'Susunod',
+      back: 'Bumalik',
+      next: 'Susunod',
     },
     identifyView: {
       questionLabel: 'Tanong {{current}} / {{total}}',
@@ -599,6 +605,8 @@ export const translations = {
       wrongTip7: 'Iwasang magsuot ng guwantes o alahas na nagtatakip ng kamay.',
       wrongTip8: 'Subukang lumayo o lumapit nang kaunti sa camera.',
       wrongTip9: 'Siguraduhing nakikita ang iyong pulso at mga daliri sa frame.',
+      predicted: 'Nahulaan',
+      closeMatches: 'Malalapit na hula',
     },
   },
 } as const;

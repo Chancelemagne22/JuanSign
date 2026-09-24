@@ -226,7 +226,6 @@ function LessonForm({
   const [error, setError] = useState('')
 
   useEffect(() => {
-    console.log('[LessonForm] Received lesson prop:', { isNew, lesson_id: lesson.lesson_id, lesson_title: lesson.lesson_title, lesson_order: lesson.lesson_order, orderType: typeof lesson.lesson_order })
     setForm(lesson)
   }, [
     lesson.lesson_id,
@@ -242,7 +241,6 @@ function LessonForm({
   const set = (k: string, v: string | number) => setForm(prev => ({ ...prev, [k]: v }))
 
   const handleVideoSelect = (selectedFilename: string) => {
-    console.log("niight")
     const fullUrl = getLessonVideoUrl(selectedFilename)
     set('video_url', fullUrl)
   }

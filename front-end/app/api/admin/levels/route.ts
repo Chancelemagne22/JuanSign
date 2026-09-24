@@ -1,42 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
+import { logger } from '@/lib/logger'
+// V-6: single source of truth (role + disabled/archived enforcement lives there).
 import { getAuthorizedAdmin } from '@/lib/adminAuth'
-
-async function getAuthorizedUser(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null
-  }
-
-  const token = authHeader.substring(7)
-  const { data: user, error: authError } = await supabaseAdmin.auth.getUser(token)
-
-  if (authError || !user || !user.user) {
-    return null
-  }
-
-  const userId = user.user.id
-  
-  if (!userId) {
-    return null
-  }
-
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('auth_user_id', userId)
-    .single()
-
-  if (profileError || !profile || !['admin', 'super_admin'].includes(profile.role)) {
-    return null
-  }
-
-  return user
-}
 
 // POST /api/admin/levels — create a new empty level
 export async function POST(request: NextRequest) {
-  const user = await getAuthorizedUser(request)
+  const user = await getAuthorizedAdmin(request)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -67,14 +37,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ level: data })
   } catch (err) {
-    console.error('[admin/levels POST]', err)
+    logger.error('admin/levels', 'create_failed', { reason: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: 'Failed to create level' }, { status: 500 })
   }
 }
 
 // PUT /api/admin/levels — update an existing level title and/or sequence order
 export async function PUT(request: NextRequest) {
-  const user = await getAuthorizedUser(request)
+  const user = await getAuthorizedAdmin(request)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -107,14 +77,14 @@ export async function PUT(request: NextRequest) {
     if (error) throw error
     return NextResponse.json({ level: data })
   } catch (err) {
-    console.error('[admin/levels PUT]', err)
+    logger.error('admin/levels', 'update_failed', { reason: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: 'Failed to update level' }, { status: 500 })
   }
 }
 
 // DELETE /api/admin/levels — remove a level
 export async function DELETE(request: NextRequest) {
-  const user = await getAuthorizedUser(request)
+  const user = await getAuthorizedAdmin(request)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -133,7 +103,7 @@ export async function DELETE(request: NextRequest) {
     if (error) throw error
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error('[admin/levels DELETE]', err)
+    logger.error('admin/levels', 'delete_failed', { reason: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: 'Failed to delete level' }, { status: 500 })
   }
 }

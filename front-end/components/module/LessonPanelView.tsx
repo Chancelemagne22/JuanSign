@@ -326,7 +326,7 @@ export default function LessonPanelView({
               disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-[0_3px_0_#b86a00]
             "
           >
-            <span>Back</span>
+            <span>{t('lessonView.back')}</span>
           </button>
 
           {/* Next / Finish button */}
@@ -343,7 +343,7 @@ export default function LessonPanelView({
               transition-transform hover:brightness-110
             "
           >
-            {nextLabel ? nextLabel : <span>Next</span>}
+            {nextLabel ? nextLabel : <span>{t('lessonView.next')}</span>}
           </button>
         </div>
       </div>

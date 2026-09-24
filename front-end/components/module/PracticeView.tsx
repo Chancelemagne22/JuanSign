@@ -434,12 +434,12 @@ export default function PracticeView({ letter, letterIndex, totalLetters, levelI
               </p>
             
               <p className="text-white/90 font-semibold text-2xl sm:text-4xl text-center px-4">
-                Predicted: <span className="font-black">{predictionResult.sign}</span> - {Math.round((predictionResult.confidence ?? 0) * 100)}%
+                {t('module.predicted')}: <span className="font-black">{predictionResult.sign}</span> - {Math.round((predictionResult.confidence ?? 0) * 100)}%
               </p>
               {predictionResult.top_predictions && predictionResult.top_predictions.length > 1 && (
                 <div className="flex flex-col items-center gap-1 px-4">
                   <p className="text-white/80 font-bold text-base sm:text-xl">
-                    Close matches
+                    {t('module.closeMatches')}
                   </p>
                   <div className="flex flex-wrap justify-center gap-2">
                     {predictionResult.top_predictions.slice(1, 3).map((prediction) => (

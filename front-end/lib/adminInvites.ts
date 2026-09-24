@@ -3,13 +3,18 @@ import { supabaseAdmin } from './supabase-server'
 
 /**
  * Generate a random alphanumeric invite code
- * Format: 8 characters (A-Z, 0-9)
+ * Format: 16 characters (A-Z, 0-9) from a CSPRNG (~82 bits).
+ *
+ * V-10: was 8 chars via Math.random (~41 bits, predictable PRNG) — enumerable
+ * through the public validate-invite oracle. crypto + 16 chars closes that.
  */
 export function generateInviteCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  const bytes = new Uint8Array(16)
+  globalThis.crypto.getRandomValues(bytes)
   let code = ''
-  for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length))
+  for (let i = 0; i < bytes.length; i++) {
+    code += chars.charAt(bytes[i]! % chars.length)
   }
   return code
 }

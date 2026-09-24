@@ -13,6 +13,16 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  // I-7: server code must use lib/logger.ts (PII-safe, level-gated).
+  // Client components/pages keep console for now (warn, not error) — I-7 P3.
+  {
+    files: ["app/api/**/*.ts", "lib/**/*.ts", "middleware.ts"],
+    rules: { "no-console": "error" },
+  },
+  {
+    files: ["app/**/*.tsx", "components/**/*.tsx"],
+    rules: { "no-console": "warn" },
+  },
 ]);
 
 export default eslintConfig;

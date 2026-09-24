@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { logger } from '@/lib/logger';
 
 interface HealthCheckResult {
   isHealthy: boolean;
@@ -61,7 +62,7 @@ export async function checkSupabaseHealth(): Promise<HealthCheckResult> {
       details.supabaseServiceHealthy = true;
     }
   } catch (err) {
-    console.error('[HealthCheck] Network connectivity test failed:', err);
+    logger.error('healthcheck', 'network_test_failed', { reason: err instanceof Error ? err.message : String(err) });
     details.networkReachable = false;
     details.supabaseServiceHealthy = false;
   }
@@ -83,7 +84,7 @@ export async function checkSupabaseHealth(): Promise<HealthCheckResult> {
         details.supabaseServiceHealthy = true;
       }
     } catch (err) {
-      console.warn('[HealthCheck] Auth service test failed:', err);
+      logger.warn('healthcheck', 'auth_test_failed', { reason: err instanceof Error ? err.message : String(err) });
     }
   }
 
@@ -103,23 +104,13 @@ export async function checkSupabaseHealth(): Promise<HealthCheckResult> {
  * Helpful for debugging signup failures
  */
 export async function logSupabaseHealthCheck(): Promise<void> {
-  console.log('[HealthCheck] Starting Supabase health check...');
-  
+  logger.debug('healthcheck', 'starting');
+
   const result = await checkSupabaseHealth();
-  
-  console.log('[HealthCheck] Result:', {
-    isHealthy: result.isHealthy,
-    message: result.message,
-    details: result.details,
-  });
+
+  logger.debug('healthcheck', 'result', { healthy: result.isHealthy });
 
   if (!result.isHealthy) {
-    console.error('[HealthCheck] ❌ Supabase health check failed');
-    console.error('[HealthCheck] Troubleshooting steps:');
-    console.error('  1. Verify your internet connection is stable');
-    console.error('  2. Check that NEXT_PUBLIC_SUPABASE_URL is set correctly');
-    console.error('  3. Check that NEXT_PUBLIC_SUPABASE_ANON_KEY is set correctly');
-    console.error('  4. Verify that Supabase service is not down (check status.supabase.com)');
-    console.error('  5. Check browser console for CORS errors');
+    logger.error('healthcheck', 'unhealthy', { message: result.message });
   }
 }

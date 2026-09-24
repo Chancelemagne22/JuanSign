@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+// I-5: jspdf is heavy (~300 kB) and only needed for PDF export — type-only
+// import keeps the casts below, while the runtime chunk loads on demand.
+import type jsPDF from 'jspdf'
 import type { ReportData, LevelPerformanceRow, LearnerPerformanceRow, IndividualReport } from '@/app/api/admin/reports/route'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -410,8 +411,13 @@ export default function AdminReportsPage() {
     )
   }
 
-  const handleIndividualPDF = () => {
+  const handleIndividualPDF = async () => {
     if (!individualReport) return
+
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ])
 
     const levelLabel =
       filters.levelId === 'all'
@@ -532,8 +538,13 @@ export default function AdminReportsPage() {
     doc.save(`juansign-individual-report-${safeFilename(individualReport.learner.name)}.pdf`)
   }
 
-  const handlePrintReport = () => {
+  const handlePrintReport = async () => {
     if (!data) return
+
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ])
 
     const levelLabel =
       filters.levelId === 'all'

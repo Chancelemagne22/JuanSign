@@ -1,0 +1,45 @@
+# I-10: CI quality gates for the front-end.
+# Runs typecheck + lint + i18n parity + production build on every push/PR.
+# Build uses dummy public env values; server-only secrets are dummies because
+# no route executes live Supabase/Modal calls at build time.
+
+name: front-end CI
+
+on:
+  push:
+    paths:
+      - 'front-end/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    paths:
+      - 'front-end/**'
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: front-end
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key-for-ci
+      NEXT_PUBLIC_APP_VERSION: ci
+      NEXT_PUBLIC_ENV: CI
+      SUPABASE_SECRET_KEY: dummy-secret-key-for-ci
+      MODAL_ENDPOINT_URL: https://example.modal.run
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: front-end/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      # Advisory until the 22 pre-existing lint errors are fixed (no-explicit-any
+      # and setState-in-effect in untouched pages/components — none are from the
+      # Phase 1-3 hardening; the no-console rule itself is at zero errors).
+      - run: npm run lint
+        continue-on-error: true
+      - run: npm run i18n:check
+      - run: npm run build

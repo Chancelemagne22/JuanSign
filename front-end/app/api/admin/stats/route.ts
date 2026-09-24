@@ -1,43 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
+import { logger } from '@/lib/logger'
+// V-6: single source of truth (role + disabled/archived enforcement lives there).
 import { getAuthorizedAdmin } from '@/lib/adminAuth'
 
-async function getAuthorizedUser(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null
-  }
-
-  const token = authHeader.substring(7)
-  const { data: user, error: authError } = await supabaseAdmin.auth.getUser(token)
-
-  if (authError || !user || !user.user) {
-    return null
-  }
-
-  // Supabase returns user wrapped in a user property: { user: { id, ... } }
-  const userId = user.user.id
-  
-  if (!userId) {
-    return null
-  }
-
-  // Check if user has admin or super_admin role in profiles table
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('auth_user_id', userId)
-    .single()
-
-  if (profileError || !profile || !['admin', 'super_admin'].includes(profile.role)) {
-    return null
-  }
-
-  return user
-}
-
 export async function GET(request: NextRequest) {
-  const user = await getAuthorizedUser(request)
+  const user = await getAuthorizedAdmin(request)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -83,7 +51,7 @@ export async function GET(request: NextRequest) {
       levelsCompletedToday: levelsCompletedToday ?? 0,
     })
   } catch (error) {
-    console.error('[admin/stats]', error)
+    logger.error('admin/stats', 'get_failed', { reason: error instanceof Error ? error.message : String(error) })
     return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 })
   }
 }

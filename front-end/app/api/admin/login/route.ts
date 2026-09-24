@@ -1,8 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { checkRateLimit, getClientIp, rateLimitHeaders } from '@/lib/rateLimit'
+import { logger } from '@/lib/logger'
+
+// V-5: 5 login attempts / 10 min per IP+email (brute-force guard).
+const LOGIN_LIMIT = 5
+const LOGIN_WINDOW_MS = 10 * 60 * 1000
 
 export async function POST(request: NextRequest) {
   const { email, password } = await request.json()
+
+  const rl = checkRateLimit(
+    `login:${getClientIp(request)}:${String(email ?? '').toLowerCase().slice(0, 120)}`,
+    LOGIN_LIMIT,
+    LOGIN_WINDOW_MS
+  )
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many login attempts. Try again later.' },
+      { status: 429, headers: { 'Retry-After': '600', ...rateLimitHeaders(rl.remaining, rl.resetAt) } }
+    )
+  }
 
   try {
     // Create Supabase client for server
@@ -38,7 +56,7 @@ export async function POST(request: NextRequest) {
     .single();
 
     if (profileError) {
-        console.error("DB Error:", profileError);
+        logger.error("admin/login", "profile_lookup_failed", { reason: profileError.message ?? "unknown" });
         return NextResponse.json({ error: "Database lookup failed. Check RLS policies." }, { status: 500 });
     }
 
@@ -61,7 +79,7 @@ export async function POST(request: NextRequest) {
       session: authData.session,
     })
   } catch (error) {
-    console.error('Login error:', error)
+    logger.error('admin/login', 'handler_error', { reason: error instanceof Error ? error.message : String(error) })
     return NextResponse.json(
       { error: 'An error occurred during login.' },
       { status: 500 }

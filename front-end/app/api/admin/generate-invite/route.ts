@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
+import { logger } from '@/lib/logger'
 import { generateInviteCode } from '@/lib/adminInvites'
 
 async function isSuperAdmin(userId: string): Promise<boolean> {
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error('Error creating invite:', error)
+      logger.error('admin/generate-invite', 'create_failed', { reason: error instanceof Error ? error.message : String(error) })
       return NextResponse.json(
         { error: 'Failed to create invite code' },
         { status: 500 }
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
       expiresAt: data.expires_at,
     })
   } catch (error) {
-    console.error('Error in generate-invite:', error)
+    logger.error('admin/generate-invite', 'handler_error', { reason: error instanceof Error ? error.message : String(error) })
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

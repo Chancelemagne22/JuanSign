@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
+import { logger } from '@/lib/logger'
 
 async function isSuperAdmin(userId: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
         })
 
         if (error) {
-          console.error('RPC Error:', error)
+          logger.error('admin/setup-admin', 'approve_rpc_failed', { reason: error.message ?? String(error) })
           return NextResponse.json(
             { error: error.message || 'Failed to approve invite' },
             { status: 500 }
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      console.error('RPC Error:', error)
+      logger.error('admin/setup-admin', 'signup_rpc_failed', { reason: error.message ?? String(error) })
       return NextResponse.json(
         { error: error.message },
         { status: 500 }
@@ -150,7 +151,7 @@ export async function POST(request: NextRequest) {
       message: data.message,
     })
   } catch (error) {
-    console.error('Error in setup-admin:', error)
+    logger.error('admin/setup-admin', 'handler_error', { reason: error instanceof Error ? error.message : String(error) })
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -207,7 +208,7 @@ export async function GET(request: NextRequest) {
       pendingInvites: pendingInvites || [],
     })
   } catch (error) {
-    console.error('Error fetching pending invites:', error)
+      logger.error('admin/setup-admin', 'pending_invites_failed', { reason: error instanceof Error ? error.message : String(error) })
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

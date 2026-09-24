@@ -28,10 +28,10 @@ export default function AdminProtectedLayout({ children }: { children: React.Rea
           .single()
 
         if (profileError) {
-          console.error('Profile fetch error:', profileError)
+          console.error('Profile fetch error:', profileError.message ?? 'unknown')
           setAdminName('Admin')
         } else if (!profile) {
-          console.warn('No profile found for user:', user.id)
+          console.warn('No profile found for admin user')
           setAdminName('Admin')
         } else {
           // Use first_name/last_name if available, otherwise use username

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { getAuthorizedAdmin } from '@/lib/adminAuth'
+import { logger } from '@/lib/logger'
 
 export async function GET(request: NextRequest) {
   const adminUser = await getAuthorizedAdmin(request)
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ levels: levels ?? [] })
   } catch (err) {
-    console.error('[admin/levels-list]', err)
+    logger.error('admin/levels-list', 'get_failed', { reason: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: 'Failed to fetch levels' }, { status: 500 })
   }
 }

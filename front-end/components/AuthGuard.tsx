@@ -3,6 +3,7 @@
 import { useEffect, ReactNode, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -11,6 +12,7 @@ interface AuthGuardProps {
 
 export default function AuthGuard({ children, fallback }: AuthGuardProps) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -56,7 +58,7 @@ export default function AuthGuard({ children, fallback }: AuthGuardProps) {
       <>
         {fallback ?? (
           <div className="min-h-screen flex items-center justify-center bg-white">
-            <p className="text-[#7B3F00] font-bold text-base">Checking session...</p>
+            <p className="text-[#7B3F00] font-bold text-base">{t('common.loading')}</p>
           </div>
         )}
       </>

@@ -1,36 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
-async function getAuthorizedUser(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null
-  }
-
-  const token = authHeader.substring(7)
-  const { data: user, error: authError } = await supabaseAdmin.auth.getUser(token)
-
-  if (authError || !user || !user.user) {
-    return null
-  }
-
-  const userId = user.user.id
-  
-  if (!userId) {
-    return null
-  }
-
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('auth_user_id', userId)
-    .single()
-
-  if (profileError || !profile || !['admin', 'super_admin'].includes(profile.role)) {
-    return null
-  }
-
-  return user
-}
+import { logger } from '@/lib/logger'
+// V-6: single source of truth (role + disabled/archived enforcement lives there).
+import { getAuthorizedAdmin } from '@/lib/adminAuth'
 
 function dateFilter(days: string): string | null {
   if (days === 'all') return null
@@ -124,7 +96,7 @@ export interface ReportData {
 }
 
 export async function GET(request: NextRequest) {
-  const user = await getAuthorizedUser(request)
+  const user = await getAuthorizedAdmin(request)
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -440,7 +412,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(data)
   } catch (err) {
-    console.error('[admin/reports]', err)
+    logger.error('admin/reports', 'get_failed', { reason: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: 'Failed to fetch report data' }, { status: 500 })
   }
 }

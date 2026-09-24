@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { validateInviteCode, completeAdminSignup } from '@/lib/adminInvites'
+import { completeAdminSignup } from '@/lib/adminInvites'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 export default function AdminSetupContent() {
@@ -29,10 +29,11 @@ export default function AdminSetupContent() {
     setError('')
 
     try {
+      // V-10: endpoint always returns 200 with { valid } (uniform oracle).
       const response = await fetch(`/api/admin/validate-invite?code=${encodeURIComponent(inviteCode)}`)
       const data = await response.json()
 
-      if (!response.ok) {
+      if (!response.ok || data.valid !== true) {
         setError(data.error || 'Invalid invite code')
         setStep('error')
       } else {

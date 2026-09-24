@@ -2,6 +2,7 @@
  * Utility for retrying failed operations with exponential backoff
  * Useful for transient network failures during signup
  */
+import { logger } from '@/lib/logger';
 
 interface RetryConfig {
   maxAttempts?: number;
@@ -33,13 +34,13 @@ export async function retryWithBackoff<T>(
 
   for (let attempt = 1; attempt <= cfg.maxAttempts!; attempt++) {
     try {
-      console.log(`[Retry] Attempt ${attempt}/${cfg.maxAttempts}`);
+      logger.debug('retry', 'attempt', { attempt, max: cfg.maxAttempts });
       return await fn();
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       
       if (attempt < cfg.maxAttempts!) {
-        console.warn(`[Retry] Attempt ${attempt} failed, retrying in ${delayMs}ms`, lastError);
+        logger.warn('retry', 'attempt_failed', { attempt, delayMs, reason: lastError.message });
         await sleep(delayMs);
         
         // Calculate next delay with backoff
@@ -48,7 +49,7 @@ export async function retryWithBackoff<T>(
           cfg.maxDelayMs!
         );
       } else {
-        console.error(`[Retry] All ${cfg.maxAttempts} attempts failed`, lastError);
+        logger.error('retry', 'exhausted', { max: cfg.maxAttempts, reason: lastError.message });
       }
     }
   }

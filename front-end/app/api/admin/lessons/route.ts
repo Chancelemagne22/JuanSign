@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { createClient } from '@supabase/supabase-js'
 import { getAuthorizedAdmin } from '@/lib/adminAuth'
+import { logger } from '@/lib/logger'
 
 // Route handler - dispatch based on URL
 export async function GET(request: NextRequest) {
@@ -32,11 +33,11 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error
     
-    console.log('[admin/lessons GET] Loaded', data?.length, 'lessons for level', levelId, data?.map((l: any) => ({ id: l.lesson_id, title: l.lesson_title, order: l.lesson_order })))
+    logger.debug('admin/lessons', 'lessons_loaded', { count: data?.length ?? 0 })
 
     return NextResponse.json({ lessons: data ?? [] })
   } catch (err) {
-    console.error('[admin/lessons GET]', err)
+    logger.error('admin/lessons', 'get_failed', { reason: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: 'Failed to fetch lessons' }, { status: 500 })
   }
 }
@@ -44,8 +45,9 @@ export async function GET(request: NextRequest) {
 // Helper function to list videos from storage
 async function handleListVideos(request: NextRequest) {
   try {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      console.error('[list-videos] Missing Supabase configuration')
+    const serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !serviceKey) {
+      logger.error('admin/lessons', 'list_videos_missing_config')
       return NextResponse.json(
         { videos: [], total: 0, page: 1, limit: 20, hasMore: false },
         { status: 200 }
@@ -54,7 +56,7 @@ async function handleListVideos(request: NextRequest) {
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
+      serviceKey
     )
 
     const url = new URL(request.url)
@@ -62,7 +64,7 @@ async function handleListVideos(request: NextRequest) {
     const limit = parseInt(url.searchParams.get('limit') || '20')
     const search = url.searchParams.get('search') || ''
 
-    console.log('[list-videos] Listing videos from lessons-videos bucket...', { page, limit, search })
+    logger.debug('admin/lessons', 'list_videos', { page, limit, hasSearch: search.length > 0 })
 
     // First, get all files to calculate total (we need to filter and count)
     const { data: allData, error: listError } = await supabase.storage
@@ -70,16 +72,16 @@ async function handleListVideos(request: NextRequest) {
       .list('', { limit: 1000, sortBy: { column: 'name', order: 'asc' } }) // Get more to handle search and pagination
 
     if (listError) {
-      console.error('[list-videos] Error:', listError)
+      logger.error('admin/lessons', 'list_videos_failed', { reason: listError.message })
       return NextResponse.json({ videos: [], total: 0, page, limit, hasMore: false })
     }
 
     if (!allData) {
-      console.log('[list-videos] No data returned')
+      logger.debug('admin/lessons', 'list_videos_empty')
       return NextResponse.json({ videos: [], total: 0, page, limit, hasMore: false })
     }
 
-    console.log('[list-videos] Got', allData.length, 'items from bucket')
+    logger.debug('admin/lessons', 'list_videos_count', { count: allData.length })
 
     // Filter video files
     const videoFiles = allData
@@ -108,7 +110,7 @@ async function handleListVideos(request: NextRequest) {
     const paginatedVideos = filteredVideos.slice(startIndex, endIndex)
     const hasMore = endIndex < total
 
-    console.log('[list-videos] Filtered to', total, 'videos, returning page', page, 'with', paginatedVideos.length, 'videos, hasMore:', hasMore)
+    logger.debug('admin/lessons', 'list_videos_page', { total, page, count: paginatedVideos.length, hasMore })
     return NextResponse.json({
       videos: paginatedVideos,
       total,
@@ -117,7 +119,7 @@ async function handleListVideos(request: NextRequest) {
       hasMore
     })
   } catch (err) {
-    console.error('[list-videos] Error:', err)
+    logger.error('admin/lessons', 'list_videos_error', { reason: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ videos: [], total: 0, page: 1, limit: 20, hasMore: false })
   }
 }
@@ -208,7 +210,7 @@ export async function POST(request: NextRequest) {
   const order = typeof lesson_order === 'number' && lesson_order > 0 ? lesson_order : undefined
 
   try {
-    console.log('[admin/lessons POST] Creating lesson:', { levelId, lesson_title, order, received_lesson_order: lesson_order })
+    logger.debug('admin/lessons', 'lesson_create', { order: order ?? null })
     
     if (order != null) {
       await shiftLessonOrdersForInsert(levelId, order)
@@ -232,11 +234,11 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error
     
-    console.log('[admin/lessons POST] Created lesson:', { lesson_id: data.lesson_id, lesson_order: data.lesson_order })
+    logger.debug('admin/lessons', 'lesson_created')
 
     return NextResponse.json({ lesson: data })
   } catch (err) {
-    console.error('[admin/lessons POST]', err)
+    logger.error('admin/lessons', 'create_failed', { reason: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: 'Failed to create lesson' }, { status: 500 })
   }
 }
@@ -266,11 +268,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Lesson not found' }, { status: 404 })
     }
     
-    console.log('[admin/lessons PUT] Updating lesson:', { id, received_lesson_order: lesson_order, existing_order: existing.lesson_order })
+    logger.debug('admin/lessons', 'lesson_update')
 
     const newOrder = typeof lesson_order === 'number' ? lesson_order : existing.lesson_order
     if (typeof newOrder === 'number' && typeof existing.lesson_order === 'number' && newOrder !== existing.lesson_order) {
-      console.log('[admin/lessons PUT] Order changing from', existing.lesson_order, 'to', newOrder)
       await shiftLessonOrdersForUpdate(existing.level_id, existing.lesson_order, newOrder, id)
     }
 
@@ -292,11 +293,11 @@ export async function PUT(request: NextRequest) {
 
     if (error) throw error
     
-    console.log('[admin/lessons PUT] Updated lesson:', { lesson_id: data.lesson_id, lesson_order: data.lesson_order })
+    logger.debug('admin/lessons', 'lesson_updated')
 
     return NextResponse.json({ lesson: data })
   } catch (err) {
-    console.error('[admin/lessons PUT]', err)
+    logger.error('admin/lessons', 'update_failed', { reason: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: 'Failed to update lesson' }, { status: 500 })
   }
 }
@@ -320,7 +321,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error('[admin/lessons DELETE]', err)
+    logger.error('admin/lessons', 'delete_failed', { reason: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: 'Failed to delete lesson' }, { status: 500 })
   }
 }

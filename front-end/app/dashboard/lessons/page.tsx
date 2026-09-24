@@ -108,12 +108,17 @@ export default function LessonsPage() {
         progressRes.data?.filter((p) => p.is_unlocked).map((p) => p.level_id) ?? []
       );
 
+      // I-8: sequential unlock enforced (was hardcoded true for defense demos).
+      // Set NEXT_PUBLIC_ALLOW_ALL_UNLOCKED=true in .env.local to restore the
+      // demo mode where every chapter is open.
+      const allowAll = process.env.NEXT_PUBLIC_ALLOW_ALL_UNLOCKED === 'true';
+
       setChapters(
         (levelsRes.data ?? []).map((lvl, i) => ({
           id:         lvl.level_id,
           chapterNum: i + 1,
           title:      lvl.level_name,
-          isUnlocked: true,
+          isUnlocked: allowAll || i === 0 || unlockedIds.has(lvl.level_id),
         }))
       );
       setLoading(false);

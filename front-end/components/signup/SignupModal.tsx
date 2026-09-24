@@ -137,9 +137,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
 
     try {
       // 1. Create the auth user — pass all profile fields as metadata
-      console.log('[Signup] Starting signup process with email:', email);
-      console.log('[Signup] Supabase config - URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
-      
+      // (V-7: never log email / project URL / user ids.)
       // Use retry with backoff to handle transient network failures
       const { data: authData, error: signUpError } = await retryWithBackoff(
         () => supabase.auth.signUp({
@@ -177,7 +175,7 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
         return;
       }
 
-      console.log('[Signup] Signup successful, user ID:', authData.user?.id);
+      // (V-7: signup success logged without user id.)
 
       const userId = authData.user?.id;
       const session = authData.session;   // null when email confirmation is required
@@ -193,9 +191,18 @@ export default function SignupModal({ onClose, onLoginClick, onSuccess }: Props)
         fd.append('username',  username.trim());
         fd.append('firstName', firstName.trim());
         fd.append('lastName',  lastName.trim());
+        // V-9: server binds userId to this email for session-less signups.
+        fd.append('email',     email.trim());
         if (photo) fd.append('photo', photo);
 
-        const res = await fetch('/api/post-signup', { method: 'POST', body: fd });
+        // V-9: when email confirmation is OFF the SDK returns a session —
+        // send it so the server can verify userId belongs to the caller.
+        const headers: Record<string, string> = {};
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+
+        const res = await fetch('/api/post-signup', { method: 'POST', headers, body: fd });
         if (res.ok) {
           const data = await res.json();
           avatarUrl = data.avatarUrl ?? null;

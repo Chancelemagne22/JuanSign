@@ -75,8 +75,9 @@ model_visual/
 QUESTION_ORDER_SYNC_FIX.md
 command_to_download.txt
 
-# Supabase
-supabase/
+# Supabase (root-level CLI workspace only — front-end/supabase/*.sql migrations
+# MUST be committable, so this pattern is root-anchored)
+/supabase/
 
 # Front-end build
 front-end/.next/

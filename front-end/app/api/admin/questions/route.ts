@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { getAuthorizedAdmin } from '@/lib/adminAuth'
+import { logger } from '@/lib/logger'
 
 type Mode = 'practice' | 'assessment'
 
@@ -71,7 +72,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ questions: data ?? [] })
   } catch (err) {
-    console.error('[admin/questions GET]', err)
+    logger.error('admin/questions', 'get_failed', { reason: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: 'Failed to fetch questions' }, { status: 500 })
   }
 }
@@ -79,7 +80,7 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/questions — insert new question
 export async function POST(request: NextRequest) {
   const adminUser = await getAuthorizedAdmin(request)
-  console.log(adminUser)
+  // V-7: removed debug dump of full admin user object.
   if (!adminUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -160,7 +161,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ question: data })
   } catch (err) {
-    console.error('[admin/questions POST]', err)
+    logger.error('admin/questions', 'create_failed', { reason: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: 'Failed to create question' }, { status: 500 })
   }
 }
@@ -168,7 +169,7 @@ export async function POST(request: NextRequest) {
 // PUT /api/admin/questions — update existing question
 export async function PUT(request: NextRequest) {
   const adminUser = await getAuthorizedAdmin(request)
-  console.log(adminUser)
+  // V-7: removed debug dump of full admin user object.
 
   if (!adminUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -207,7 +208,7 @@ export async function PUT(request: NextRequest) {
 
       return NextResponse.json({ success: true })
     } catch (err) {
-      console.error('[admin/questions PUT reorder]', err)
+      logger.error('admin/questions', 'reorder_failed', { reason: err instanceof Error ? err.message : String(err) })
       return NextResponse.json({ error: 'Failed to reorder questions' }, { status: 500 })
     }
   }
@@ -244,7 +245,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ question: data })
   } catch (err) {
-    console.error('[admin/questions PUT]', err)
+    logger.error('admin/questions', 'update_failed', { reason: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: 'Failed to update question' }, { status: 500 })
   }
 }
@@ -271,7 +272,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error('[admin/questions DELETE]', err)
+    logger.error('admin/questions', 'delete_failed', { reason: err instanceof Error ? err.message : String(err) })
     return NextResponse.json({ error: 'Failed to delete question' }, { status: 500 })
   }
 }
