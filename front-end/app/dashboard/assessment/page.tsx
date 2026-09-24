@@ -103,26 +103,32 @@ export default function AssessmentPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/'); return; }
 
-      const [levelsRes, sessionsRes, contentRes] = await Promise.all([
+      const [levelsRes, progressRes, contentRes] = await Promise.all([
         supabase.from('levels').select('level_id, level_name, level_order').order('level_order'),
         supabase
-          .from('practice_sessions')
-          .select('level_id')
+          .from('user_progress')
+          .select('level_id, is_unlocked')
           .eq('auth_user_id', user.id),
         supabase
           .from('assessment_questions')
           .select('level_id'),
       ]);
 
-      const practiceDone      = new Set((sessionsRes.data ?? []).map((s) => s.level_id));
       const levelsWithContent = new Set((contentRes.data ?? []).map((q) => q.level_id));
+
+      // Lock rule (mirrors lessons list): sequential on user_progress.is_unlocked.
+      // Demo override: NEXT_PUBLIC_ALLOW_ALL_UNLOCKED=true opens everything.
+      const unlockedIds = new Set(
+        (progressRes.data ?? []).filter((p) => p.is_unlocked).map((p) => p.level_id)
+      );
+      const allowAll = process.env.NEXT_PUBLIC_ALLOW_ALL_UNLOCKED === 'true';
 
       setChapters(
         (levelsRes.data ?? []).map((lvl, i) => ({
           id:         lvl.level_id,
           chapterNum: i + 1,
           title:      lvl.level_name,
-          isUnlocked: true,
+          isUnlocked: allowAll || i === 0 || unlockedIds.has(lvl.level_id),
           hasContent: levelsWithContent.has(lvl.level_id),
         }))
       );

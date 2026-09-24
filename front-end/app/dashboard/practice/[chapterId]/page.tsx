@@ -103,6 +103,26 @@ export default function PracticeChapterPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/'); return; }
 
+      // Lock guard (mirrors practice list): bounce direct URLs to locked chapters.
+      // Demo override: NEXT_PUBLIC_ALLOW_ALL_UNLOCKED=true skips the check.
+      if (process.env.NEXT_PUBLIC_ALLOW_ALL_UNLOCKED !== 'true') {
+        const [allLevelsRes, progressRes] = await Promise.all([
+          supabase.from('levels').select('level_id').order('level_order'),
+          supabase
+            .from('user_progress')
+            .select('level_id, is_unlocked')
+            .eq('auth_user_id', user.id)
+            .eq('level_id', chapterId)
+            .maybeSingle(),
+        ]);
+        const orderedIds = (allLevelsRes.data ?? []).map((l) => l.level_id);
+        const isFirst = orderedIds.length === 0 || orderedIds[0] === chapterId;
+        if (!isFirst && progressRes.data?.is_unlocked !== true) {
+          router.replace('/dashboard/practice');
+          return;
+        }
+      }
+
       // Detect which order column exists (question_order, sequence_order, or display_order)
       let questionsRes = null;
       const ORDER_COLUMNS = ['question_order', 'sequence_order', 'display_order'] as const;

@@ -105,15 +105,11 @@ export default function PracticePage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/'); return; }
 
-      const [levelsRes, progressRes, sessionsRes, contentRes] = await Promise.all([
+      const [levelsRes, progressRes, contentRes] = await Promise.all([
         supabase.from('levels').select('level_id, level_name, level_order').order('level_order'),
         supabase
           .from('user_progress')
-          .select('level_id, lessons_completed')
-          .eq('auth_user_id', user.id),
-        supabase
-          .from('practice_sessions')
-          .select('level_id')
+          .select('level_id, lessons_completed, is_unlocked')
           .eq('auth_user_id', user.id),
         supabase
           .from('practice_questions')
@@ -123,20 +119,21 @@ export default function PracticePage() {
 
       const levels        = levelsRes.data  ?? [];
       const progress      = progressRes.data ?? [];
-      const doneSessions  = new Set((sessionsRes.data ?? []).map((s) => s.level_id));
       const levelsWithContent = new Set((contentRes.data ?? []).map((q) => q.level_id));
 
-      // Map level_id → lessons_completed
-      const progressMap = new Map(progress.map((p) => [p.level_id, p.lessons_completed ?? 0]));
+      // Lock rule (mirrors lessons list): sequential on user_progress.is_unlocked.
+      // Demo override: NEXT_PUBLIC_ALLOW_ALL_UNLOCKED=true opens everything.
+      const unlockedIds = new Set(
+        progress.filter((p) => p.is_unlocked).map((p) => p.level_id)
+      );
+      const allowAll = process.env.NEXT_PUBLIC_ALLOW_ALL_UNLOCKED === 'true';
 
       const chapters: ChapterItem[] = levels.map((lvl, i) => {
-        let isUnlocked = true;
-
         return {
           id:         lvl.level_id,
           chapterNum: i + 1,
           title:      lvl.level_name,
-          isUnlocked,
+          isUnlocked: allowAll || i === 0 || unlockedIds.has(lvl.level_id),
           hasContent: levelsWithContent.has(lvl.level_id),
         };
       });
