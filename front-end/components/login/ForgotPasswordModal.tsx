@@ -37,7 +37,9 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
     setLoading(true);
 
     try {
-      await supabase.auth.resetPasswordForEmail(
+      // NOTE: supabase-js resolves (does not throw) on API errors such as a
+      // 500 from a broken mailer — the error must be read, not caught.
+      const { error } = await supabase.auth.resetPasswordForEmail(
         email.trim(),
         {
           redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/reset-password`,
@@ -45,6 +47,13 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
       );
 
       setLoading(false);
+
+      if (error) {
+        // Generic message either way — don't reveal if the email exists
+        // (account-enumeration protection) or leak mailer internals.
+        setErrorKey('forgotPassword.sendFailed');
+        return;
+      }
 
       // Always show success message - don't reveal if email exists (security best practice)
       // This prevents account enumeration attacks
@@ -56,7 +65,7 @@ export default function ForgotPasswordModal({ onClose, onBackToLogin }: Props) {
     } catch (err) {
       setLoading(false);
       setErrorKey('forgotPassword.unexpectedError');
-      console.error('Forgot password error:', err);
+      console.error('Forgot password error:', err instanceof Error ? err.message : 'unknown');
     }
   }
 
