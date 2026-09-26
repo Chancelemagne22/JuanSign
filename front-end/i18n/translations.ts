@@ -168,6 +168,11 @@ export const translations = {
       chapterNotFound: 'Chapter not found.',
       noQuestionsForChapter: 'No assessment questions have been added for this chapter yet.',
     },
+    modelGating: {
+      locked: 'Locked',
+      noModel: 'AI model coming soon',
+      noModelHint: 'No sign-recognition model for this chapter yet. Lessons are still available.',
+    },
     lessonView: {
       videoUnavailable: 'Video unavailable',
       videoComingSoon: 'Video coming soon',
@@ -472,6 +477,11 @@ export const translations = {
       backToAssessmentList: 'Bumalik sa listahan ng assessment',
       chapterNotFound: 'Hindi nakita ang kabanata.',
       noQuestionsForChapter: 'Wala pang assessment questions para sa kabanatang ito.',
+    },
+    modelGating: {
+      locked: 'Naka-lock',
+      noModel: 'Paparating pa ang AI model',
+      noModelHint: 'Wala pang sign-recognition model para sa kabanatang ito. Available pa rin ang mga lesson.',
     },
     lessonView: {
       videoUnavailable: 'Hindi available ang video',

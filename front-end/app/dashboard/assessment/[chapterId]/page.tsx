@@ -14,6 +14,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
+import { hasModelForCategory } from '@/lib/modelAvailability';
+import { UnderDevelopmentIcon } from '@/components/StatusIcons';
 import AssessmentView from '@/components/module/AssessmentView';
 import type { AssessmentQuestion } from '@/components/module/AssessmentView';
 import type { AssessmentCompletionSummary } from '@/components/module/AssessmentView';
@@ -103,7 +105,7 @@ export default function AssessmentChapterPage() {
         // Demo override: NEXT_PUBLIC_ALLOW_ALL_UNLOCKED=true skips the check.
         if (process.env.NEXT_PUBLIC_ALLOW_ALL_UNLOCKED !== 'true') {
           const [allLevelsRes, progressRes] = await Promise.all([
-            supabase.from('levels').select('level_id').order('level_order'),
+            supabase.from('levels').select('level_id, category').order('level_order'),
             supabase
               .from('user_progress')
               .select('level_id, is_unlocked')
@@ -111,7 +113,15 @@ export default function AssessmentChapterPage() {
               .eq('level_id', chapterId)
               .maybeSingle(),
           ]);
-          const orderedIds = (allLevelsRes.data ?? []).map((l) => l.level_id);
+          const orderedLevels = (allLevelsRes.data ?? []);
+          const orderedIds = orderedLevels.map((l) => l.level_id);
+          // Model gate: bounce direct URLs to chapters without a recognition model.
+          // Only enforced when the levels query succeeded (fail open on transient error,
+          // the list page is the primary gate).
+          if (orderedLevels.length > 0 && !hasModelForCategory(orderedLevels.find((l) => l.level_id === chapterId)?.category)) {
+            router.replace('/dashboard/assessment');
+            return;
+          }
           const isFirst = orderedIds.length === 0 || orderedIds[0] === chapterId;
           if (!isFirst && progressRes.data?.is_unlocked !== true) {
             router.replace('/dashboard/assessment');
@@ -186,8 +196,8 @@ export default function AssessmentChapterPage() {
   if (questions.length === 0) {
     return (
       <div className="min-h-dvh overflow-y-auto overflow-x-hidden flex flex-col items-center justify-center bg-white px-6 gap-4" style={{ WebkitOverflowScrolling: 'touch' }}>
-        <div className="w-20 h-20 rounded-full bg-amber-100 border-4 border-amber-400 flex items-center justify-center text-4xl">
-          🚧
+        <div className="w-20 h-20 rounded-full bg-amber-100 border-4 border-amber-400 flex items-center justify-center text-amber-500">
+          <UnderDevelopmentIcon className="w-10 h-10" />
         </div>
         <p className="text-[#7B3F00] font-black text-xl text-center">{t('common.underDevelopment')}</p>
         <p className="text-[#7B3F00] font-medium text-sm text-center">

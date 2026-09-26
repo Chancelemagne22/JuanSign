@@ -11,6 +11,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
+import { hasModelForCategory } from '@/lib/modelAvailability';
+import { AIModelIcon, UnderDevelopmentIcon } from '@/components/StatusIcons';
 import GearIcon from '@/public/images/svgs/gear-icon.svg';
 import { useSettingsModal } from '@/hooks/useSettings';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -21,6 +23,7 @@ interface ChapterItem {
   title:      string;
   isUnlocked: boolean;
   hasContent: boolean;
+  modelBacked: boolean;
 }
 
 function LockIcon() {
@@ -45,7 +48,7 @@ function ChapterCard({
       <button
         onClick={onPress}
         disabled={!chapter.isUnlocked}
-        aria-label={chapter.isUnlocked ? `Open ${chapter.title}` : `${chapter.title} — locked`}
+        aria-label={chapter.isUnlocked ? `Open ${chapter.title}` : `${chapter.title} — ${!chapter.modelBacked ? t('modelGating.noModel') : t('modelGating.locked')}`}
         className={`
           chapter-card-button relative overflow-hidden transition-transform
           ${chapter.isUnlocked
@@ -67,9 +70,18 @@ function ChapterCard({
             <LockIcon />
           </div>
         )}
+        {!chapter.modelBacked && (
+          <div
+            className="absolute top-2 right-2 bg-sky-500 rounded-full w-6 h-6 flex items-center justify-center text-white"
+            title={t('modelGating.noModelHint')}
+            aria-hidden
+          >
+            <AIModelIcon />
+          </div>
+        )}
         {chapter.isUnlocked && !chapter.hasContent && (
-          <div className="absolute top-2 right-2 bg-amber-400 rounded-full w-6 h-6 flex items-center justify-center text-xs">
-            🚧
+          <div className="absolute top-2 right-2 bg-amber-400 rounded-full w-6 h-6 flex items-center justify-center text-white">
+            <UnderDevelopmentIcon />
           </div>
         )}
       </button>
@@ -106,7 +118,7 @@ export default function PracticePage() {
       if (!user) { router.replace('/'); return; }
 
       const [levelsRes, progressRes, contentRes] = await Promise.all([
-        supabase.from('levels').select('level_id, level_name, level_order').order('level_order'),
+        supabase.from('levels').select('level_id, level_name, level_order, category').order('level_order'),
         supabase
           .from('user_progress')
           .select('level_id, lessons_completed, is_unlocked')
@@ -129,12 +141,15 @@ export default function PracticePage() {
       const allowAll = process.env.NEXT_PUBLIC_ALLOW_ALL_UNLOCKED === 'true';
 
       const chapters: ChapterItem[] = levels.map((lvl, i) => {
+        const modelBacked = hasModelForCategory(lvl.category);
         return {
           id:         lvl.level_id,
           chapterNum: i + 1,
           title:      lvl.level_name,
-          isUnlocked: allowAll || i === 0 || unlockedIds.has(lvl.level_id),
+          // No-model chapters can never unlock — lessons stay open, practice needs the AI.
+          isUnlocked: modelBacked && (allowAll || i === 0 || unlockedIds.has(lvl.level_id)),
           hasContent: levelsWithContent.has(lvl.level_id),
+          modelBacked,
         };
       });
 
