@@ -2,6 +2,7 @@
 # JuanSign V2.2 — Robust Multimodal Dataset Loader
 # Supports both cached (.pt) and raw folder loading
 
+import math
 import os
 import numpy as np
 from PIL import Image
@@ -12,7 +13,8 @@ import torchvision.transforms as transforms
 import torchvision.transforms.functional as TF
 
 # ── CONSTANTS ─────────────────────────────────────────────────────────────────
-TARGET_FRAMES    = 32
+# JUANSIGN_FRAMES must match frame_extractor (32 default; 16/24 for ablation).
+TARGET_FRAMES    = int(os.environ.get("JUANSIGN_FRAMES", "32"))
 TARGET_SIZE      = 224
 LANDMARK_FEATURE = 126
 FLOW_NORM_SCALE  = 30.0
@@ -42,6 +44,51 @@ def _build_rgb_transform(augment=False):
 def _normalize_flow(flow_hw2):
     flow_tensor = torch.from_numpy(flow_hw2.copy()).float()
     return torch.clamp(flow_tensor / FLOW_NORM_SCALE, -1.0, 1.0)
+
+
+_MEAN_T = torch.tensor(IMAGENET_MEAN).view(3, 1, 1)
+_STD_T = torch.tensor(IMAGENET_STD).view(3, 1, 1)
+
+
+def _denorm_rgb_to_01(normed_rgb):
+    """Inverse ImageNet norm: [3,H,W] normalized -> [3,H,W] 0-1 (for PIL)."""
+    return torch.clamp(normed_rgb * _STD_T + _MEAN_T, 0.0, 1.0)
+
+
+def _renorm_rgb_from_01(rgb_01):
+    """ImageNet norm: [3,H,W] 0-1 -> normalized."""
+    return (rgb_01 - _MEAN_T) / _STD_T
+
+
+def _rotate_clip_and_flow(frames, angle_deg):
+    """Spatially rotate [T,5,H,W] clip and rotate (dx,dy) vectors to match.
+
+    Thesis-safe: RGB/flow stay geometrically consistent. Image y-axis points
+    down, so for a CCW (PIL-positive) angle: dx' = cos*dx + sin*dy,
+    dy' = -sin*dx + cos*dy. Error at +-10deg is tiny but keeps flow honest.
+    """
+    if angle_deg == 0:
+        return frames
+    for t in range(frames.shape[0]):
+        frames[t] = TF.rotate(frames[t], angle_deg)
+    rad = math.radians(angle_deg)
+    cos_a, sin_a = math.cos(rad), math.sin(rad)
+    dx = frames[:, 3].clone()
+    dy = frames[:, 4].clone()
+    frames[:, 3] = cos_a * dx + sin_a * dy
+    frames[:, 4] = -sin_a * dx + cos_a * dy
+    return frames
+
+
+def _mirror_clip_and_landmarks(frames, landmarks):
+    """Horizontal flip: negate flow-dx, mirror landmark-x, swap hands."""
+    frames = torch.flip(frames, dims=[3])
+    frames[:, 3, :, :] *= -1.0
+    landmarks[:, 0::3] *= -1.0
+    h0 = landmarks[:, :63].clone()
+    h1 = landmarks[:, 63:].clone()
+    landmarks = torch.cat([h1, h0], dim=1)
+    return frames, landmarks
 
 # ══════════════════════════════════════════════════════════════════════════════
 # CACHED DATASET — 1 file read per clip (fast)
@@ -83,27 +130,23 @@ class CachedFSLDataset(Dataset):
         landmarks = self._normalize_landmarks_relative(landmarks)
 
         if self.augment:
-            # Color jitter on RGB channels only
+            # Color jitter on RGB only (denorm -> PIL -> jitter -> renorm).
+            # Cache stores normalized tensors, so we must invert the norm first.
+            jitter = transforms.ColorJitter(
+                brightness=0.2, contrast=0.2, saturation=0.1)
             for t in range(TARGET_FRAMES):
-                rgb = frames[t, :3]  # [3, H, W]
-                pil = transforms.ToPILImage()(rgb)
-                pil = transforms.ColorJitter(
-                    brightness=0.2, contrast=0.2, saturation=0.1)(pil)
-                frames[t, :3] = transforms.ToTensor()(pil)
+                rgb01 = _denorm_rgb_to_01(frames[t, :3])
+                pil = transforms.ToPILImage()(rgb01)
+                pil = jitter(pil)
+                frames[t, :3] = _renorm_rgb_from_01(transforms.ToTensor()(pil))
 
-            # Synchronized rotation
+            # Synchronized rotation (RGB + flow spatial + flow vectors)
             angle = transforms.RandomRotation.get_params([-10, 10])
-            for t in range(TARGET_FRAMES):
-                frames[t] = TF.rotate(frames[t], angle)
+            frames = _rotate_clip_and_flow(frames, angle)
 
             # Symmetric mirroring
             if torch.rand(1) < 0.5:
-                frames = torch.flip(frames, dims=[3])
-                frames[:, 3, :, :] *= -1.0
-                landmarks[:, 0::3] *= -1.0
-                h0 = landmarks[:, :63].clone()
-                h1 = landmarks[:, 63:].clone()
-                landmarks = torch.cat([h1, h0], dim=1)
+                frames, landmarks = _mirror_clip_and_landmarks(frames, landmarks)
 
         return frames, landmarks, torch.tensor(label, dtype=torch.long)
 
@@ -152,10 +195,8 @@ class FSLDataset(Dataset):
         frame_files = sorted([f for f in os.listdir(clip_path) if f.endswith(".jpg")])[:TARGET_FRAMES]
         pil_frames  = [Image.open(os.path.join(clip_path, f)).convert("RGB") for f in frame_files]
 
-        if self.augment:
-            angle      = transforms.RandomRotation.get_params([-10, 10])
-            pil_frames = [TF.rotate(f, angle) for f in pil_frames]
-
+        # NOTE: no early PIL rotation here — rotation is applied after RGB+flow
+        # fusion so flow vectors stay consistent (see _rotate_clip_and_flow).
         rgb_tensors  = torch.stack([self.rgb_transform(f) for f in pil_frames])
         flow_raw     = np.load(os.path.join(clip_path, "optical_flow.npy"))
         flow_tensors = torch.stack([_normalize_flow(flow_raw[i]) for i in range(TARGET_FRAMES)])
@@ -164,13 +205,11 @@ class FSLDataset(Dataset):
         lm_raw    = np.load(os.path.join(clip_path, "landmarks.npy"))
         landmarks = self._normalize_landmarks_relative(lm_raw)
 
-        if self.augment and torch.rand(1) < 0.5:
-            frames = torch.flip(frames, dims=[3])
-            frames[:, 3, :, :] *= -1.0
-            landmarks[:, 0::3] *= -1.0
-            h0 = landmarks[:, :63].clone()
-            h1 = landmarks[:, 63:].clone()
-            landmarks = torch.cat([h1, h0], dim=1)
+        if self.augment:
+            angle = transforms.RandomRotation.get_params([-10, 10])
+            frames = _rotate_clip_and_flow(frames, angle)
+            if torch.rand(1) < 0.5:
+                frames, landmarks = _mirror_clip_and_landmarks(frames, landmarks)
 
         return frames, landmarks, torch.tensor(label, dtype=torch.long)
 

@@ -4,6 +4,7 @@
 
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 import torch
 import numpy as np
 from PIL import Image
@@ -18,7 +19,7 @@ else:
     FRAME_ROOT  = "./processed_output/frame_extracted"
     CACHE_DIR   = "./cache"
 
-TARGET_FRAMES    = 32
+TARGET_FRAMES    = int(os.environ.get("JUANSIGN_FRAMES", "32"))
 TARGET_SIZE      = 224
 IMAGENET_MEAN    = [0.485, 0.456, 0.406]
 IMAGENET_STD     = [0.229, 0.224, 0.225]
@@ -30,14 +31,24 @@ rgb_transform = transforms.Compose([
     transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
 ])
 
+def _load_rgb_file(path):
+    with Image.open(path) as im:
+        return rgb_transform(im.convert("RGB"))
+
+
 def load_clip(clip_path):
-    # Load 32 RGB frames
+    # Load 32 RGB frames (threaded JPEG decode — I/O bound, ~3x faster build)
     frame_files = sorted([f for f in os.listdir(clip_path) if f.endswith(".jpg")])[:TARGET_FRAMES]
-    pil_frames  = [Image.open(os.path.join(clip_path, f)).convert("RGB") for f in frame_files]
-    rgb_tensors = torch.stack([rgb_transform(f) for f in pil_frames])
+    if len(frame_files) != TARGET_FRAMES:
+        raise ValueError(f"expected {TARGET_FRAMES} JPGs, got {len(frame_files)}")
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        rgb_tensors = torch.stack(list(ex.map(
+            _load_rgb_file, [os.path.join(clip_path, f) for f in frame_files])))
 
     # Load optical flow
     flow_raw    = np.load(os.path.join(clip_path, "optical_flow.npy"))
+    if flow_raw.shape != (TARGET_FRAMES, 2, TARGET_SIZE, TARGET_SIZE):
+        raise ValueError(f"bad optical_flow shape {flow_raw.shape}")
     flow_tensor = torch.from_numpy(flow_raw.copy()).float()
     flow_tensor = torch.clamp(flow_tensor / FLOW_NORM_SCALE, -1.0, 1.0)
 
@@ -46,6 +57,8 @@ def load_clip(clip_path):
 
     # Load landmarks
     lm_raw = np.load(os.path.join(clip_path, "landmarks.npy"))
+    if lm_raw.shape != (TARGET_FRAMES, 126):
+        raise ValueError(f"bad landmarks shape {lm_raw.shape}")
     return frames, torch.from_numpy(lm_raw.copy()).float()
 
 def build_cache(split):
@@ -99,11 +112,16 @@ def build_cache(split):
     }, cache_path)
     print(f"  [{split}] ✅ Saved {done} clips → {cache_path}")
 
-def run_cache():
+def run_cache(on_split_done=None):
     print("--- Building dataset cache ---")
     for split in SPLITS:
         print(f"\nProcessing {split}...")
         build_cache(split)
+        if on_split_done is not None:
+            try:
+                on_split_done()
+            except Exception as e:
+                print(f"  [warn] cache commit failed: {e}")
     print("\n--- Cache complete ---")
 
 if __name__ == "__main__":

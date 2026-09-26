@@ -4,22 +4,23 @@ import sys
 import subprocess
 
 # ── CLOUD ENVIRONMENT ─────────────────────────────────────────────────────────
+# Pins mirror ml-model/requirements.txt so local + Modal stay in sync.
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
         "torch==2.2.0",
         "torchvision==0.17.0",
-        "opencv-python-headless",
-        "mediapipe",
+        "opencv-python-headless==4.9.0.80",
+        "mediapipe==0.10.11",
         "numpy==1.26.4",
-        "Pillow",
-        "tensorboard",
-        "scikit-learn",
-        "matplotlib",
-        "seaborn",
-        "torchmetrics",
-        "fvcore",
-        "torchinfo",
+        "Pillow==10.2.0",
+        "tensorboard==2.16.2",
+        "scikit-learn==1.4.1.post1",
+        "matplotlib==3.8.3",
+        "seaborn==0.13.2",
+        "torchmetrics==1.4.0",
+        "fvcore==0.1.5.post20221221",
+        "torchinfo==1.8.0",
     )
     .apt_install("unzip", "curl", "libgl1", "libglib2.0-0", "libegl1-mesa", "libgles2-mesa")
     .env({
@@ -31,7 +32,11 @@ image = (
         "curl -fsSL -o /root/hand_landmarker.task https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
         "curl -fsSL -o /root/blaze_face_short_range.tflite https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
     )
-    .add_local_dir("./", remote_path="/root")
+    # Skip venv/caches/datasets — they bloat the image build for no benefit.
+    .add_local_dir("./", remote_path="/root", ignore=[
+        "venv", "__pycache__", ".venv", "cache", "processed_output",
+        "runs", "results", "*.pt", "*.pth", "*.zip",
+    ])
 )
 
 app = modal.App("juansign-v2-2-training")
@@ -73,8 +78,10 @@ def extract_on_cloud():
 
     print("🔍 Starting JuanSign Frame Extraction...")
     from frame_extractor import run_extraction
-    run_extraction()
-    vol.commit()
+    try:
+        run_extraction(on_progress=lambda: vol.commit(), commit_every=25)
+    finally:
+        vol.commit()
     print("✅ Extraction complete.")
 
 
@@ -100,8 +107,10 @@ def cache_on_cloud():
         return
 
     from cache_dataset import run_cache
-    run_cache()
-    vol.commit()
+    try:
+        run_cache(on_split_done=lambda: vol.commit())
+    finally:
+        vol.commit()
     print("✅ Cache saved to Volume.")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -113,6 +122,8 @@ def cache_on_cloud():
     gpu="A10G",
     volumes={"/data": vol},
     timeout=21600,   # ← 6 hours (was 2 hours — too short for 50 epochs)
+    retries=modal.Retries(initial_delay=0.0, max_retries=10),
+    single_use_containers=True,
 )
 def train_on_cloud():
     os.chdir("/root")
@@ -125,10 +136,11 @@ def train_on_cloud():
         return
 
     print("🚀 Starting JuanSign V2.2 Training...")
+    print("   (resumable via /data/models/last.ckpt — safe to re-run)")
     from train_main import train
 
     try:
-        train()
+        train(on_epoch_end=lambda: vol.commit())
     except Exception as e:
         print(f"💥 Training crashed: {e}")
         import traceback
@@ -151,6 +163,8 @@ def train_on_cloud():
     memory=16384,
     volumes={"/data": vol},
     timeout=28800,   # 8 hours total
+    retries=modal.Retries(initial_delay=0.0, max_retries=10),
+    single_use_containers=True,
 )
 def pipeline_on_cloud():
     os.chdir("/root")
@@ -166,17 +180,20 @@ def pipeline_on_cloud():
     if not os.path.exists(cache_path):
         print("📦 Building dataset cache...")
         from cache_dataset import run_cache
-        run_cache()
-        vol.commit()
+        try:
+            run_cache(on_split_done=lambda: vol.commit())
+        finally:
+            vol.commit()
         print("✅ Cache complete.")
     else:
         print("✅ Cache already exists, skipping.")
 
     # Step 2 — Train
     print("🚀 Starting training...")
+    print("   (resumable via /data/models/last.ckpt — safe to re-run)")
     from train_main import train
     try:
-        train()
+        train(on_epoch_end=lambda: vol.commit())
     except Exception as e:
         print(f"💥 Training crashed: {e}")
         import traceback
@@ -187,32 +204,45 @@ def pipeline_on_cloud():
         print("✅ Done.")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# LOCAL ENTRYPOINTS
+# LOCAL ENTRYPOINTS — fire-and-forget via spawn() so the local command
+# returns in seconds. With --detach the job survives terminal/VSCode close.
 # Use --detach flag when running: modal run --detach modal_run.py::train
+# Safe-to-close = you see the function-call ID + App URL below.
 # ══════════════════════════════════════════════════════════════════════════════
 
 @app.local_entrypoint()
 def pipeline():
     """Cache + Train in one shot  →  modal run --detach modal_run.py::pipeline"""
-    pipeline_on_cloud.remote()
+    handle = pipeline_on_cloud.spawn()
+    print(f"🚀 Spawned pipeline: {handle.object_id}")
+    print("✅ Safe to close this terminal now — watch logs in Modal dashboard")
+    print("   or: modal app logs juansign-v2-2-training --follow")
 
 @app.local_entrypoint()
 def extract():
     """Extraction only  →  modal run --detach modal_run.py::extract"""
-    extract_on_cloud.remote()
+    handle = extract_on_cloud.spawn()
+    print(f"🚀 Spawned extract: {handle.object_id}")
+    print("✅ Safe to close this terminal now — watch logs in Modal dashboard")
 
 @app.local_entrypoint()
 def cache():
     """Cache dataset  →  modal run --detach modal_run.py::cache"""
-    cache_on_cloud.remote()
+    handle = cache_on_cloud.spawn()
+    print(f"🚀 Spawned cache: {handle.object_id}")
+    print("✅ Safe to close this terminal now — watch logs in Modal dashboard")
 
 @app.local_entrypoint()
 def train():
     """Training only  →  modal run --detach modal_run.py::train"""
-    train_on_cloud.remote()
+    handle = train_on_cloud.spawn()
+    print(f"🚀 Spawned train: {handle.object_id}")
+    print("✅ Safe to close this terminal now — watch logs in Modal dashboard")
+    print("   or: modal app logs juansign-v2-2-training --follow")
 
 @app.local_entrypoint()
 def main():
     """Full pipeline  →  modal run --detach modal_run.py"""
-    extract_on_cloud.remote()
-    train_on_cloud.remote()
+    h1 = extract_on_cloud.spawn()
+    print(f"🚀 Spawned extract: {h1.object_id} (train must be run after it finishes)")
+    print("✅ Safe to close this terminal now.")

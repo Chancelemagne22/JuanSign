@@ -43,6 +43,8 @@ ml-model/dataset.zip
 ml-model/training/
 ml-model/results/
 ml-model/runs/
+ml-model/modal_training/results/
+ml-model/modal_training/juansignmodel/
 ml-model/category_model*.pth
 
 # ML Model - Processed data
@@ -88,3 +90,5 @@ front-end/node_modules/
 .env.local
 .env.*.local
 ml-model/modal_training/__pycache__/modal_run.cpython-312.pyc
+docs
+tools
